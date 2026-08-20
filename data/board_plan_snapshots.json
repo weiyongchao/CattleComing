@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "days": {
+    "2026-08-20": {
+      "final": {
+        "generated_at": null,
+        "selected_date": "2026-08-20",
+        "historical": false,
+        "auction_phase": "final",
+        "snapshot_kind": "recovered_final",
+        "snapshot_label": "8月20日已确认最终名单（恢复）",
+        "frozen": true,
+        "stage": "09:25最终名单 · 已冻结",
+        "market": {
+          "score": 0,
+          "state": "原始市场分未留存",
+          "allow_new_positions": false,
+          "fund_confirmed_count": 0,
+          "source": "8月20日页面已确认名单恢复"
+        },
+        "screening": {
+          "scanned": 3041,
+          "prefiltered": 0,
+          "deep_scanned": 0,
+          "qualified_count": 3,
+          "relay_qualified_count": 2,
+          "core_qualified_count": 0,
+          "reversal_qualified_count": 1,
+          "continuation_primary_count": 0,
+          "overnight_secondary_count": 0,
+          "source": "8月20日页面已确认名单",
+          "method": "恢复服务重启前已经展示并由用户确认的最终名单；原响应未完整落盘，缺失字段不做推测。"
+        },
+        "position_plan": {
+          "per_position": 0,
+          "max_positions": 0,
+          "max_new_exposure": 0,
+          "cash_reserve": 100000,
+          "rule": "这是名单恢复快照，不补造当时仓位结论；交易执行需重新核对实际成交条件。"
+        },
+        "candidates": [
+          {
+            "code": "600613",
+            "name": "神奇制药",
+            "industry": "化学制药",
+            "category": "医药",
+            "strategy_mode": "分歧转强",
+            "priority_tier": "8月20日原始推荐",
+            "score": 100,
+            "selection_score": 94,
+            "action": "异动风险观察",
+            "actionable": false,
+            "checks": [],
+            "reasons": ["恢复自8月20日已确认最终名单"],
+            "risks": ["原完整竞价响应未落盘，执行数据需另行核对"]
+          },
+          {
+            "code": "002412",
+            "name": "汉森制药",
+            "industry": "中药Ⅱ",
+            "category": "医药",
+            "strategy_mode": "强势加速",
+            "priority_tier": "8月20日原始推荐",
+            "score": 98,
+            "selection_score": 92,
+            "action": "异动风险观察",
+            "actionable": false,
+            "previous_close": 8.42,
+            "auction_price": 9.26,
+            "auction_gap_percent": 9.98,
+            "auction_amount": 11989848,
+            "auction_volume_percent": 4.31,
+            "price_vs_ma5_percent": 21.08,
+            "recent_limit_up_count": 2,
+            "checks": [],
+            "reasons": ["恢复自8月20日已确认最终名单"],
+            "risks": ["接近涨停开盘，存在无法成交风险"]
+          },
+          {
+            "code": "603801",
+            "name": "志邦家居",
+            "industry": "家居用品",
+            "category": "消费",
+            "strategy_mode": "连板接力",
+            "priority_tier": "8月20日原始推荐",
+            "score": 84,
+            "selection_score": 84,
+            "action": "接力B级观察",
+            "actionable": false,
+            "checks": [],
+            "reasons": ["恢复自8月20日已确认最终名单"],
+            "risks": ["原完整竞价响应未落盘，执行数据需另行核对"]
+          }
+        ],
+        "strategy_profile": {
+          "core_rule": "保留8月20日当时策略结果，不用最新版规则倒推覆盖",
+          "first_board_rule": "当日快照和历史策略回放分开显示",
+          "relay_rule": "服务重启后仍读取同一份09:25最终名单",
+          "reversal_rule": "缺失的原始字段显示为--，不进行数据补造",
+          "risk_rule": "恢复名单仅用于复盘，不构成收益保证"
+        },
+        "disclaimer": "本页为8月20日已确认推荐名单的恢复快照。神奇制药、汉森制药、志邦家居的名称及当时留存评分已恢复；未落盘字段不做推测。仅供策略复盘，不构成投资建议。"
+      }
+    }
+  }
+}

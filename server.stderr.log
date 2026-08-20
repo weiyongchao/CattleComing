@@ -1,0 +1,70 @@
+127.0.0.1 - - [20/Aug/2026 17:27:15] "GET /?page=20260820-02 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:27:15] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:27:15] "GET /strategy-execution.css?v=20260814-01 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:27:15] "GET /app.js?v=20260820-01 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:27:15] "GET /history-review.css?v=20260814-01 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:27:15] "GET /board-auction-only.js?v=20260820-03 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:27:15] "GET /intraday-leadership.js?v=20260814-01 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:27:15] "GET /strategy-execution.js?v=20260817-01 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:27:15] "GET /history-review.js?v=20260820-01 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:27:15] "GET /api/trading-dates HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:27:16] "GET /api/evaluate?code=600519 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:27:19] "GET /api/sector-peers?code=600519 HTTP/1.1" 502 -
+127.0.0.1 - - [20/Aug/2026 17:27:27] "GET /api/funds?code=600519 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:27:28] "GET /api/intraday-plan HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:27:29] "GET /api/screen HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:27:31] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:27:35] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:28:10] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:28:11] "GET /api/board-plan?date=2026-08-19 HTTP/1.1" 200 -
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 59927)
+Traceback (most recent call last):
+  File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\socketserver.py", line 697, in process_request_thread
+    self.finish_request(request, client_address)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\82704\Desktop\abc\新建文件夹\src\stock_evaluator\server.py", line 48, in __init__
+    super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\http\server.py", line 721, in __init__
+    super().__init__(*args, **kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\socketserver.py", line 766, in __init__
+    self.handle()
+    ~~~~~~~~~~~^^
+  File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\http\server.py", line 485, in handle
+    self.handle_one_request()
+    ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\http\server.py", line 473, in handle_one_request
+    method()
+    ~~~~~~^^
+  File "C:\Users\82704\Desktop\abc\新建文件夹\src\stock_evaluator\server.py", line 208, in do_GET
+    return self._json(200, payload)
+           ~~~~~~~~~~^^^^^^^^^^^^^^
+  File "C:\Users\82704\Desktop\abc\新建文件夹\src\stock_evaluator\server.py", line 56, in _json
+    self.wfile.write(body)
+    ~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\socketserver.py", line 845, in write
+    self._sock.sendall(b)
+    ~~~~~~~~~~~~~~~~~~^^^
+ConnectionAbortedError: [WinError 10053] 你的主机中的软件中止了一个已建立的连接。
+----------------------------------------
+127.0.0.1 - - [20/Aug/2026 17:32:29] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:32:57] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:33:58] "GET /?page=20260820-02 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:33:58] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:33:58] "GET /strategy-execution.css?v=20260814-01 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:33:58] "GET /history-review.css?v=20260814-01 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:33:58] "GET /app.js?v=20260820-01 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:33:58] "GET /board-auction-only.js?v=20260820-04 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:33:58] "GET /intraday-leadership.js?v=20260814-01 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:33:58] "GET /strategy-execution.js?v=20260817-01 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:33:58] "GET /history-review.js?v=20260820-01 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:33:58] "GET /api/trading-dates HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:33:59] "GET /api/evaluate?code=600519 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:34:02] "GET /api/sector-peers?code=600519 HTTP/1.1" 502 -
+127.0.0.1 - - [20/Aug/2026 17:34:05] "GET /api/funds?code=600519 HTTP/1.1" 200 -
+127.0.0.1 - - [20/Aug/2026 17:34:11] "GET /api/intraday-plan HTTP/1.1" 200 -
