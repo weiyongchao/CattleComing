@@ -12,8 +12,10 @@ from src.stock_evaluator.auction import (
     _history_prefilter_score, _select_high_confidence_candidates,
     _consecutive_limit_up_days, _core_chain_score, _divergence_reversal_score,
     _first_board_score, _next_day_continuation_score, _board_stage,
-    _big_order_support, _apply_dynamic_context,
+    _big_order_support, _apply_dynamic_context, _execution_risk_profile,
 )
+from src.stock_evaluator.auction_trajectory import _profile
+from src.stock_evaluator.next_day import _holding_strategy
 from src.stock_evaluator.peers import _primary_board
 from src.stock_evaluator.board_plan import _auction_decision, _auction_gate, _auction_phase, _market_gate
 from src.stock_evaluator.intraday import _intraday_score, _leadership_profile, _prefilter_snapshots
@@ -450,8 +452,8 @@ class EvaluatorTests(unittest.TestCase):
         }
         result = _auction_decision(candidate)
         self.assertEqual(result["action"], "竞价A级观察")
-        self.assertEqual(result["guard_passed"], 9)
-        self.assertEqual(result["guard_total"], 9)
+        self.assertEqual(result["guard_passed"], 11)
+        self.assertEqual(result["guard_total"], 11)
         self.assertTrue(all("盘口" not in check["name"] and "板块" not in check["name"] for check in result["checks"]))
 
     def test_board_decision_downgrades_when_previous_funds_are_missing(self):
@@ -466,7 +468,7 @@ class EvaluatorTests(unittest.TestCase):
         fund_check = next(check for check in result["checks"] if "主力资金" in check["name"])
         self.assertIsNone(fund_check["passed"])
         self.assertEqual(fund_check["state"], "unknown")
-        self.assertEqual(result["guard_total"], 8)
+        self.assertEqual(result["guard_total"], 10)
 
     def test_board_decision_labels_core_chain_candidate(self):
         candidate = {
@@ -612,6 +614,43 @@ class EvaluatorTests(unittest.TestCase):
         rejected = _open_confirmation(candidate, weak, funds)
         self.assertEqual(rejected["decision"], "放弃买入")
         self.assertEqual(rejected["code"], confirmed["code"])
+
+    def test_execution_risk_rejects_untradable_high_extension(self):
+        risk = _execution_risk_profile(3, 9.98, 24.8, 0.72, "normal", "unknown")
+        self.assertFalse(risk["tradable"])
+        self.assertTrue(risk["high_exhaustion"])
+        self.assertTrue(risk["shrinking_acceleration"])
+        self.assertTrue(risk["risk_veto"])
+        safe = _execution_risk_profile(1, 4.0, 7.5, 1.2, "normal", "confirmed")
+        self.assertTrue(safe["tradable"])
+        self.assertFalse(safe["risk_veto"])
+
+    def test_auction_trajectory_detects_late_price_and_bid_deterioration(self):
+        profile = _profile([
+            {"captured_at": "2026-08-20T09:20:05+08:00", "gap_percent": 7.0, "bid_volume5": 100000, "order_imbalance": 0.55},
+            {"captured_at": "2026-08-20T09:24:45+08:00", "gap_percent": 4.2, "bid_volume5": 30000, "order_imbalance": -0.10},
+            {"captured_at": "2026-08-20T09:25:10+08:00", "gap_percent": 4.0, "bid_volume5": 28000, "order_imbalance": -0.15},
+        ])
+        self.assertTrue(profile["late_price_deterioration"])
+        self.assertTrue(profile["late_bid_withdrawal"])
+        self.assertTrue(profile["risk_veto"])
+
+    def test_next_day_strategy_sells_failed_board_and_reduces_extended_board(self):
+        base_result = {
+            "quote": {"price": 10.5, "previous_close": 10, "open_price": 10.8, "high_price": 11, "low_price": 10.4, "change_percent": 5},
+            "metrics": {"price_vs_open_percent": -2.78, "price_vs_ma5_percent": 12, "volume_ratio": 2.2, "turnover_rate": 18},
+        }
+        candidate = {"code": "001229", "name": "魅视科技", "auction_price": 10.6, "target_board_count": 2, "price_vs_ma5_percent": 15.16}
+        failed = _holding_strategy(candidate, base_result, None, True)
+        self.assertEqual(failed["decision"], "次日优先卖出")
+        sealed_result = {
+            **base_result,
+            "quote": {**base_result["quote"], "price": 11, "high_price": 11, "change_percent": 10},
+            "metrics": {**base_result["metrics"], "price_vs_open_percent": 1.85},
+        }
+        sealed = _holding_strategy(candidate, sealed_result, None, True)
+        self.assertEqual(sealed["decision"], "条件持有 · 冲高减仓")
+        self.assertTrue(any("偏离MA5" in reason for reason in sealed["risk_reasons"]))
 
     def test_review_distinguishes_market_and_rule_failure(self):
         candidate = {

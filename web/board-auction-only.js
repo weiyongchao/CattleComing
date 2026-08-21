@@ -16,10 +16,17 @@
   const openGuardError = document.getElementById("boardOpenGuardError");
   const openGuardTime = document.getElementById("boardOpenGuardTime");
   const openGuardNote = document.getElementById("boardOpenGuardNote");
+  const nextDayBox = document.getElementById("nextDayStrategy");
+  const nextDayButton = document.getElementById("nextDayStrategyButton");
+  const nextDayList = document.getElementById("nextDayStrategyList");
+  const nextDayError = document.getElementById("nextDayStrategyError");
+  const nextDayTime = document.getElementById("nextDayStrategyTime");
+  const nextDayNote = document.getElementById("nextDayStrategyNote");
   if (loading) loading.textContent = "正在读取前序走势与09:20不可撤单阶段竞价数据…";
 
   let rendering = false;
   let openGuardLoading = false;
+  let nextDayLoading = false;
   let selectedDate = "";
   const yuan = (value) => Number.isFinite(Number(value)) ? `¥${Number(value).toLocaleString("zh-CN", { maximumFractionDigits: 0 })}` : "--";
   const amount = (value) => Number.isFinite(Number(value)) ? `${(Number(value) / 1e8).toFixed(2)}亿` : "--";
@@ -37,6 +44,53 @@
     const delay = target.getTime() - now.getTime();
     if (delay > 0) window.setTimeout(callback, delay);
     return delay;
+  };
+
+  const captureAuctionTrajectory = async () => {
+    const current = secondsOfDay();
+    if (current < 9 * 3600 + 20 * 60 || current >= 9 * 3600 + 25 * 60) return;
+    try {
+      const response = await fetch("/api/auction-trajectory");
+      const data = await response.json();
+      if (response.ok && autoStatus) autoStatus.textContent = `全主板20秒重扫 · 已记录${data.count}只候选五档挂单`;
+    } catch (_) {
+      // 轨迹采样失败不阻断下一轮全市场重扫。
+    }
+  };
+
+  const loadNextDayStrategy = async () => {
+    if (!nextDayBox || !nextDayList || nextDayLoading || selectedDate !== localDate() || secondsOfDay() < 14 * 3600 + 50 * 60) return;
+    nextDayLoading = true;
+    nextDayBox.hidden = false;
+    if (nextDayButton) nextDayButton.disabled = true;
+    if (nextDayError) nextDayError.hidden = true;
+    nextDayList.innerHTML = `<div class="state">正在根据当天封板、炸板、收盘位置、量价和主力资金生成次日预案…</div>`;
+    try {
+      const response = await fetch("/api/next-day-strategy");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "次日策略生成失败");
+      const toneClass = (tone) => tone === "hold" ? "positive" : tone === "sell" ? "negative" : "neutral";
+      nextDayList.innerHTML = data.candidates.length ? data.candidates.map((item, index) => `
+        <article class="action-box">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+            <div><strong>${index + 1}. ${item.name} <small style="color:var(--muted)">${item.code} · ${item.board_stage_label || item.priority_tier || "持仓"}</small></strong>
+              <p style="color:#bfd0ca;font-size:12px;line-height:1.8;margin:7px 0">收盘 ${fixed(item.price)} · 参考成本 ${fixed(item.entry_price)} · 持仓浮动 ${signed(item.holding_return_percent)}% · 当日 ${signed(item.change_percent)}% · 较开盘 ${signed(item.price_vs_open_percent)}%</p>
+              <p style="color:#bfd0ca;font-size:12px;line-height:1.8;margin:0">收盘位置 ${fixed(item.close_position_percent, 1)}% · 量比 ${fixed(item.volume_ratio)} · 换手 ${fixed(item.turnover_rate)}% · ${item.sealed ? "封板" : item.failed_board ? "炸板" : "未封板"} · 当日主力 ${item.funds.available ? `${signed(item.funds.main_ratio)}% / ${amount(item.funds.main_net)}` : "暂不可用"}</p>
+              <small style="display:block;color:var(--muted);margin-top:7px">${item.reason}${item.risk_reasons.length ? ` 风险：${item.risk_reasons.join("；")}` : ""}</small>
+            </div>
+            <div style="text-align:right;min-width:150px"><b class="${toneClass(item.tone)}">${item.decision}</b><small style="display:block;margin-top:5px">${data.finalized ? "收盘最终结论" : "14:50预案"}</small></div>
+          </div>
+          <div class="operation-grid" style="margin-top:12px"><div class="action-box"><span>低开≥3%</span><strong>${item.next_day_plan.weak_open}</strong></div><div class="action-box"><span>平开附近</span><strong>${item.next_day_plan.flat_open}</strong></div><div class="action-box"><span>高开1%–7%</span><strong>${item.next_day_plan.strong_open}</strong></div><div class="action-box"><span>高开≥8.5%</span><strong>${item.next_day_plan.extreme_open}</strong></div></div>
+        </article>`).join("") : `<div class="state">09:25冻结名单为空，今日无需生成次日持仓策略。</div>`;
+      if (nextDayTime) nextDayTime.textContent = `${data.stage} · 持有${data.hold_count} / 减仓${data.reduce_count} / 卖出${data.sell_count}`;
+      if (nextDayNote) nextDayNote.textContent = `${data.method} ${data.disclaimer}`;
+    } catch (error) {
+      if (nextDayError) { nextDayError.textContent = error.message; nextDayError.hidden = false; }
+      nextDayList.innerHTML = "";
+    } finally {
+      nextDayLoading = false;
+      if (nextDayButton) nextDayButton.disabled = false;
+    }
   };
 
   const loadOpenGuard = async () => {
@@ -127,6 +181,8 @@
         ["连板优先", `${screening.continuation_primary_count || 0}只`],
         ["一进二观察", `${screening.one_to_two_count || 0}只`],
         ["首板观察", `${screening.first_board_watch_count || 0}只`],
+        ["不可成交", `${screening.untradable_count || 0}只`],
+        ["风险剔除", `${screening.risk_veto_count || 0}只`],
         ["主力确认", `${data.market.fund_confirmed_count || 0}只`],
       ].map(([key, value]) => `<article class="card"><span>${key}</span><strong>${value}</strong></article>`).join("") +
         `<small style="grid-column:1/-1;color:var(--muted)">数据源：${screening.source || data.market.source}${screening.snapshot_time ? `（快照 ${new Date(screening.snapshot_time).toLocaleString("zh-CN", { hour12: false })}）` : ""}。${screening.method || ""}${screening.replay_warning ? `<br><b style="color:var(--amber)">${screening.replay_warning}</b>` : ""}</small>`;
@@ -159,6 +215,7 @@
               <p style="color:${candidate.big_order_support?.status === "weak" ? "var(--red)" : candidate.big_order_support?.status === "confirmed" ? "var(--green)" : "var(--muted)"};font-size:12px;line-height:1.8">大单确认：${candidate.big_order_support?.label || "待确认"} · 题材：${candidate.theme_context?.label || "待确认"}（${candidate.theme_context?.bucket || candidate.industry}）</p>
               <p style="color:${candidate.regulatory_risk?.level === "high" ? "var(--red)" : candidate.regulatory_risk?.level === "watch" ? "var(--amber)" : "var(--muted)"};font-size:12px;line-height:1.8">异动监管：${candidate.regulatory_risk?.label || "未计算"} · ${candidate.regulatory_risk?.summary || "--"}</p>
               <p style="color:${candidate.entry_confirmation?.status === "pending" ? "var(--amber)" : "var(--muted)"};font-size:12px;line-height:1.8">执行门槛：${candidate.entry_confirmation?.label || "待确认"} · ${candidate.entry_confirmation?.note || ""}</p>
+              <p style="color:${candidate.risk_veto || candidate.tradable === false ? "var(--red)" : "var(--muted)"};font-size:12px;line-height:1.8">可成交性：${candidate.tradability_label || "等待开盘确认"} · T+1下跌风险 ${candidate.t1_downside_risk_score ?? "--"}分${candidate.auction_trajectory ? ` · ${candidate.auction_trajectory.label}（${candidate.auction_trajectory.sample_count}次，撮合涨幅漂移${signed(candidate.auction_trajectory.gap_drift_percent)}个百分点）` : " · 竞价轨迹待积累"}</p>
             </div>
             <div style="text-align:right"><b class="${candidate.actionable ? "positive" : candidate.regulatory_risk?.level === "high" ? "negative" : "neutral"}">${candidate.action || candidate.decision || "观察"}</b><small style="display:block;margin-top:5px;color:var(--green)">T+1预期 ${candidate.continuation_score ?? "--"}分</small><small style="display:block">竞价动态${candidate.selection_score ?? candidate.score ?? "--"}分 · 原始${candidate.score ?? "--"}分</small><small style="display:block">核心${candidate.core_chain_score || 0} · 接力${candidate.relay_score || 0} · 弱转强${candidate.reversal_score || 0} · 隔日${candidate.first_board_score || 0}</small><small style="display:block">${candidate.guard_passed ?? "--"}/${candidate.guard_total ?? "--"}项</small></div>
           </div>
@@ -191,6 +248,8 @@
       paintDateButtons();
       if (selectedDate === localDate() && secondsOfDay() >= 9 * 3600 + 30 * 60) loadOpenGuard();
       else if (openGuardBox) openGuardBox.hidden = true;
+      if (selectedDate === localDate() && secondsOfDay() >= 14 * 3600 + 50 * 60) loadNextDayStrategy();
+      else if (nextDayBox) nextDayBox.hidden = true;
     } catch (error) {
       if (errorBox) {
         errorBox.textContent = error.message;
@@ -216,6 +275,7 @@
   const requestDate = (tradeDate) => {
     selectedDate = tradeDate;
     if (openGuardBox) openGuardBox.hidden = tradeDate !== localDate();
+    if (nextDayBox) nextDayBox.hidden = tradeDate !== localDate();
     candidateList.innerHTML = `<div class="state">正在回放 ${tradeDate}，首次计算可能需要1–3分钟…</div>`;
     paintDateButtons();
     render(true);
@@ -228,7 +288,25 @@
     render(true).finally(() => {
       const phase = secondsOfDay() < 9 * 3600 + 25 * 60 ? "09:20观察数据已刷新 · 09:25将最终复核" : "09:25最终竞价已刷新 · 可手动再次刷新";
       if (autoStatus) autoStatus.textContent = phase;
+      captureAuctionTrajectory();
     });
+  };
+
+  let auctionRescanTimer = null;
+  const startAuctionRescan = () => {
+    if (auctionRescanTimer) return;
+    loadTodayAuction("09:20–09:25每20秒全主板重扫");
+    auctionRescanTimer = window.setInterval(() => {
+      const seconds = secondsOfDay();
+      if (seconds >= 9 * 3600 + 25 * 60) {
+        window.clearInterval(auctionRescanTimer);
+        auctionRescanTimer = null;
+        return;
+      }
+      if (seconds >= 9 * 3600 + 20 * 60 && !document.getElementById("boardTab")?.hidden) {
+        loadTodayAuction("09:20–09:25每20秒全主板重扫");
+      }
+    }, 20000);
   };
 
   const setupAutoRefresh = () => {
@@ -245,6 +323,8 @@
     const finalAt = 9 * 3600 + 25 * 60 + 10;
     const retryAt = 9 * 3600 + 26 * 60;
     const openGuardAt = 9 * 3600 + 30 * 60 + 5;
+    const nextDayPreviewAt = 14 * 3600 + 50 * 60 + 5;
+    const nextDayFinalAt = 15 * 3600 + 5 * 60 + 10;
     if (current < premarketAt) {
       if (autoStatus) autoStatus.textContent = "下次自动刷新 09:00 盘前预选";
       scheduleAt(9, 0, 0, () => {
@@ -256,9 +336,9 @@
       loadPreselect();
     }
     if (current < observeAt) {
-      scheduleAt(9, 20, 5, () => loadTodayAuction("09:20:05不可撤单观察池"));
+      scheduleAt(9, 20, 5, startAuctionRescan);
     } else if (current < finalAt) {
-      loadTodayAuction("打开页面后刷新09:20观察池");
+      startAuctionRescan();
     }
     if (current < finalAt) {
       scheduleAt(9, 25, 10, () => loadTodayAuction("09:25:10最终竞价"));
@@ -276,6 +356,9 @@
         if (seconds >= 9 * 3600 + 30 * 60 && seconds <= 10 * 3600 && !document.getElementById("boardTab")?.hidden) loadOpenGuard();
       }, 30000);
     }
+    if (current < nextDayPreviewAt) scheduleAt(14, 50, 5, loadNextDayStrategy);
+    else loadNextDayStrategy();
+    if (current < nextDayFinalAt) scheduleAt(15, 5, 10, loadNextDayStrategy);
   };
 
   const loadDateButtons = async () => {
@@ -302,6 +385,7 @@
     else requestDate(selectedDate);
   }, true);
   openGuardButton?.addEventListener("click", loadOpenGuard);
+  nextDayButton?.addEventListener("click", loadNextDayStrategy);
 
   document.querySelector('.top-tab[data-tab="boardTab"]')?.addEventListener("click", (event) => {
     event.stopImmediatePropagation();

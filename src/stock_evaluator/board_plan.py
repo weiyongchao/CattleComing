@@ -233,6 +233,16 @@ def _auction_decision(candidate: dict) -> dict:
             "passed": candidate.get("continuation_score", 0) >= 55,
             "note": f"当前{candidate.get('continuation_score', 0)}分；只表示结构匹配，不是涨停概率",
         })
+    checks.append({
+        "name": "具备实际可成交性",
+        "passed": candidate.get("tradable", True),
+        "note": candidate.get("tradability_label", "等待开盘确认"),
+    })
+    checks.append({
+        "name": "未触发高位透支硬否决",
+        "passed": not candidate.get("risk_veto", False),
+        "note": "；".join(candidate.get("risk_reasons") or []) or "未触发高位透支",
+    })
     passed = sum(item["passed"] is True for item in checks)
     known_total = sum(item["passed"] is not None for item in checks)
     fund_confirmed = (
@@ -242,7 +252,11 @@ def _auction_decision(candidate: dict) -> dict:
     regulation_high = bool(regulation and regulation.get("level") == "high")
     formal_modes = {"连板接力", "强势加速", "分歧转强", "首板预期", "隔日启动"}
     decision_score = candidate.get("continuation_score", candidate.get("selection_score", candidate["score"]))
-    if decision_score >= (65 if core_mode or mode in formal_modes else 60) and passed >= 7 and fund_confirmed and not regulation_high:
+    if not candidate.get("tradable", True):
+        action = "一字板不可成交 · 仅记录强度"
+    elif candidate.get("risk_veto", False):
+        action = "高位透支 · 取消候选"
+    elif decision_score >= (65 if core_mode or mode in formal_modes else 60) and passed >= 7 and fund_confirmed and not regulation_high:
         action = "一进二A级观察" if priority_tier == "一进二观察" else "首板A级观察" if priority_tier == "首板观察" else "连板核心A级预选" if core_mode else "弱转强A级预选" if mode == "分歧转强" else "连板接力A级预选" if mode in {"连板接力", "强势加速"} else "隔日启动A级观察" if mode in {"首板预期", "隔日启动"} else "竞价A级观察"
     elif candidate["score"] >= 68 and passed >= 6:
         action = "异动风险观察" if regulation_high else "一进二B级观察" if priority_tier == "一进二观察" else "首板B级观察" if priority_tier == "首板观察" else "连板核心B级预选" if core_mode else "弱转强B级预选" if mode == "分歧转强" else "连板接力B级预选" if mode in {"连板接力", "强势加速"} else "隔日启动B级观察" if mode in {"首板预期", "隔日启动"} else "竞价B级观察"
@@ -309,7 +323,7 @@ def build_board_plan(
         for candidate in candidates:
             candidate["action"] = f"09:20观察 · {candidate['action']}"
             candidate["actionable"] = False
-    candidates.sort(key=lambda item: (item["actionable"], item.get("priority_tier") == "连板优先", item.get("continuation_score", 0), item["score"], item["auction_amount"]), reverse=True)
+    candidates.sort(key=lambda item: (item["actionable"], item.get("tradable", True), item.get("priority_tier") == "连板优先", item.get("continuation_score", 0), item["score"], item["auction_amount"]), reverse=True)
     gate = _auction_gate(candidates, auction)
     actionable_total = sum(item["actionable"] for item in candidates)
     if historical or actionable_total == 0:
@@ -337,6 +351,8 @@ def build_board_plan(
             "reversal_qualified_count": auction.get("reversal_qualified_count", 0),
             "first_board_qualified_count": auction.get("first_board_qualified_count", 0),
             "continuation_primary_count": auction.get("continuation_primary_count", 0),
+            "untradable_count": auction.get("untradable_count", 0),
+            "risk_veto_count": auction.get("risk_veto_count", 0),
             "one_to_two_count": auction.get("one_to_two_count", 0),
             "first_board_watch_count": auction.get("first_board_watch_count", 0),
             "overnight_secondary_count": auction.get("overnight_secondary_count", 0),

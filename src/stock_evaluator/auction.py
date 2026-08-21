@@ -3,6 +3,8 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime
 import math
+import threading
+import time
 
 from .funds import _fetch_tencent_page, historical_fund_flow_before, historical_open_proxy
 from .market import EastmoneyProvider, DailyBar, Quote, secid_for
@@ -13,6 +15,8 @@ from .regulatory import regulatory_risk
 PREFILTER_LIMIT = 300
 HISTORICAL_PREFILTER_LIMIT = 500
 MAX_RECOMMENDATIONS = 6
+_LIVE_HISTORY_CACHE: dict[str, tuple[float, list[DailyBar]]] = {}
+_LIVE_HISTORY_LOCK = threading.RLock()
 
 
 def _number(value: object) -> float:
@@ -20,6 +24,18 @@ def _number(value: object) -> float:
         return float(value or 0)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _live_history(provider: EastmoneyProvider, code: str, limit: int = 80) -> list[DailyBar]:
+    """竞价窗口内K线不会变化；缓存历史，20秒全市场重扫只更新实时行情。"""
+    with _LIVE_HISTORY_LOCK:
+        cached = _LIVE_HISTORY_CACHE.get(code)
+        if cached and time.time() - cached[0] < 900:
+            return cached[1]
+    bars = provider.history(code, limit)
+    with _LIVE_HISTORY_LOCK:
+        _LIVE_HISTORY_CACHE[code] = (time.time(), bars)
+    return bars
 
 
 def _prefilter_auction_universe(snapshots: list[dict], limit: int = PREFILTER_LIMIT) -> list[dict]:
@@ -290,6 +306,44 @@ def _board_stage(consecutive_limit_ups: int) -> dict:
     }
 
 
+def _execution_risk_profile(
+    consecutive_limit_ups: int, gap_percent: float, price_vs_ma5: float,
+    previous_volume_ratio: float, regulation_level: str, fund_status: str,
+) -> dict:
+    """把形态强度与可成交性、次日生存风险分开，避免高位一字板获得可执行高分。"""
+    reasons: list[str] = []
+    tradable = gap_percent < 9.5
+    if not tradable:
+        reasons.append("竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动")
+    high_exhaustion = (
+        consecutive_limit_ups >= 4 and price_vs_ma5 > 15
+    ) or (
+        consecutive_limit_ups >= 2 and price_vs_ma5 > 20
+    )
+    if high_exhaustion:
+        reasons.append(f"连续{consecutive_limit_ups}板且竞价价偏离MA5 {price_vs_ma5:.1f}%，高位透支")
+    shrinking_acceleration = consecutive_limit_ups >= 2 and previous_volume_ratio < 0.85
+    if shrinking_acceleration:
+        reasons.append("连续板后前日缩量加速，次日一旦分歧可能缺少退出流动性")
+    regulatory_veto = consecutive_limit_ups >= 2 and regulation_level == "high"
+    if regulatory_veto:
+        reasons.append("高位连板已进入异动监管高风险区")
+    downside = 30 if not tradable else 12 if gap_percent >= 8.5 else 0
+    downside += 30 if high_exhaustion else 0
+    downside += 15 if shrinking_acceleration else 0
+    downside += 18 if regulatory_veto else 8 if regulation_level == "watch" else 0
+    downside += 10 if fund_status == "unknown" and consecutive_limit_ups >= 2 else 15 if fund_status == "weak" else 0
+    return {
+        "tradable": tradable,
+        "tradability_label": "可等待开盘确认" if tradable else "一字板/近涨停 · 不作为开盘买入推荐",
+        "high_exhaustion": high_exhaustion,
+        "shrinking_acceleration": shrinking_acceleration,
+        "risk_veto": high_exhaustion or regulatory_veto,
+        "t1_downside_risk_score": min(100, downside),
+        "risk_reasons": reasons,
+    }
+
+
 def _big_order_support(
     previous_main_ratio: float | None, order_imbalance: float | None,
 ) -> dict:
@@ -350,10 +404,15 @@ def _apply_dynamic_context(candidates: list[dict]) -> None:
         continuation_regulation_penalty = 3 if regulation_level == "high" else 2 if regulation_level == "watch" else 0
         secondary_tiers = {"一进二观察", "首板观察"}
         secondary_penalty = 8 if item.get("priority_tier") in secondary_tiers else 0
+        downside_penalty = _number(item.get("t1_downside_risk_score")) * 0.45
         item["continuation_score"] = round(max(0, min(
             100, item.get("continuation_base_score", 0) + theme_score
-            + continuation_support - continuation_regulation_penalty - secondary_penalty,
+            + continuation_support - continuation_regulation_penalty - secondary_penalty
+            - downside_penalty,
         )))
+        if item.get("risk_veto"):
+            item["eligible"] = False
+            item["priority_tier"] = "高位风险剔除"
         if item.get("priority_tier") in secondary_tiers and theme_score == 0:
             if item["continuation_score"] < 58 or support["status"] == "weak":
                 item["eligible"] = False
@@ -505,7 +564,7 @@ def _select_high_confidence_candidates(candidates: list[dict], limit: int = MAX_
     continuation_mode = any("continuation_score" in item for item in eligible)
     rank_score = lambda item: item.get("continuation_score", item.get("selection_score", item["score"]))
     tier_rank = lambda item: 2 if item.get("priority_tier") == "连板优先" else 1
-    eligible.sort(key=lambda item: (rank_score(item), tier_rank(item), item["score"], item["auction_amount"]), reverse=True)
+    eligible.sort(key=lambda item: (item.get("tradable", True), rank_score(item), tier_rank(item), item["score"], item["auction_amount"]), reverse=True)
     minimum_score = 55 if continuation_mode else 80
     if not eligible or rank_score(eligible[0]) < minimum_score:
         return []
@@ -528,7 +587,7 @@ def _select_high_confidence_candidates(candidates: list[dict], limit: int = MAX_
             )
         ]
         selected.sort(
-            key=lambda item: (rank_score(item), tier_rank(item), item["score"], item["auction_amount"]),
+            key=lambda item: (item.get("tradable", True), rank_score(item), tier_rank(item), item["score"], item["auction_amount"]),
             reverse=True,
         )
         if not selected:
@@ -559,8 +618,21 @@ def _auction_candidate(
     if target_date:
         stock_name = "".join(str(snapshot.get("f14") or code).split())
     else:
-        quote = provider.quote(code)
-        stock_name = quote.name
+        stock_name = "".join(str(snapshot.get("f14") or code).split())
+        if preliminary:
+            price = _number(snapshot.get("f2"))
+            change = _number(snapshot.get("f3"))
+            previous_close = _number(snapshot.get("f18")) or (price / (1 + change / 100) if price and change > -99 else 0)
+            quote = Quote(
+                code=code, name=stock_name, price=price, previous_close=previous_close,
+                change_percent=change, volume=int(_number(snapshot.get("f5"))),
+                amount=_number(snapshot.get("f6")), turnover_rate=_number(snapshot.get("f8")),
+                open_price=_number(snapshot.get("f17")), high_price=_number(snapshot.get("f15")),
+                low_price=_number(snapshot.get("f16")),
+            )
+        else:
+            quote = provider.quote(code)
+            stock_name = quote.name
     if is_risk_stock_name(stock_name):
         return None
     market, normalized = secid_for(code).split(".")
@@ -595,7 +667,7 @@ def _auction_candidate(
         auction_price, auction_volume, auction_amount = float(row[2]), float(row[4]), float(row[5])
         auction_data_source = "腾讯当日09:25逐笔成交"
     all_completed_bars = _completed_bars(
-        history_bars or provider.history(code, 160 if target_date else 80), as_of
+        history_bars or (provider.history(code, 160) if target_date else _live_history(provider, code)), as_of
     )
     listed_sessions = len(all_completed_bars)
     bars = all_completed_bars[-25:]
@@ -674,6 +746,10 @@ def _auction_candidate(
         decision_main_ratio,
         quote.order_imbalance if live_book_valid and (quote.bid_volume5 + quote.ask_volume5) > 0 else None,
     )
+    execution_risk = _execution_risk_profile(
+        consecutive_limit_up_days, gap, price_vs_ma5, previous_volume_ratio,
+        str(regulation.get("level") or "normal"), str(support.get("status") or "unknown"),
+    )
     acceleration = (
         recent_limit_up_count >= 1 and previous_close_position >= 90
         and previous_upper_shadow <= 0.15 and 8.5 <= gap <= 10.2
@@ -705,6 +781,7 @@ def _auction_candidate(
             risks.append("前序交易日主力资金暂不可用，需由09:20–09:25盘口确认")
         elif decision_main_ratio <= -3:
             risks.append("前序交易日主力资金明显流出")
+    risks.extend(execution_risk["risk_reasons"])
     fresh_relay_activity = recent_5_limit_up_count >= 1 or recent_10_limit_up_count >= 2
     within_board_scale = 0 < float_market_cap < 20_000_000_000
     explicit_order_weakness = support.get("status") == "weak"
@@ -749,6 +826,7 @@ def _auction_candidate(
         "first_board_matched": first_board_matched,
         "continuation_base_score": continuation_base_score,
         "strategy_mode": strategy_mode, "priority_tier": priority_tier, "eligible": eligible,
+        **execution_risk,
         **board_stage,
         "signal": "强竞价观察" if score >= 75 and eligible else "竞价关注" if eligible else "不进入打板候选",
         "auction_time": auction_time, "auction_price": auction_price,
@@ -773,6 +851,8 @@ def _auction_candidate(
         "decision_main_net": decision_main_net,
         "decision_main_ratio": decision_main_ratio,
         "auction_order_imbalance": round(quote.order_imbalance, 4) if live_book_valid else None,
+        "auction_bid_volume5": quote.bid_volume5 if live_book_valid else None,
+        "auction_ask_volume5": quote.ask_volume5 if live_book_valid else None,
         "big_order_support": support,
         "regulatory_risk": regulation,
         "fund_data_date": fund_data_date,
@@ -803,7 +883,7 @@ def screen_auction_candidates(
     provider = provider or EastmoneyProvider(timeout=8)
     candidates, failed = [], 0
     try:
-        snapshots = main_board_snapshots(cache_seconds=20)
+        snapshots = main_board_snapshots(cache_seconds=15)
         prefiltered = _prefilter_auction_universe(snapshots, limit=PREFILTER_LIMIT)
         universe_source = "东方财富延迟全主板批量快照"
     except Exception:
@@ -849,6 +929,8 @@ def screen_auction_candidates(
         "reversal_qualified_count": sum(item.get("reversal_matched", False) for item in candidates),
         "first_board_qualified_count": sum(item.get("first_board_matched", False) for item in candidates),
         "continuation_primary_count": sum(item.get("eligible") and item.get("priority_tier") == "连板优先" for item in candidates),
+        "untradable_count": sum(not item.get("tradable", True) for item in candidates),
+        "risk_veto_count": sum(item.get("risk_veto", False) for item in candidates),
         "one_to_two_count": sum(item.get("eligible") and item.get("priority_tier") == "一进二观察" for item in candidates),
         "first_board_watch_count": sum(item.get("eligible") and item.get("priority_tier") == "首板观察" for item in candidates),
         "overnight_secondary_count": sum(item.get("eligible") and item.get("priority_tier") in {"一进二观察", "首板观察"} for item in candidates),
@@ -922,6 +1004,8 @@ def screen_historical_auction_candidates(
         "reversal_qualified_count": sum(item.get("reversal_matched", False) for item in candidates),
         "first_board_qualified_count": sum(item.get("first_board_matched", False) for item in candidates),
         "continuation_primary_count": sum(item.get("eligible") and item.get("priority_tier") == "连板优先" for item in candidates),
+        "untradable_count": sum(not item.get("tradable", True) for item in candidates),
+        "risk_veto_count": sum(item.get("risk_veto", False) for item in candidates),
         "one_to_two_count": sum(item.get("eligible") and item.get("priority_tier") == "一进二观察" for item in candidates),
         "first_board_watch_count": sum(item.get("eligible") and item.get("priority_tier") == "首板观察" for item in candidates),
         "overnight_secondary_count": sum(item.get("eligible") and item.get("priority_tier") in {"一进二观察", "首板观察"} for item in candidates),

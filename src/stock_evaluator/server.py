@@ -12,6 +12,7 @@ from .market import EastmoneyProvider, MarketDataError
 from .screener import is_main_board, screen_leaders, sector_context
 from .funds import individual_fund_flow, sector_fund_leaders
 from .auction import screen_auction_candidates
+from .auction_trajectory import attach_trajectory, capture_watchlist, record_payload_sample
 from .peers import stock_sector_peers
 from .board_plan import _auction_phase, build_board_plan
 from .intraday import build_intraday_plan
@@ -21,6 +22,7 @@ from .history import (
     save_board_plan_snapshot,
 )
 from .open_guard import build_open_guard
+from .next_day import build_next_day_strategy
 from .premarket import build_premarket_watchlist
 from .stock_search import resolve_stock_code, search_stocks
 
@@ -43,6 +45,7 @@ class AppHandler(SimpleHTTPRequestHandler):
     auction_cache: tuple[float, dict] | None = None
     board_plan_cache: tuple[float, dict] | None = None
     board_open_cache: tuple[float, dict] | None = None
+    next_day_cache: tuple[float, dict] | None = None
     historical_board_cache: dict[str, dict] = {}
     premarket_cache: tuple[str, dict] | None = None
     trading_dates_cache: tuple[float, list[str]] | None = None
@@ -229,7 +232,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 if frozen:
                     return self._json(200, frozen)
             cached = type(self).board_plan_cache
-            if cached and time.time() - cached[0] < 30 and cached[1].get("auction_phase") == current_phase:
+            if cached and time.time() - cached[0] < 15 and cached[1].get("auction_phase") == current_phase:
                 _record_safely("board", cached[1])
                 return self._json(200, cached[1])
             payload = build_board_plan(capital=100_000)
@@ -242,14 +245,28 @@ class AppHandler(SimpleHTTPRequestHandler):
             _record_safely("board", payload)
             try:
                 if current_phase == "indicative":
+                    record_payload_sample(payload, "indicative")
                     save_board_plan_snapshot(payload, "indicative")
                 elif current_phase == "final":
+                    record_payload_sample(payload, "final")
+                    payload = attach_trajectory(payload)
                     save_board_plan_snapshot(payload, "final", replace=False)
                     payload = load_board_plan_snapshot(date.today().isoformat(), "final") or payload
                     type(self).board_plan_cache = (time.time(), payload)
             except OSError:
                 pass
             return self._json(200, payload)
+        if parsed.path == "/api/auction-trajectory":
+            now = datetime.now()
+            if not ((now.hour, now.minute) >= (9, 20) and (now.hour, now.minute) < (9, 25)):
+                return self._json(409, {"error": "竞价轨迹仅在09:20–09:25采样"})
+            snapshot = load_board_plan_snapshot(date.today().isoformat(), "indicative")
+            if not snapshot:
+                return self._json(409, {"error": "请先生成09:20观察池"})
+            try:
+                return self._json(200, capture_watchlist(snapshot, self.provider))
+            except MarketDataError as exc:
+                return self._json(502, {"error": str(exc)})
         if parsed.path == "/api/board-open-guard":
             import time
             now = datetime.now()
@@ -266,6 +283,24 @@ class AppHandler(SimpleHTTPRequestHandler):
             except MarketDataError as exc:
                 return self._json(502, {"error": str(exc)})
             type(self).board_open_cache = (time.time(), payload)
+            return self._json(200, payload)
+        if parsed.path == "/api/next-day-strategy":
+            import time
+            now = datetime.now()
+            if (now.hour, now.minute) < (14, 50):
+                return self._json(409, {"error": "14:50后才根据当天交易生成次日持仓预案"})
+            snapshot = load_board_plan_snapshot(date.today().isoformat(), "final")
+            if not snapshot:
+                return self._json(409, {"error": "今日09:25最终候选尚未冻结"})
+            cached_next = type(self).next_day_cache
+            cache_seconds = 300 if (now.hour, now.minute) >= (15, 5) else 20
+            if cached_next and time.time() - cached_next[0] < cache_seconds and cached_next[1].get("finalized") == ((now.hour, now.minute) >= (15, 5)):
+                return self._json(200, cached_next[1])
+            try:
+                payload = build_next_day_strategy(snapshot, self.provider, now)
+            except MarketDataError as exc:
+                return self._json(502, {"error": str(exc)})
+            type(self).next_day_cache = (time.time(), payload)
             return self._json(200, payload)
         if parsed.path == "/api/intraday-plan":
             import time

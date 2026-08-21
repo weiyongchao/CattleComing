@@ -2152,7 +2152,7 @@
         }
       },
       "review": {
-        "reviewed_at": "2026-08-20T17:52:44+08:00",
+        "reviewed_at": "2026-08-20T18:21:27+08:00",
         "counted": 8,
         "successes": 1,
         "accuracy_percent": 12.5,
@@ -3462,7 +3462,7 @@
         }
       },
       "review": {
-        "reviewed_at": "2026-08-20T17:39:01+08:00",
+        "reviewed_at": "2026-08-20T18:21:25+08:00",
         "counted": 4,
         "successes": 1,
         "accuracy_percent": 25.0,

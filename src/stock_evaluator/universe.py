@@ -12,7 +12,7 @@ from .screener import is_main_board, is_risk_stock_name
 
 
 HEADERS = {"User-Agent": "Mozilla/5.0", "Referer": "https://quote.eastmoney.com/"}
-FIELDS = "f12,f14,f2,f3,f5,f6,f8,f10,f20,f21,f26,f62,f100,f124,f184"
+FIELDS = "f12,f14,f2,f3,f5,f6,f8,f10,f15,f16,f17,f18,f20,f21,f26,f62,f100,f124,f184"
 _CACHE: dict[bool, tuple[float, list[dict]]] = {}
 
 
