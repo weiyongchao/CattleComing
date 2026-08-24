@@ -1,0 +1,444 @@
+{
+  "version": 1,
+  "days": {
+    "2026-08-20": {
+      "final": {
+        "generated_at": null,
+        "selected_date": "2026-08-20",
+        "historical": false,
+        "auction_phase": "final",
+        "snapshot_kind": "recovered_final",
+        "snapshot_label": "8月20日已确认最终名单（恢复）",
+        "frozen": true,
+        "stage": "09:25最终名单 · 已冻结",
+        "market": {
+          "score": 0,
+          "state": "原始市场分未留存",
+          "allow_new_positions": false,
+          "fund_confirmed_count": 0,
+          "source": "8月20日页面已确认名单恢复"
+        },
+        "screening": {
+          "scanned": 3041,
+          "prefiltered": 0,
+          "deep_scanned": 0,
+          "qualified_count": 3,
+          "relay_qualified_count": 2,
+          "core_qualified_count": 0,
+          "reversal_qualified_count": 1,
+          "continuation_primary_count": 0,
+          "overnight_secondary_count": 0,
+          "source": "8月20日页面已确认名单",
+          "method": "恢复服务重启前已经展示并由用户确认的最终名单；原响应未完整落盘，缺失字段不做推测。"
+        },
+        "position_plan": {
+          "per_position": 0,
+          "max_positions": 0,
+          "max_new_exposure": 0,
+          "cash_reserve": 100000,
+          "rule": "这是名单恢复快照，不补造当时仓位结论；交易执行需重新核对实际成交条件。"
+        },
+        "candidates": [
+          {
+            "code": "600613",
+            "name": "神奇制药",
+            "industry": "化学制药",
+            "category": "医药",
+            "strategy_mode": "分歧转强",
+            "priority_tier": "8月20日原始推荐",
+            "score": 100,
+            "selection_score": 94,
+            "action": "异动风险观察",
+            "actionable": false,
+            "checks": [],
+            "reasons": [
+              "恢复自8月20日已确认最终名单"
+            ],
+            "risks": [
+              "原完整竞价响应未落盘，执行数据需另行核对"
+            ]
+          },
+          {
+            "code": "002412",
+            "name": "汉森制药",
+            "industry": "中药Ⅱ",
+            "category": "医药",
+            "strategy_mode": "强势加速",
+            "priority_tier": "8月20日原始推荐",
+            "score": 98,
+            "selection_score": 92,
+            "action": "异动风险观察",
+            "actionable": false,
+            "previous_close": 8.42,
+            "auction_price": 9.26,
+            "auction_gap_percent": 9.98,
+            "auction_amount": 11989848,
+            "auction_volume_percent": 4.31,
+            "price_vs_ma5_percent": 21.08,
+            "recent_limit_up_count": 2,
+            "checks": [],
+            "reasons": [
+              "恢复自8月20日已确认最终名单"
+            ],
+            "risks": [
+              "接近涨停开盘，存在无法成交风险"
+            ]
+          },
+          {
+            "code": "603801",
+            "name": "志邦家居",
+            "industry": "家居用品",
+            "category": "消费",
+            "strategy_mode": "连板接力",
+            "priority_tier": "8月20日原始推荐",
+            "score": 84,
+            "selection_score": 84,
+            "action": "接力B级观察",
+            "actionable": false,
+            "checks": [],
+            "reasons": [
+              "恢复自8月20日已确认最终名单"
+            ],
+            "risks": [
+              "原完整竞价响应未落盘，执行数据需另行核对"
+            ]
+          }
+        ],
+        "strategy_profile": {
+          "core_rule": "保留8月20日当时策略结果，不用最新版规则倒推覆盖",
+          "first_board_rule": "当日快照和历史策略回放分开显示",
+          "relay_rule": "服务重启后仍读取同一份09:25最终名单",
+          "reversal_rule": "缺失的原始字段显示为--，不进行数据补造",
+          "risk_rule": "恢复名单仅用于复盘，不构成收益保证"
+        },
+        "disclaimer": "本页为8月20日已确认推荐名单的恢复快照。神奇制药、汉森制药、志邦家居的名称及当时留存评分已恢复；未落盘字段不做推测。仅供策略复盘，不构成投资建议。"
+      }
+    },
+    "2026-08-21": {
+      "indicative": {
+        "capital": 100000,
+        "stage": "09:20不可撤单观察 · 等待09:25确认",
+        "selected_date": "2026-08-21",
+        "historical": false,
+        "auction_phase": "indicative",
+        "market": {
+          "score": 0,
+          "state": "空仓",
+          "allow_new_positions": false,
+          "candidate_count": 0,
+          "strong_count": 0,
+          "average_score": 0,
+          "average_gap": 0,
+          "auction_amount": 0,
+          "advance_ratio": 0,
+          "average_change": 0,
+          "limit_up": 0,
+          "limit_down": 0,
+          "sample_size": 0,
+          "source": "前序交易日K线 + 09:20不可撤单阶段参考撮合"
+        },
+        "candidates": [],
+        "actionable_count": 0,
+        "screening": {
+          "scanned": 3029,
+          "prefiltered": 0,
+          "deep_scanned": 0,
+          "qualified_count": 0,
+          "failed": 0,
+          "source": "东方财富延迟全主板批量快照（主源） + 09:20不可撤单阶段参考撮合",
+          "method": "09:20进入不可撤单阶段后，扫描全部非ST沪深主板并用参考撮合价量生成观察池；09:25再以最终竞价成交复核。",
+          "snapshot_time": "2026-08-21T09:24:51+08:00",
+          "relay_qualified_count": 0,
+          "core_qualified_count": 0,
+          "reversal_qualified_count": 0,
+          "first_board_qualified_count": 0,
+          "continuation_primary_count": 0,
+          "untradable_count": 0,
+          "risk_veto_count": 0,
+          "institution_date": "2026-08-20",
+          "institution_on_list_count": 0,
+          "institution_high_risk_count": 0,
+          "one_to_two_count": 0,
+          "first_board_watch_count": 0,
+          "overnight_secondary_count": 0,
+          "replay_warning": null
+        },
+        "position_plan": {
+          "max_positions": 0,
+          "per_position": 0,
+          "max_new_exposure": 0,
+          "cash_reserve": 100000,
+          "rule": "09:20只生成不可撤单阶段观察池，不分配仓位；09:25最终竞价复核通过后，A级候选才进入仓位计划。"
+        },
+        "strategy_profile": {
+          "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
+          "core_rule": "昨日涨停且连续涨停≥2天，竞价涨幅≥1%，并满足连板≥3或竞价涨幅≥5%；竞价量/近5日均量>1%、竞价额≥1000万、流通市值<200亿、上市满60个交易日。",
+          "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；只保留流通市值低于200亿的主板股。",
+          "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
+          "first_board_rule": "一进二和首板不进入连板优先；流通市值、竞价高开、量比、竞价额和前日承接足够亮眼时进入低优先级观察，并明确标注目标板数。",
+          "risk_rule": "连板预选必须等待T日真实封板/回封；机构龙虎榜净买后高开、高换手、席位分歧与高位偏离叠加时降级或剔除。"
+        },
+        "data_scope": [
+          "全部非ST沪深主板批量快照",
+          "前序80个交易日K线",
+          "上一交易日机构龙虎榜",
+          "近5/10日涨停活性与连续涨停",
+          "T+1连板预期分",
+          "连板优先与隔日启动双层",
+          "近3/5/10/30日走势",
+          "前日收盘位置与上影线",
+          "竞价量额、大单/五档支撑",
+          "题材板块共振",
+          "T日盘中封板/回封执行门槛",
+          "T+1开盘与收盘复盘"
+        ],
+        "generated_at": "2026-08-21T09:24:51+08:00",
+        "disclaimer": "09:20后原委托不能撤销，但仍可新增委托，参考撮合价量并非最终开盘结果；本页仅生成观察池，09:25必须再次复核。本页竞价决策不使用09:30后的现价或盘口；批量主力字段以快照时间为准。仅为竞价研究决策，不保证盈利；A股T+1下存在炸板、无法成交及次日跳空风险。",
+        "snapshot_kind": "actual_indicative",
+        "snapshot_label": "09:20不可撤单观察快照",
+        "frozen": false
+      },
+      "final": {
+        "capital": 100000,
+        "stage": "09:25竞价决策已生成",
+        "selected_date": "2026-08-21",
+        "historical": false,
+        "auction_phase": "final",
+        "market": {
+          "score": 0,
+          "state": "空仓",
+          "allow_new_positions": false,
+          "candidate_count": 0,
+          "strong_count": 0,
+          "average_score": 0,
+          "average_gap": 0,
+          "auction_amount": 0,
+          "advance_ratio": 0,
+          "average_change": 0,
+          "limit_up": 0,
+          "limit_down": 0,
+          "sample_size": 0,
+          "source": "前序交易日K线 + 09:25最终竞价"
+        },
+        "candidates": [],
+        "actionable_count": 0,
+        "screening": {
+          "scanned": 3021,
+          "prefiltered": 300,
+          "deep_scanned": 300,
+          "qualified_count": 0,
+          "failed": 0,
+          "source": "东方财富延迟全主板批量快照 + 09:25最终竞价成交",
+          "method": "先扫描全部非ST沪深主板并初筛300只，计算T+1连板预期分；2进3及以上进入连板优先，量价亮眼的一进二和首板进入低优先级观察，并结合大单、题材与异动风险排序，最多6只。",
+          "snapshot_time": "2026-08-21T09:25:05+08:00",
+          "relay_qualified_count": 0,
+          "core_qualified_count": 0,
+          "reversal_qualified_count": 0,
+          "first_board_qualified_count": 0,
+          "continuation_primary_count": 0,
+          "untradable_count": 0,
+          "risk_veto_count": 0,
+          "one_to_two_count": 0,
+          "first_board_watch_count": 0,
+          "overnight_secondary_count": 0,
+          "replay_warning": null
+        },
+        "position_plan": {
+          "max_positions": 0,
+          "per_position": 0,
+          "max_new_exposure": 0,
+          "cash_reserve": 100000,
+          "rule": "只有A级候选才分配仓位；仓位由前序交易日走势、主力资金与09:25竞价质量决定，盘中变化不回写本页。"
+        },
+        "strategy_profile": {
+          "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
+          "core_rule": "昨日涨停且连续涨停≥2天，竞价涨幅≥1%，并满足连板≥3或竞价涨幅≥5%；竞价量/近5日均量>1%、竞价额≥1000万、流通市值<200亿、上市满60个交易日。",
+          "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；只保留流通市值低于200亿的主板股。",
+          "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
+          "first_board_rule": "一进二和首板不进入连板优先；流通市值、竞价高开、量比、竞价额和前日承接足够亮眼时进入低优先级观察，并明确标注目标板数。",
+          "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；一进二和首板降级观察，题材孤立且资金量价不够强、极端竞价爆量、大单偏弱或大市值则剔除。"
+        },
+        "data_scope": [
+          "全部非ST沪深主板批量快照",
+          "前序80个交易日K线",
+          "近5/10日涨停活性与连续涨停",
+          "T+1连板预期分",
+          "连板优先与隔日启动双层",
+          "近3/5/10/30日走势",
+          "前日收盘位置与上影线",
+          "竞价量额、大单/五档支撑",
+          "题材板块共振",
+          "T日盘中封板/回封执行门槛",
+          "T+1开盘与收盘复盘"
+        ],
+        "generated_at": "2026-08-21T09:25:26+08:00",
+        "disclaimer": "本页竞价决策不使用09:30后的现价或盘口；批量主力字段以快照时间为准。仅为竞价研究决策，不保证盈利；A股T+1下存在炸板、无法成交及次日跳空风险。",
+        "snapshot_kind": "actual_final",
+        "snapshot_label": "09:25当日最终快照",
+        "frozen": true
+      }
+    },
+    "2026-08-24": {
+      "indicative": {
+        "capital": 100000,
+        "strategy_version": "2026.08.21.3",
+        "stage": "09:20不可撤单观察 · 等待09:25确认",
+        "selected_date": "2026-08-24",
+        "historical": false,
+        "auction_phase": "indicative",
+        "market": {
+          "score": 0,
+          "state": "空仓",
+          "allow_new_positions": false,
+          "candidate_count": 0,
+          "strong_count": 0,
+          "average_score": 0,
+          "average_gap": 0,
+          "auction_amount": 0,
+          "advance_ratio": 0,
+          "average_change": 0,
+          "limit_up": 0,
+          "limit_down": 0,
+          "sample_size": 0,
+          "source": "前序交易日K线 + 09:20不可撤单阶段参考撮合"
+        },
+        "candidates": [],
+        "actionable_count": 0,
+        "screening": {
+          "scanned": 3037,
+          "prefiltered": 0,
+          "deep_scanned": 0,
+          "qualified_count": 0,
+          "failed": 0,
+          "source": "东方财富延迟全主板批量快照 + 09:20不可撤单阶段参考撮合",
+          "method": "09:20进入不可撤单阶段后，扫描全部非ST沪深主板并用参考撮合价量生成观察池；09:25再以最终竞价成交复核。",
+          "snapshot_time": "2026-08-24T09:24:45+08:00",
+          "relay_qualified_count": 0,
+          "core_qualified_count": 0,
+          "reversal_qualified_count": 0,
+          "first_board_qualified_count": 0,
+          "continuation_primary_count": 0,
+          "untradable_count": 0,
+          "risk_veto_count": 0,
+          "one_to_two_count": 0,
+          "first_board_watch_count": 0,
+          "overnight_secondary_count": 0,
+          "replay_warning": null
+        },
+        "position_plan": {
+          "max_positions": 0,
+          "per_position": 0,
+          "max_new_exposure": 0,
+          "cash_reserve": 100000,
+          "rule": "09:20只生成不可撤单阶段观察池，不分配仓位；09:25最终竞价复核通过后，A级候选才进入仓位计划。"
+        },
+        "strategy_profile": {
+          "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
+          "core_rule": "昨日涨停且连续涨停≥2天，竞价涨幅≥1%，并满足连板≥3或竞价涨幅≥5%；竞价量/近5日均量>1%、竞价额>5000万、流通市值<200亿、上市满60个交易日。",
+          "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；只保留流通市值低于200亿的主板股。",
+          "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
+          "first_board_rule": "一进二和首板不进入连板优先；流通市值、竞价高开、量比、竞价额和前日承接足够亮眼时进入低优先级观察，并明确标注目标板数。",
+          "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；一进二和首板降级观察，题材孤立且资金量价不够强、极端竞价爆量、大单偏弱或大市值则剔除。"
+        },
+        "data_scope": [
+          "全部非ST沪深主板批量快照",
+          "前序80个交易日K线",
+          "近5/10日涨停活性与连续涨停",
+          "T+1连板预期分",
+          "连板优先与隔日启动双层",
+          "近3/5/10/30日走势",
+          "前日收盘位置与上影线",
+          "竞价量额、大单/五档支撑",
+          "题材板块共振",
+          "T日盘中封板/回封执行门槛",
+          "T+1开盘与收盘复盘"
+        ],
+        "generated_at": "2026-08-24T09:24:46+08:00",
+        "disclaimer": "09:20后原委托不能撤销，但仍可新增委托，参考撮合价量并非最终开盘结果；本页仅生成观察池，09:25必须再次复核。本页竞价决策不使用09:30后的现价或盘口；批量主力字段以快照时间为准。仅为竞价研究决策，不保证盈利；A股T+1下存在炸板、无法成交及次日跳空风险。",
+        "snapshot_kind": "actual_indicative",
+        "snapshot_label": "09:20不可撤单观察快照",
+        "frozen": false
+      },
+      "final": {
+        "capital": 100000,
+        "strategy_version": "2026.08.21.3",
+        "stage": "09:25竞价决策已生成",
+        "selected_date": "2026-08-24",
+        "historical": false,
+        "auction_phase": "final",
+        "market": {
+          "score": 0,
+          "state": "空仓",
+          "allow_new_positions": false,
+          "candidate_count": 0,
+          "strong_count": 0,
+          "average_score": 0,
+          "average_gap": 0,
+          "auction_amount": 0,
+          "advance_ratio": 0,
+          "average_change": 0,
+          "limit_up": 0,
+          "limit_down": 0,
+          "sample_size": 0,
+          "source": "前序交易日K线 + 09:25最终竞价"
+        },
+        "candidates": [],
+        "actionable_count": 0,
+        "screening": {
+          "scanned": 3041,
+          "prefiltered": 301,
+          "deep_scanned": 301,
+          "qualified_count": 0,
+          "failed": 0,
+          "source": "东方财富延迟全主板批量快照 + 09:25最终竞价成交",
+          "method": "先扫描全部非ST沪深主板，普通活跃股初筛Top300，再追加所有涨停/跌停附近竞价股进入必扫池；候选竞价成交额必须大于5000万元，一字板和跌停反核靠后展示，最多6只。",
+          "snapshot_time": "2026-08-24T09:25:10+08:00",
+          "relay_qualified_count": 0,
+          "core_qualified_count": 0,
+          "reversal_qualified_count": 0,
+          "first_board_qualified_count": 0,
+          "continuation_primary_count": 0,
+          "untradable_count": 0,
+          "risk_veto_count": 0,
+          "one_to_two_count": 0,
+          "first_board_watch_count": 0,
+          "overnight_secondary_count": 0,
+          "replay_warning": null
+        },
+        "position_plan": {
+          "max_positions": 0,
+          "per_position": 0,
+          "max_new_exposure": 0,
+          "cash_reserve": 100000,
+          "rule": "只有A级候选才分配仓位；仓位由前序交易日走势、主力资金与09:25竞价质量决定，盘中变化不回写本页。"
+        },
+        "strategy_profile": {
+          "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
+          "core_rule": "昨日涨停且连续涨停≥2天，竞价涨幅≥1%，并满足连板≥3或竞价涨幅≥5%；竞价量/近5日均量>1%、竞价额>5000万、流通市值<200亿、上市满60个交易日。",
+          "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；只保留流通市值低于200亿的主板股。",
+          "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
+          "first_board_rule": "一进二和首板不进入连板优先；流通市值、竞价高开、量比、竞价额和前日承接足够亮眼时进入低优先级观察，并明确标注目标板数。",
+          "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；一进二和首板降级观察，题材孤立且资金量价不够强、极端竞价爆量、大单偏弱或大市值则剔除。"
+        },
+        "data_scope": [
+          "全部非ST沪深主板批量快照",
+          "前序80个交易日K线",
+          "近5/10日涨停活性与连续涨停",
+          "T+1连板预期分",
+          "连板优先与隔日启动双层",
+          "近3/5/10/30日走势",
+          "前日收盘位置与上影线",
+          "竞价量额、大单/五档支撑",
+          "题材板块共振",
+          "T日盘中封板/回封执行门槛",
+          "T+1开盘与收盘复盘"
+        ],
+        "generated_at": "2026-08-24T09:25:37+08:00",
+        "disclaimer": "本页竞价决策不使用09:30后的现价或盘口；批量主力字段以快照时间为准。仅为竞价研究决策，不保证盈利；A股T+1下存在炸板、无法成交及次日跳空风险。",
+        "snapshot_kind": "actual_final",
+        "snapshot_label": "09:25当日最终快照",
+        "frozen": true
+      }
+    }
+  }
+}

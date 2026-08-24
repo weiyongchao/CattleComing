@@ -154,6 +154,36 @@ class EastmoneyProvider:
 
     def history(self, code: str, limit: int = 30) -> list[DailyBar]:
         secid = secid_for(code)
+        try:
+            return self._history_eastmoney(secid, limit)
+        except MarketDataError:
+            return self._history_tencent(secid, limit)
+
+    def _history_eastmoney(self, secid: str, limit: int) -> list[DailyBar]:
+        """优先读取带成交额的日K；失败时由 ``history`` 自动回退腾讯。"""
+        url = (
+            "https://push2his.eastmoney.com/api/qt/stock/kline/get"
+            f"?secid={secid}&klt=101&fqt=1&end=20500101&lmt={limit}"
+            "&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57"
+        )
+        data = self._get(url)
+        rows = data.get("klines") or []
+        bars: list[DailyBar] = []
+        try:
+            for row in rows:
+                values = row.split(",")
+                bars.append(DailyBar(
+                    trade_date=date.fromisoformat(values[0]), open=float(values[1]),
+                    close=float(values[2]), high=float(values[3]), low=float(values[4]),
+                    volume=int(float(values[5])), amount=float(values[6]),
+                ))
+        except (IndexError, TypeError, ValueError) as exc:
+            raise MarketDataError("东方财富历史行情返回格式无法识别") from exc
+        if len(bars) < 5:
+            raise MarketDataError("东方财富历史交易数据不足 5 日")
+        return bars
+
+    def _history_tencent(self, secid: str, limit: int) -> list[DailyBar]:
         market, normalized = secid.split(".")
         symbol = ("sh" if market == "1" else "sz") + normalized
         request = Request(

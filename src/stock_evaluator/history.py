@@ -60,16 +60,16 @@ def _save_board_plans(payload: dict) -> None:
 
 
 def save_board_plan_snapshot(payload: dict, phase: str, *, replace: bool = True) -> dict:
-    """保存可直接还原页面的完整竞价快照；观察快照和最终快照互不覆盖。"""
-    if phase not in {"indicative", "final"}:
-        raise ValueError("竞价快照阶段必须是 indicative 或 final")
+    """保存完整竞价快照；原始观察、最终快照和最新版策略回放互不覆盖。"""
+    if phase not in {"indicative", "final", "replay"}:
+        raise ValueError("竞价快照阶段必须是 indicative、final 或 replay")
     day_key = str(payload.get("selected_date") or _snapshot_date(payload))
     snapshot = json.loads(json.dumps(payload, ensure_ascii=False))
     snapshot.update({
         "selected_date": day_key,
-        "auction_phase": phase,
-        "snapshot_kind": "actual_final" if phase == "final" else "actual_indicative",
-        "snapshot_label": "09:25当日最终快照" if phase == "final" else "09:20不可撤单观察快照",
+        "auction_phase": "historical" if phase == "replay" else phase,
+        "snapshot_kind": "latest_strategy_replay" if phase == "replay" else "actual_final" if phase == "final" else "actual_indicative",
+        "snapshot_label": "最新版策略历史回放" if phase == "replay" else "09:25当日最终快照" if phase == "final" else "09:20不可撤单观察快照",
         "frozen": phase == "final",
     })
     with _LOCK:
@@ -86,6 +86,79 @@ def load_board_plan_snapshot(day_key: str, phase: str = "final") -> dict | None:
     with _LOCK:
         snapshot = (_load_board_plans().get("days", {}).get(day_key) or {}).get(phase)
     return json.loads(json.dumps(snapshot, ensure_ascii=False)) if snapshot else None
+
+
+def load_recorded_board_plan(day_key: str) -> dict | None:
+    """将早期保存的09:25精简候选还原为可展示页面。
+
+    精简存档优先于09:31历史代理回放；未存储的字段保持未知，不补造数据。
+    """
+    with _LOCK:
+        database = _load()
+        source = (((database.get("days") or {}).get(day_key) or {}).get("sources") or {}).get("board")
+    if not source or not source.get("candidates"):
+        return None
+    candidates = []
+    for stored in source["candidates"]:
+        gap = _number(stored.get("auction_gap_percent"))
+        tradable = gap < 9.5
+        candidates.append({
+            **stored,
+            "category": stored.get("industry") or "未分类",
+            "auction_price": _number(stored.get("reference_price")),
+            "action": stored.get("decision") or stored.get("signal") or "当日观察",
+            "actionable": bool(stored.get("qualified")),
+            "tradable": tradable,
+            "tradability_label": (
+                "当日09:25快照显示可等待开盘确认" if tradable
+                else "一字板/近涨停 · 可挂单打板，但可能排不到"
+            ),
+            "checks": [],
+            "snapshot_source": "当日09:25精简存档",
+        })
+    market = dict(source.get("market") or {})
+    market.setdefault("score", 0)
+    market.setdefault("state", "历史快照")
+    market.setdefault("source", "当日09:25原始精简存档")
+    return {
+        "selected_date": day_key,
+        "historical": True,
+        "auction_phase": "historical",
+        "stage": f"历史快照 · {day_key}",
+        "market": market,
+        "candidates": candidates,
+        "actionable_count": sum(item["actionable"] for item in candidates),
+        "screening": {
+            "scanned": market.get("scanned", 0),
+            "prefiltered": market.get("prefiltered", 0),
+            "deep_scanned": market.get("deep_scanned", 0),
+            "qualified_count": market.get("qualified_count", len(candidates)),
+            "continuation_primary_count": sum(item.get("priority_tier") == "连板优先" for item in candidates),
+            "one_to_two_count": sum(item.get("priority_tier") == "一进二观察" for item in candidates),
+            "first_board_watch_count": sum(item.get("priority_tier") == "首板观察" for item in candidates),
+            "source": "当日09:25原始精简存档",
+            "method": source.get("method") or "",
+            "snapshot_time": source.get("captured_at"),
+        },
+        "position_plan": {
+            "max_positions": 0, "per_position": 0, "max_new_exposure": 0,
+            "cash_reserve": 100_000,
+            "rule": "历史精简快照只还原当时候选，不重新生成仓位。",
+        },
+        "strategy_profile": {
+            "name": f"当日规则 {source.get('rule_version') or database.get('rule_version') or '--'}",
+            "core_rule": source.get("method") or "以当日存档为准",
+            "first_board_rule": "未留存字段显示为--，不用最新规则倒推。",
+            "relay_rule": "候选名单与竞价价量来自当日冻结记录。",
+            "reversal_rule": "如需最新规则对比，使用历史回放模式。",
+            "risk_rule": "历史快照不构成当前交易信号。",
+        },
+        "generated_at": source.get("captured_at") or f"{day_key}T09:25:00+08:00",
+        "snapshot_kind": "recorded_compact_final",
+        "snapshot_label": "当日09:25原始候选快照（精简存档）",
+        "frozen": True,
+        "disclaimer": "本页优先还原当日09:25候选；早期精简存档未保留的字段不做推测。仅用于策略复盘。",
+    }
 
 
 def _snapshot_date(payload: dict) -> str:

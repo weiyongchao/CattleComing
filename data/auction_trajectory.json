@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "days": {
+    "2026-08-24": {
+      "stocks": {
+        "002412": [
+          {
+            "code": "002412",
+            "name": "汉森制药",
+            "captured_at": "2026-08-24T14:39:34+08:00",
+            "phase": "final",
+            "price": 10.9,
+            "gap_percent": 6.97,
+            "volume": 131608.0,
+            "amount": 143452720.0,
+            "order_imbalance": null,
+            "bid_volume5": 0.0,
+            "ask_volume5": 0.0
+          }
+        ],
+        "603958": [
+          {
+            "code": "603958",
+            "name": "哈森股份",
+            "captured_at": "2026-08-24T14:39:34+08:00",
+            "phase": "final",
+            "price": 21.51,
+            "gap_percent": 4.67,
+            "volume": 16936.0,
+            "amount": 36429336.0,
+            "order_imbalance": null,
+            "bid_volume5": 0.0,
+            "ask_volume5": 0.0
+          }
+        ],
+        "600613": [
+          {
+            "code": "600613",
+            "name": "神奇制药",
+            "captured_at": "2026-08-24T14:39:34+08:00",
+            "phase": "final",
+            "price": 9.32,
+            "gap_percent": 3.56,
+            "volume": 45272.0,
+            "amount": 42193504.0,
+            "order_imbalance": null,
+            "bid_volume5": 0.0,
+            "ask_volume5": 0.0
+          }
+        ],
+        "000931": [
+          {
+            "code": "000931",
+            "name": "中 关 村",
+            "captured_at": "2026-08-24T14:39:34+08:00",
+            "phase": "final",
+            "price": 5.6,
+            "gap_percent": 10.02,
+            "volume": 63148.0,
+            "amount": 35363059.0,
+            "order_imbalance": null,
+            "bid_volume5": 0.0,
+            "ask_volume5": 0.0
+          }
+        ]
+      }
+    }
+  }
+}

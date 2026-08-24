@@ -9,16 +9,17 @@ from urllib.parse import parse_qs, urlparse
 
 from .evaluator import evaluate
 from .market import EastmoneyProvider, MarketDataError
-from .screener import is_main_board, screen_leaders, sector_context
+from .screener import is_main_board, sector_context
+from .daily_recommend import screen_daily_recommendations
 from .funds import individual_fund_flow, sector_fund_leaders
 from .auction import screen_auction_candidates
 from .auction_trajectory import attach_trajectory, capture_watchlist, record_payload_sample
 from .peers import stock_sector_peers
-from .board_plan import _auction_phase, build_board_plan
+from .board_plan import BOARD_STRATEGY_VERSION, _auction_phase, build_board_plan
 from .intraday import build_intraday_plan
 from .simple_plan import build_simple_plan
 from .history import (
-    list_history, load_board_plan_snapshot, record_candidates, review_day,
+    list_history, load_board_plan_snapshot, load_recorded_board_plan, record_candidates, review_day,
     save_board_plan_snapshot,
 )
 from .open_guard import build_open_guard
@@ -170,10 +171,10 @@ class AppHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/screen":
             import time
             cached = type(self).screen_cache
-            if cached and time.time() - cached[0] < 60:
+            if cached and time.time() - cached[0] < 20:
                 _record_safely("main_board", cached[1])
                 return self._json(200, cached[1])
-            payload = screen_leaders(per_group=3)
+            payload = screen_daily_recommendations(limit=5)
             type(self).screen_cache = (time.time(), payload)
             _record_safely("main_board", payload)
             return self._json(200, payload)
@@ -197,21 +198,28 @@ class AppHandler(SimpleHTTPRequestHandler):
                     return self._json(400, {"error": "日期格式必须为 YYYY-MM-DD"})
                 if target_date > date.today():
                     return self._json(400, {"error": "不能回放未来日期"})
+                if target_date < date.today() and not replay:
+                    latest_replay = load_board_plan_snapshot(selected, "replay")
+                    if latest_replay and latest_replay.get("strategy_version") == BOARD_STRATEGY_VERSION:
+                        return self._json(200, latest_replay)
                 stored_final = None if replay else load_board_plan_snapshot(selected, "final")
-                if stored_final:
+                if stored_final and target_date < date.today():
                     return self._json(200, stored_final)
-                try:
-                    recent_dates = [
-                        bar.trade_date.isoformat() for bar in self.provider.history("600519", limit=12)
-                        if bar.trade_date <= date.today()
-                    ][-5:]
-                except MarketDataError as exc:
-                    return self._json(502, {"error": str(exc)})
-                if selected not in recent_dates:
-                    return self._json(400, {"error": "仅支持最近5个交易日"})
                 if target_date < date.today():
-                    cached_history = type(self).historical_board_cache.get(selected)
-                    if cached_history:
+                    recorded = None if replay else load_recorded_board_plan(selected)
+                    if recorded:
+                        return self._json(200, recorded)
+                    try:
+                        recent_dates = [
+                            bar.trade_date.isoformat() for bar in self.provider.history("600519", limit=12)
+                            if bar.trade_date < date.today()
+                        ][-5:]
+                    except MarketDataError as exc:
+                        return self._json(502, {"error": str(exc)})
+                    if selected not in recent_dates:
+                        return self._json(400, {"error": "仅支持最近5个交易日"})
+                    cached_history = None if replay else type(self).historical_board_cache.get(selected)
+                    if cached_history and cached_history.get("strategy_version") == BOARD_STRATEGY_VERSION:
                         return self._json(200, cached_history)
                     try:
                         payload = build_board_plan(capital=100_000, target_date=target_date)
@@ -223,14 +231,46 @@ class AppHandler(SimpleHTTPRequestHandler):
                         "frozen": False,
                     })
                     type(self).historical_board_cache[selected] = payload
+                    try:
+                        save_board_plan_snapshot(payload, "replay")
+                    except OSError:
+                        pass
                     return self._json(200, payload)
             now = datetime.now()
             current_phase = _auction_phase(now)
             # 09:25后的首次最终结果立即冻结；之后只更新开盘确认，不再改变候选名单。
             if not replay and current_phase == "final":
                 frozen = load_board_plan_snapshot(date.today().isoformat(), "final")
-                if frozen:
+                if frozen and frozen.get("strategy_version") == BOARD_STRATEGY_VERSION:
                     return self._json(200, frozen)
+                if frozen:
+                    latest_replay = load_board_plan_snapshot(date.today().isoformat(), "replay")
+                    if latest_replay and latest_replay.get("strategy_version") == BOARD_STRATEGY_VERSION:
+                        return self._json(200, latest_replay)
+                    cached = type(self).board_plan_cache
+                    if (
+                        cached and time.time() - cached[0] < 60
+                        and cached[1].get("strategy_version") == BOARD_STRATEGY_VERSION
+                        and cached[1].get("snapshot_kind") == "latest_strategy_recheck"
+                    ):
+                        return self._json(200, cached[1])
+                    try:
+                        payload = build_board_plan(capital=100_000)
+                    except (MarketDataError, ValueError) as exc:
+                        return self._json(502, {"error": str(exc)})
+                    payload.update({
+                        "snapshot_kind": "latest_strategy_recheck",
+                        "snapshot_label": "当日09:25数据 · 最新规则复核",
+                        "frozen": False,
+                        "original_snapshot_generated_at": frozen.get("generated_at"),
+                        "original_snapshot_candidate_count": len(frozen.get("candidates") or []),
+                    })
+                    type(self).board_plan_cache = (time.time(), payload)
+                    try:
+                        save_board_plan_snapshot(payload, "replay")
+                    except OSError:
+                        pass
+                    return self._json(200, payload)
             cached = type(self).board_plan_cache
             if cached and time.time() - cached[0] < 15 and cached[1].get("auction_phase") == current_phase:
                 _record_safely("board", cached[1])
@@ -272,7 +312,14 @@ class AppHandler(SimpleHTTPRequestHandler):
             now = datetime.now()
             if (now.hour, now.minute) < (9, 30):
                 return self._json(409, {"error": "09:30开盘后才生成真实行情确认"})
-            snapshot = load_board_plan_snapshot(date.today().isoformat(), "final")
+            frozen_snapshot = load_board_plan_snapshot(date.today().isoformat(), "final")
+            cached_board = type(self).board_plan_cache
+            latest_board = cached_board[1] if (
+                cached_board and cached_board[1].get("selected_date") == date.today().isoformat()
+                and cached_board[1].get("strategy_version") == BOARD_STRATEGY_VERSION
+                and cached_board[1].get("candidates")
+            ) else None
+            snapshot = latest_board or frozen_snapshot
             if not snapshot:
                 return self._json(409, {"error": "今日09:25最终候选尚未冻结"})
             cached_open = type(self).board_open_cache
@@ -307,7 +354,10 @@ class AppHandler(SimpleHTTPRequestHandler):
             cached = type(self).intraday_plan_cache
             if cached and time.time() - cached[0] < 30:
                 return self._json(200, cached[1])
-            payload = build_intraday_plan(capital=100_000, limit=12)
+            try:
+                payload = build_intraday_plan(capital=100_000, limit=12)
+            except MarketDataError as exc:
+                return self._json(503, {"error": f"盘中实时行情暂不可用：{exc}"})
             type(self).intraday_plan_cache = (time.time(), payload)
             return self._json(200, payload)
         if parsed.path != "/api/evaluate":

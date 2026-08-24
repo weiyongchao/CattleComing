@@ -18,19 +18,22 @@ def regulatory_risk(bars: list[DailyBar], current_price: float) -> dict:
         "thirty_day_change": _period_change(closes, current_price, 30),
     }
     three, ten, thirty = changes.values()
-    possible_trigger = (
-        (three is not None and three >= 20)
-        or (ten is not None and ten >= 100)
+    ordinary_trigger = three is not None and three >= 20
+    serious_trigger = (
+        (ten is not None and ten >= 100)
         or (thirty is not None and thirty >= 200)
     )
+    possible_trigger = ordinary_trigger or serious_trigger
     near_threshold = (
         possible_trigger
         or (three is not None and three >= 17)
         or (ten is not None and ten >= 80)
         or (thirty is not None and thirty >= 160)
     )
-    if possible_trigger:
-        level, label = "high", "可能进入异动数值区间"
+    if serious_trigger:
+        level, label = "high", "接近严重异常波动数值区间"
+    elif ordinary_trigger:
+        level, label = "watch", "可能触发普通异常波动公告"
     elif near_threshold:
         level, label = "watch", "接近异动监管公开阈值"
     else:
@@ -43,9 +46,11 @@ def regulatory_risk(bars: list[DailyBar], current_price: float) -> dict:
         **changes,
         "level": level,
         "label": label,
+        "ordinary_trigger": ordinary_trigger,
+        "serious_trigger": serious_trigger,
         "possible_trigger": possible_trigger,
         "near_threshold": near_threshold,
         "summary": "、".join(parts) or "历史数据不足",
-        "basis": "主板公开参考：3日涨跌幅偏离值累计20%；严重异常参考10日100%、30日200%。",
+        "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
         "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。",
     }

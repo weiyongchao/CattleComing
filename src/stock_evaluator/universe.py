@@ -4,6 +4,7 @@ import json
 import math
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import date, timedelta
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -14,6 +15,7 @@ from .screener import is_main_board, is_risk_stock_name
 HEADERS = {"User-Agent": "Mozilla/5.0", "Referer": "https://quote.eastmoney.com/"}
 FIELDS = "f12,f14,f2,f3,f5,f6,f8,f10,f15,f16,f17,f18,f20,f21,f26,f62,f100,f124,f184"
 _CACHE: dict[bool, tuple[float, list[dict]]] = {}
+_LIMIT_UP_CACHE: dict[str, tuple[float, list[dict]]] = {}
 
 
 def _number(value: object) -> float:
@@ -71,3 +73,42 @@ def main_board_snapshots(cache_seconds: int = 20, require_price: bool = True) ->
         raise MarketDataError(f"全主板股票池清洗后数量异常（{mode}）：{len(result)}")
     _CACHE[require_price] = (time.time(), result)
     return result
+
+
+def previous_limit_up_pool(as_of: date | None = None, cache_seconds: int = 21_600) -> list[dict]:
+    """读取最近一个交易日的完整涨停池，作为竞价强势股必扫清单。"""
+    as_of = as_of or date.today()
+    cache_key = as_of.isoformat()
+    cached = _LIMIT_UP_CACHE.get(cache_key)
+    if cached and time.time() - cached[0] < cache_seconds:
+        return cached[1]
+    last_error: Exception | None = None
+    for days_back in range(1, 11):
+        trade_date = as_of - timedelta(days=days_back)
+        if trade_date.weekday() >= 5:
+            continue
+        params = {
+            "ut": "7eea3edcaed734bea9cbfc24409ed989", "dpt": "wz.ztzt",
+            "Pageindex": 0, "pagesize": 1000, "sort": "fbt:asc",
+            "date": trade_date.strftime("%Y%m%d"),
+        }
+        request = Request(
+            "https://push2ex.eastmoney.com/getTopicZTPool?" + urlencode(params), headers=HEADERS
+        )
+        try:
+            with urlopen(request, timeout=15) as response:
+                payload = json.load(response)
+            pool = (payload.get("data") or {}).get("pool") or []
+            cleaned = [
+                item for item in pool
+                if is_main_board(str(item.get("c") or ""))
+                and not is_risk_stock_name(str(item.get("n") or ""))
+            ]
+            if cleaned:
+                for item in cleaned:
+                    item["trade_date"] = trade_date.isoformat()
+                _LIMIT_UP_CACHE[cache_key] = (time.time(), cleaned)
+                return cleaned
+        except Exception as exc:
+            last_error = exc
+    raise MarketDataError(f"昨日涨停池连接失败：{last_error or '最近交易日暂无数据'}")

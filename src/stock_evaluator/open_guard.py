@@ -23,6 +23,16 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
     price_vs_auction = (price / auction_price - 1) * 100 if auction_price else None
     auction_amount = _number(candidate.get("auction_amount"))
     current_amount = _number(quote.get("amount"))
+    previous_close = _number(quote.get("previous_close"))
+    if previous_close <= 0 and price > 0 and _number(quote.get("change_percent")) > -99:
+        previous_close = price / (1 + _number(quote.get("change_percent")) / 100)
+    limit_up_price = round(previous_close * 1.1 + 1e-8, 2) if previous_close > 0 else 0
+    high_price = _number(quote.get("high_price"), price)
+    touched_limit_up = bool(limit_up_price and high_price >= limit_up_price - 0.005)
+    sealed = bool(limit_up_price and price >= limit_up_price - 0.005 and quote["change_percent"] >= 9.5)
+    failed_board = touched_limit_up and not sealed
+    auction_tradable = candidate.get("tradable", True)
+    nuclear_mode = candidate.get("strategy_mode") == "反核按钮竞价抄底"
     fund_current = bool(funds and funds.get("is_today") and str(funds.get("date")) == date.today().isoformat())
     main_ratio = _number(funds.get("main_ratio")) if fund_current and funds else None
     checks = [
@@ -46,7 +56,14 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
     passed = sum(check["passed"] is True for check in checks)
     known = sum(check["passed"] is not None for check in checks)
     base = _number(candidate.get("continuation_score"), _number(candidate.get("selection_score"), _number(candidate.get("score"))))
-    score = min(100, round(base * 0.35 + passed * 9 + (5 if book["imbalance"] >= 0.15 else 0)))
+    score = round(base * 0.35 + passed * 9 + (5 if book["imbalance"] >= 0.15 else 0))
+    if sealed:
+        score += 18
+    elif failed_board:
+        score -= 28
+    if price_vs_auction is not None:
+        score += round(max(-12, min(12, price_vs_auction * 2)))
+    score = max(0, min(100, score))
     hard_reject = (
         quote["change_percent"] < 0
         or metrics["price_vs_open_percent"] < -2
@@ -55,10 +72,35 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
         or (main_ratio is not None and main_ratio <= -5)
         or result["regulatory_risk"]["level"] == "high"
     )
-    sealed_or_unbuyable = quote["change_percent"] >= 9.5
-    if sealed_or_unbuyable:
-        decision, tone = "涨停排队 · 不追无法成交", "watch"
-        summary = "走势很强，但需要先确认是否存在真实可成交量；不要把一字板排队等同于已买入。"
+    nuclear_reject = nuclear_mode and (
+        quote["change_percent"] < 3
+        or metrics["price_vs_open_percent"] < -2
+        or (price_vs_auction is not None and price_vs_auction < -2)
+        or book["imbalance"] <= -0.25
+        or (main_ratio is not None and main_ratio <= -4)
+        or result["regulatory_risk"]["level"] == "high"
+    )
+    if sealed and auction_tradable:
+        decision, tone = "封板确认 · 已持有可观察", "confirm"
+        summary = "盘中已经封住涨停，实际走势确认竞价逻辑；未持仓不追高，仍需防后续炸板。"
+    elif sealed:
+        decision, tone = "一字封板 · 排队难成交", "watch"
+        summary = "走势很强但竞价阶段已接近一字，真实可成交性较低；不要把排队等同于已经买入。"
+    elif failed_board and quote["change_percent"] >= 8.5 and book["imbalance"] >= 0.15:
+        decision, tone = "炸板回封观察 · 暂不追", "watch"
+        summary = "盘中已经炸板，但价格仍接近涨停且买盘占优；只有重新封板后才恢复确认。"
+    elif failed_board:
+        decision, tone = "炸板转弱 · 放弃追入", "reject"
+        summary = "盘中触及涨停后未能封住，封板稳定性已经破坏09:25接力预期。"
+    elif nuclear_reject:
+        decision, tone = "反核承接失败 · 放弃追入", "reject"
+        summary = "高开后的价格回落、盘口卖压或资金流已经破坏反核按钮条件，不能仅因公式曾命中而继续追入。"
+    elif nuclear_mode and score >= 65 and passed >= 5 and (price_vs_auction is None or price_vs_auction >= 0):
+        decision, tone = "反核承接确认 · 小仓观察", "confirm"
+        summary = "9:25五项条件命中后，盘中价格未跌破竞价支撑且承接尚可；仍需人工确认市场冰点和题材辨识度。"
+    elif nuclear_mode:
+        decision, tone = "反核按钮观察 · 暂不追价", "watch"
+        summary = "公式条件曾命中，但盘中主动买盘和承接确认不足，等待强势拉升或封板，不提前追高。"
     elif hard_reject or score < 55 or passed < 4:
         decision, tone = "放弃买入", "reject"
         summary = "开盘后的价格、承接、盘口或资金至少一项明显破坏09:25逻辑。"
@@ -71,7 +113,10 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
     return {
         "code": candidate.get("code"), "name": candidate.get("name"),
         "priority_tier": candidate.get("priority_tier"),
+        "strategy_mode": candidate.get("strategy_mode"),
         "board_stage_label": candidate.get("board_stage_label"),
+        "auction_action": candidate.get("action"),
+        "auction_rank": int(_number(candidate.get("_auction_rank"), 0)),
         "decision": decision, "tone": tone, "open_score": score,
         "passed": passed, "known_total": known, "checks": checks, "summary": summary,
         "price": price, "open_price": quote["open_price"], "auction_price": auction_price or None,
@@ -79,6 +124,8 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
         "price_vs_open_percent": metrics["price_vs_open_percent"],
         "price_vs_auction_percent": round(price_vs_auction, 2) if price_vs_auction is not None else None,
         "volume_ratio": metrics["volume_ratio"], "turnover_rate": metrics["turnover_rate"],
+        "limit_up_price": limit_up_price or None, "touched_limit_up": touched_limit_up,
+        "sealed": sealed, "failed_board": failed_board,
         "amount": current_amount, "order_imbalance": book["imbalance"], "order_signal": book["signal"],
         "funds": {
             "available": main_ratio is not None, "main_ratio": main_ratio,
@@ -101,7 +148,10 @@ def _check_one(candidate: dict, provider: EastmoneyProvider) -> dict:
 
 def build_open_guard(snapshot: dict, provider: EastmoneyProvider | None = None) -> dict:
     provider = provider or EastmoneyProvider(timeout=8)
-    candidates = snapshot.get("candidates") or []
+    candidates = [
+        {**candidate, "_auction_rank": index}
+        for index, candidate in enumerate(snapshot.get("candidates") or [], start=1)
+    ]
     rows, errors = [], []
     with ThreadPoolExecutor(max_workers=min(6, max(1, len(candidates)))) as executor:
         futures = {executor.submit(_check_one, candidate, provider): candidate for candidate in candidates}
@@ -111,8 +161,18 @@ def build_open_guard(snapshot: dict, provider: EastmoneyProvider | None = None) 
                 rows.append(future.result())
             except Exception as exc:
                 errors.append({"code": candidate.get("code"), "name": candidate.get("name"), "error": str(exc)})
-    order = {str(item.get("code")): index for index, item in enumerate(candidates)}
-    rows.sort(key=lambda item: order.get(str(item.get("code")), 999))
+    def live_rank(item: dict) -> tuple:
+        state_rank = (
+            5 if item.get("sealed") and item.get("tone") == "confirm" else
+            4 if item.get("tone") == "confirm" else
+            3 if item.get("sealed") else
+            2 if item.get("tone") == "watch" else 0
+        )
+        return state_rank, item.get("open_score", 0), item.get("change_percent", 0), -item.get("auction_rank", 999)
+    rows.sort(key=live_rank, reverse=True)
+    for index, item in enumerate(rows, start=1):
+        item["live_rank"] = index
+        item["rank_change"] = item.get("auction_rank", index) - index
     if not rows and errors:
         raise MarketDataError("冻结候选的实时行情暂不可用")
     return {
@@ -123,6 +183,6 @@ def build_open_guard(snapshot: dict, provider: EastmoneyProvider | None = None) 
         "confirmed_count": sum(item["tone"] == "confirm" for item in rows),
         "watch_count": sum(item["tone"] == "watch" for item in rows),
         "rejected_count": sum(item["tone"] == "reject" for item in rows),
-        "method": "09:25名单固定不变；09:30后只更新实时价格、成交额、五档盘口、MA5、当日资金与异动风险，判断原竞价逻辑是否仍成立。",
+        "method": "09:25原始名单固定不变；09:30后每20秒更新实时价格、封板/炸板、成交额、五档盘口、MA5与当日资金，并动态升降级和重排。",
         "disclaimer": "开盘确认只用于纪律化复核，不保证次日涨停。09:30附近波动剧烈，一字板可能无法成交，A股T+1买入后当日无法卖出。",
     }

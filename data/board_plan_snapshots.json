@@ -51,8 +51,12 @@
             "action": "异动风险观察",
             "actionable": false,
             "checks": [],
-            "reasons": ["恢复自8月20日已确认最终名单"],
-            "risks": ["原完整竞价响应未落盘，执行数据需另行核对"]
+            "reasons": [
+              "恢复自8月20日已确认最终名单"
+            ],
+            "risks": [
+              "原完整竞价响应未落盘，执行数据需另行核对"
+            ]
           },
           {
             "code": "002412",
@@ -73,8 +77,12 @@
             "price_vs_ma5_percent": 21.08,
             "recent_limit_up_count": 2,
             "checks": [],
-            "reasons": ["恢复自8月20日已确认最终名单"],
-            "risks": ["接近涨停开盘，存在无法成交风险"]
+            "reasons": [
+              "恢复自8月20日已确认最终名单"
+            ],
+            "risks": [
+              "接近涨停开盘，存在无法成交风险"
+            ]
           },
           {
             "code": "603801",
@@ -88,8 +96,12 @@
             "action": "接力B级观察",
             "actionable": false,
             "checks": [],
-            "reasons": ["恢复自8月20日已确认最终名单"],
-            "risks": ["原完整竞价响应未落盘，执行数据需另行核对"]
+            "reasons": [
+              "恢复自8月20日已确认最终名单"
+            ],
+            "risks": [
+              "原完整竞价响应未落盘，执行数据需另行核对"
+            ]
           }
         ],
         "strategy_profile": {
@@ -100,6 +112,5506 @@
           "risk_rule": "恢复名单仅用于复盘，不构成收益保证"
         },
         "disclaimer": "本页为8月20日已确认推荐名单的恢复快照。神奇制药、汉森制药、志邦家居的名称及当时留存评分已恢复；未落盘字段不做推测。仅供策略复盘，不构成投资建议。"
+      },
+      "replay": {
+        "capital": 100000,
+        "strategy_version": "2026.08.24.4",
+        "stage": "历史回放 · 2026-08-20",
+        "selected_date": "2026-08-20",
+        "historical": true,
+        "auction_phase": "historical",
+        "market": {
+          "score": 69,
+          "state": "谨慎",
+          "allow_new_positions": true,
+          "candidate_count": 1,
+          "strong_count": 1,
+          "qualified_count": 1,
+          "deep_scanned": 500,
+          "fund_confirmed_count": 0,
+          "average_score": 100.0,
+          "average_gap": 10.03,
+          "auction_amount": 420102586.8,
+          "source": "前序交易日K线 + 09:25最终竞价",
+          "advance_ratio": 1.0,
+          "average_change": 10.03,
+          "limit_up": 1,
+          "limit_down": 0,
+          "sample_size": 1
+        },
+        "candidates": [
+          {
+            "code": "600613",
+            "name": "神奇制药",
+            "industry": "化学制药",
+            "category": "化学制药",
+            "evaluation_date": "2026-08-20",
+            "score": 100,
+            "auction_base_score": 20,
+            "relay_score": 61,
+            "relay_matched": false,
+            "core_chain_matched": false,
+            "core_chain_score": 0,
+            "reversal_score": 100,
+            "reversal_matched": true,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 60,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": false,
+                "value": "昨日162.54万 / 前日72.30万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true,
+                "value": "4.20亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": true,
+                "value": "+10.03%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": true,
+                "value": "8.05%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": true,
+            "auction_grab_matched": false,
+            "strategy_mode": "龙头分歧反包",
+            "priority_tier": "龙头反包观察",
+            "eligible": true,
+            "auction_liquidity_tier": "A",
+            "auction_amount_threshold": 50000000,
+            "tradable": false,
+            "tradability_label": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板",
+            "high_exhaustion": false,
+            "shrinking_acceleration": false,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 38,
+            "risk_reasons": [
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+            ],
+            "board_stage_label": "龙头分歧反包",
+            "previous_board_count": 0,
+            "target_board_count": 1,
+            "signal": "强竞价观察",
+            "auction_time": "09:31",
+            "auction_price": 8.56,
+            "auction_data_source": "新浪目标日09:31首根一分钟线（竞价代理）",
+            "auction_gap_percent": 10.03,
+            "auction_volume": 490774,
+            "auction_amount": 420102586.8,
+            "auction_volume_percent": 79.17,
+            "auction_turnover_percent": 8.05,
+            "previous_close": 7.78,
+            "previous_open": 8.19,
+            "previous_amount": 0.0,
+            "previous_volume": 1625428,
+            "prior_volume": 723040,
+            "previous_volume_contraction_ratio": 2.248,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 6.97,
+            "price_vs_ma5_percent": 22.88,
+            "three_day_change_percent": 21.37,
+            "five_day_change_percent": 46.79,
+            "ten_day_change_percent": 57.49,
+            "previous_volume_ratio": 4.97,
+            "previous_open_gap_percent": 5.54,
+            "previous_close_position_percent": 77.91,
+            "previous_upper_shadow_ratio": 0.302,
+            "recent_limit_up_count": 4,
+            "recent_5_limit_up_count": 4,
+            "recent_10_limit_up_count": 4,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 0,
+            "previous_day_limit_up": false,
+            "snapshot_main_net": 47888491.0,
+            "snapshot_main_ratio": 5.11,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 21.42,
+              "ten_day_change": 71.2,
+              "thirty_day_change": 88.13,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+21.42%、10日累计+71.20%、30日累计+88.13%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 20.36,
+            "market_cap": 5287309117.0,
+            "float_market_cap": 4745267782.0,
+            "listing_date": "19920820",
+            "listed_sessions": 158,
+            "is_new_stock": false,
+            "snapshot_time": 1787555418,
+            "entry_confirmation": {
+              "status": "secondary",
+              "label": "等待龙头反包封板确认",
+              "requirements": [
+                "竞价强势不快速回落",
+                "主动买盘持续",
+                "首次封板不反复炸板",
+                "板块核心同步走强"
+              ],
+              "note": "龙头分歧反包属于高波动观察；竞价高开兑现或封板失败时不跟随。"
+            },
+            "reasons": [
+              "前日放量分歧但收盘仍有承接",
+              "次日竞价大幅超预期",
+              "近20日具备涨停活性",
+              "近5/10日涨停活性确认高辨识度龙头",
+              "前日分歧后仍保留承接，竞价大幅超预期",
+              "高竞价量额达到反包观察线"
+            ],
+            "risks": [
+              "前日高换手分歧，弱转强失败时回撤可能较快",
+              "近10日涨幅较大，反包后仍有兑现压力",
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动",
+              "分歧反包失败时容易形成高位兑现，仅作为高风险观察",
+              "接近涨停竞价可能难成交；可成交时需防封单松动"
+            ],
+            "theme_bucket": "医药",
+            "theme_context": {
+              "bucket": "医药",
+              "strong_peer_count": 0,
+              "score": 0,
+              "label": "题材共振不足",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 96,
+            "continuation_score": 38,
+            "checks": [
+              {
+                "name": "近5/10日涨停活性≥3/4次",
+                "passed": true
+              },
+              {
+                "name": "前日分歧后仍有承接",
+                "passed": true
+              },
+              {
+                "name": "竞价高开8.5%–10.2%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true
+              },
+              {
+                "name": "分歧转强评分≥90",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+21.42%、10日累计+71.20%、30日累计+88.13%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": null,
+                "note": "题材共振不足；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": false,
+                "note": "当前38分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": false,
+                "note": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+              }
+            ],
+            "guard_passed": 7,
+            "guard_total": 9,
+            "check_total": 11,
+            "action": "龙头反包一字观察 · 排队难成交",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 10.03,
+            "sector": {
+              "average_change": 21.37
+            }
+          }
+        ],
+        "actionable_count": 0,
+        "screening": {
+          "scanned": 3111,
+          "prefiltered": 500,
+          "deep_scanned": 500,
+          "qualified_count": 1,
+          "failed": 24,
+          "source": "全主板T-1历史K线 + 新浪目标日09:31首根一分钟线",
+          "method": "全主板逐只读取目标日前K线并初筛500只；使用历史09:31代理量计算T+1连板预期分，2进3及以上优先，量价亮眼的一进二与首板降级观察，再结合题材、大单和异动风险排序。",
+          "snapshot_time": null,
+          "relay_qualified_count": 7,
+          "core_qualified_count": 1,
+          "reversal_qualified_count": 1,
+          "first_board_qualified_count": 0,
+          "continuation_primary_count": 0,
+          "untradable_count": 4,
+          "risk_veto_count": 2,
+          "one_to_two_count": 0,
+          "first_board_watch_count": 0,
+          "leader_repair_count": 0,
+          "nuclear_button_count": 0,
+          "capacity_relay_count": 0,
+          "leader_reversal_count": 1,
+          "auction_grab_count": 0,
+          "overnight_secondary_count": 0,
+          "replay_warning": "历史逐笔接口不支持按日期回放，因此使用目标日09:31首根一分钟线的开盘价和累计量作为竞价代理；行业名称取当前分类，不参与评分。"
+        },
+        "position_plan": {
+          "max_positions": 0,
+          "per_position": 0,
+          "max_new_exposure": 0,
+          "cash_reserve": 100000,
+          "rule": "历史回放不生成可执行仓位，只用于比较规则。"
+        },
+        "strategy_profile": {
+          "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
+          "core_rule": "最近交易日完整涨停池强制深扫；昨日连续涨停≥2天、竞价涨幅与量能确认。竞价额>5000万为A级；至少2连板、接力评分≥90且前序主力确认时，3000万–5000万仅进入B级风险观察。",
+          "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；只保留流通市值低于200亿的主板股。",
+          "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
+          "first_board_rule": "一进二和首板不进入连板优先；流通市值、竞价高开、量比、竞价额和前日承接足够亮眼时进入低优先级观察，并明确标注目标板数。",
+          "nuclear_button_rule": "仅用当日09:25最终竞价：昨日成交额≥5亿且成交量低于前日、竞价额≥5000万、高开≥7%、竞价换手≥3%；市场冰点与强势股性保留人工确认，命中后仍属于高风险观察。",
+          "recognition_rule": "新增三条动态观察通道：200亿–350亿但近10日涨停活性很高的容量接力；高辨识度龙头前日分歧后竞价反包；近期有股性且竞价接近涨停、量额换手显著的抢筹首板。均不直接获得可执行仓位。",
+          "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；一进二和首板降级观察，题材孤立且资金量价不够强、极端竞价爆量、大单偏弱或大市值则剔除。"
+        },
+        "data_scope": [
+          "全部非ST沪深主板批量快照",
+          "前序80个交易日K线与昨日成交额",
+          "近5/10日涨停活性与连续涨停",
+          "T+1连板预期分",
+          "连板优先与隔日启动双层",
+          "反核按钮09:25五项硬条件",
+          "近3/5/10/30日走势",
+          "前日收盘位置与上影线",
+          "竞价量额、竞价换手、大单/五档支撑",
+          "题材板块共振",
+          "T日盘中封板/回封执行门槛",
+          "T+1开盘与收盘复盘"
+        ],
+        "generated_at": "2026-08-24T15:12:07+08:00",
+        "disclaimer": "历史结果只用于比较规则，不代表当时可成交，也不得作为当前交易信号。",
+        "snapshot_kind": "latest_strategy_replay",
+        "snapshot_label": "最新版策略历史回放",
+        "frozen": false
+      }
+    },
+    "2026-08-21": {
+      "indicative": {
+        "capital": 100000,
+        "stage": "09:20不可撤单观察 · 等待09:25确认",
+        "selected_date": "2026-08-21",
+        "historical": false,
+        "auction_phase": "indicative",
+        "market": {
+          "score": 0,
+          "state": "空仓",
+          "allow_new_positions": false,
+          "candidate_count": 0,
+          "strong_count": 0,
+          "average_score": 0,
+          "average_gap": 0,
+          "auction_amount": 0,
+          "advance_ratio": 0,
+          "average_change": 0,
+          "limit_up": 0,
+          "limit_down": 0,
+          "sample_size": 0,
+          "source": "前序交易日K线 + 09:20不可撤单阶段参考撮合"
+        },
+        "candidates": [],
+        "actionable_count": 0,
+        "screening": {
+          "scanned": 3029,
+          "prefiltered": 0,
+          "deep_scanned": 0,
+          "qualified_count": 0,
+          "failed": 0,
+          "source": "东方财富延迟全主板批量快照（主源） + 09:20不可撤单阶段参考撮合",
+          "method": "09:20进入不可撤单阶段后，扫描全部非ST沪深主板并用参考撮合价量生成观察池；09:25再以最终竞价成交复核。",
+          "snapshot_time": "2026-08-21T09:24:51+08:00",
+          "relay_qualified_count": 0,
+          "core_qualified_count": 0,
+          "reversal_qualified_count": 0,
+          "first_board_qualified_count": 0,
+          "continuation_primary_count": 0,
+          "untradable_count": 0,
+          "risk_veto_count": 0,
+          "institution_date": "2026-08-20",
+          "institution_on_list_count": 0,
+          "institution_high_risk_count": 0,
+          "one_to_two_count": 0,
+          "first_board_watch_count": 0,
+          "overnight_secondary_count": 0,
+          "replay_warning": null
+        },
+        "position_plan": {
+          "max_positions": 0,
+          "per_position": 0,
+          "max_new_exposure": 0,
+          "cash_reserve": 100000,
+          "rule": "09:20只生成不可撤单阶段观察池，不分配仓位；09:25最终竞价复核通过后，A级候选才进入仓位计划。"
+        },
+        "strategy_profile": {
+          "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
+          "core_rule": "昨日涨停且连续涨停≥2天，竞价涨幅≥1%，并满足连板≥3或竞价涨幅≥5%；竞价量/近5日均量>1%、竞价额≥1000万、流通市值<200亿、上市满60个交易日。",
+          "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；只保留流通市值低于200亿的主板股。",
+          "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
+          "first_board_rule": "一进二和首板不进入连板优先；流通市值、竞价高开、量比、竞价额和前日承接足够亮眼时进入低优先级观察，并明确标注目标板数。",
+          "risk_rule": "连板预选必须等待T日真实封板/回封；机构龙虎榜净买后高开、高换手、席位分歧与高位偏离叠加时降级或剔除。"
+        },
+        "data_scope": [
+          "全部非ST沪深主板批量快照",
+          "前序80个交易日K线",
+          "上一交易日机构龙虎榜",
+          "近5/10日涨停活性与连续涨停",
+          "T+1连板预期分",
+          "连板优先与隔日启动双层",
+          "近3/5/10/30日走势",
+          "前日收盘位置与上影线",
+          "竞价量额、大单/五档支撑",
+          "题材板块共振",
+          "T日盘中封板/回封执行门槛",
+          "T+1开盘与收盘复盘"
+        ],
+        "generated_at": "2026-08-21T09:24:51+08:00",
+        "disclaimer": "09:20后原委托不能撤销，但仍可新增委托，参考撮合价量并非最终开盘结果；本页仅生成观察池，09:25必须再次复核。本页竞价决策不使用09:30后的现价或盘口；批量主力字段以快照时间为准。仅为竞价研究决策，不保证盈利；A股T+1下存在炸板、无法成交及次日跳空风险。",
+        "snapshot_kind": "actual_indicative",
+        "snapshot_label": "09:20不可撤单观察快照",
+        "frozen": false
+      },
+      "final": {
+        "capital": 100000,
+        "stage": "09:25竞价决策已生成",
+        "selected_date": "2026-08-21",
+        "historical": false,
+        "auction_phase": "final",
+        "market": {
+          "score": 0,
+          "state": "空仓",
+          "allow_new_positions": false,
+          "candidate_count": 0,
+          "strong_count": 0,
+          "average_score": 0,
+          "average_gap": 0,
+          "auction_amount": 0,
+          "advance_ratio": 0,
+          "average_change": 0,
+          "limit_up": 0,
+          "limit_down": 0,
+          "sample_size": 0,
+          "source": "前序交易日K线 + 09:25最终竞价"
+        },
+        "candidates": [],
+        "actionable_count": 0,
+        "screening": {
+          "scanned": 3021,
+          "prefiltered": 300,
+          "deep_scanned": 300,
+          "qualified_count": 0,
+          "failed": 0,
+          "source": "东方财富延迟全主板批量快照 + 09:25最终竞价成交",
+          "method": "先扫描全部非ST沪深主板并初筛300只，计算T+1连板预期分；2进3及以上进入连板优先，量价亮眼的一进二和首板进入低优先级观察，并结合大单、题材与异动风险排序，最多6只。",
+          "snapshot_time": "2026-08-21T09:25:05+08:00",
+          "relay_qualified_count": 0,
+          "core_qualified_count": 0,
+          "reversal_qualified_count": 0,
+          "first_board_qualified_count": 0,
+          "continuation_primary_count": 0,
+          "untradable_count": 0,
+          "risk_veto_count": 0,
+          "one_to_two_count": 0,
+          "first_board_watch_count": 0,
+          "overnight_secondary_count": 0,
+          "replay_warning": null
+        },
+        "position_plan": {
+          "max_positions": 0,
+          "per_position": 0,
+          "max_new_exposure": 0,
+          "cash_reserve": 100000,
+          "rule": "只有A级候选才分配仓位；仓位由前序交易日走势、主力资金与09:25竞价质量决定，盘中变化不回写本页。"
+        },
+        "strategy_profile": {
+          "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
+          "core_rule": "昨日涨停且连续涨停≥2天，竞价涨幅≥1%，并满足连板≥3或竞价涨幅≥5%；竞价量/近5日均量>1%、竞价额≥1000万、流通市值<200亿、上市满60个交易日。",
+          "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；只保留流通市值低于200亿的主板股。",
+          "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
+          "first_board_rule": "一进二和首板不进入连板优先；流通市值、竞价高开、量比、竞价额和前日承接足够亮眼时进入低优先级观察，并明确标注目标板数。",
+          "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；一进二和首板降级观察，题材孤立且资金量价不够强、极端竞价爆量、大单偏弱或大市值则剔除。"
+        },
+        "data_scope": [
+          "全部非ST沪深主板批量快照",
+          "前序80个交易日K线",
+          "近5/10日涨停活性与连续涨停",
+          "T+1连板预期分",
+          "连板优先与隔日启动双层",
+          "近3/5/10/30日走势",
+          "前日收盘位置与上影线",
+          "竞价量额、大单/五档支撑",
+          "题材板块共振",
+          "T日盘中封板/回封执行门槛",
+          "T+1开盘与收盘复盘"
+        ],
+        "generated_at": "2026-08-21T09:25:26+08:00",
+        "disclaimer": "本页竞价决策不使用09:30后的现价或盘口；批量主力字段以快照时间为准。仅为竞价研究决策，不保证盈利；A股T+1下存在炸板、无法成交及次日跳空风险。",
+        "snapshot_kind": "actual_final",
+        "snapshot_label": "09:25当日最终快照",
+        "frozen": true
+      },
+      "replay": {
+        "capital": 100000,
+        "strategy_version": "2026.08.24.4",
+        "stage": "历史回放 · 2026-08-21",
+        "selected_date": "2026-08-21",
+        "historical": true,
+        "auction_phase": "historical",
+        "market": {
+          "score": 69,
+          "state": "谨慎",
+          "allow_new_positions": true,
+          "candidate_count": 3,
+          "strong_count": 3,
+          "qualified_count": 4,
+          "deep_scanned": 500,
+          "fund_confirmed_count": 0,
+          "average_score": 92.0,
+          "average_gap": 1.93,
+          "auction_amount": 442859817.04,
+          "source": "前序交易日K线 + 09:25最终竞价",
+          "advance_ratio": 1.0,
+          "average_change": 1.93,
+          "limit_up": 3,
+          "limit_down": 0,
+          "sample_size": 3
+        },
+        "candidates": [
+          {
+            "code": "603801",
+            "name": "志邦家居",
+            "industry": "家居用品",
+            "category": "家居用品",
+            "evaluation_date": "2026-08-21",
+            "score": 96,
+            "auction_base_score": 55,
+            "relay_score": 96,
+            "relay_matched": true,
+            "core_chain_matched": true,
+            "core_chain_score": 96,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 65,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": false,
+                "value": "昨日20.66万 / 前日13.56万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true,
+                "value": "0.99亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": false,
+                "value": "+5.81%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": true,
+                "value": "3.10%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "连板核心（历史代理）",
+            "priority_tier": "连板优先",
+            "eligible": true,
+            "auction_liquidity_tier": "A",
+            "auction_amount_threshold": 50000000,
+            "tradable": true,
+            "tradability_label": "可等待开盘确认",
+            "high_exhaustion": false,
+            "shrinking_acceleration": false,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 18,
+            "risk_reasons": [],
+            "board_stage_label": "2进3 · 目标3连板",
+            "previous_board_count": 2,
+            "target_board_count": 3,
+            "signal": "强竞价观察",
+            "auction_time": "09:31",
+            "auction_price": 7.65,
+            "auction_data_source": "新浪目标日09:31首根一分钟线（竞价代理）",
+            "auction_gap_percent": 5.81,
+            "auction_volume": 129234,
+            "auction_amount": 98864683.2,
+            "auction_volume_percent": 136.91,
+            "auction_turnover_percent": 3.1,
+            "previous_close": 7.23,
+            "previous_open": 6.86,
+            "previous_amount": 0.0,
+            "previous_volume": 206581,
+            "prior_volume": 135625,
+            "previous_volume_contraction_ratio": 1.523,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 6.32,
+            "price_vs_ma5_percent": 21.04,
+            "three_day_change_percent": 22.54,
+            "five_day_change_percent": 22.13,
+            "ten_day_change_percent": 22.34,
+            "previous_volume_ratio": 3.11,
+            "previous_open_gap_percent": 4.41,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0.0,
+            "recent_limit_up_count": 3,
+            "recent_5_limit_up_count": 2,
+            "recent_10_limit_up_count": 2,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 2,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": 10517824.0,
+            "snapshot_main_ratio": 2.61,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 28.14,
+              "ten_day_change": 32.58,
+              "thirty_day_change": 39.09,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+28.14%、10日累计+32.58%、30日累计+39.09%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 13.31,
+            "market_cap": 3018742807.0,
+            "float_market_cap": 3018742807.0,
+            "listing_date": "20170630",
+            "listed_sessions": 159,
+            "is_new_stock": false,
+            "snapshot_time": 1787555428,
+            "entry_confirmation": {
+              "status": "pending",
+              "label": "等待T日盘中封板确认",
+              "requirements": [
+                "实际触及涨停价",
+                "封单与主动买盘不弱",
+                "炸板后快速回封",
+                "板块核心未同步转弱"
+              ],
+              "note": "09:25仅生成次日连板预选，未完成封板确认前不得视为打板信号。"
+            },
+            "reasons": [
+              "截至昨日连续2个涨停",
+              "竞价涨幅与连板高度共同确认",
+              "竞价量额达到核心门槛",
+              "流通市值低于200亿且非新股",
+              "近20日涨停活性很强",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价量达到强接力级别",
+              "竞价成交额超过5000万",
+              "竞价缺口适合强势接力观察",
+              "处于连板加速而非弱势启动"
+            ],
+            "risks": [
+              "竞价量异常大，需防高位集中兑现"
+            ],
+            "theme_bucket": "家居用品",
+            "theme_context": {
+              "bucket": "家居用品",
+              "strong_peer_count": 0,
+              "score": 0,
+              "label": "题材共振不足",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 92,
+            "continuation_score": 52,
+            "checks": [
+              {
+                "name": "昨日涨停",
+                "passed": true
+              },
+              {
+                "name": "连续涨停≥2天",
+                "passed": true
+              },
+              {
+                "name": "竞价涨幅≥1%",
+                "passed": true
+              },
+              {
+                "name": "连板≥3或竞价涨幅≥5%",
+                "passed": true
+              },
+              {
+                "name": "历史首分钟量≥45%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额>5000万",
+                "passed": true,
+                "note": "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留"
+              },
+              {
+                "name": "流通市值<200亿",
+                "passed": true
+              },
+              {
+                "name": "上市满60个交易日",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+28.14%、10日累计+32.58%、30日累计+39.09%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": null,
+                "note": "题材共振不足；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": false,
+                "note": "当前52分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": true,
+                "note": "可等待开盘确认"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "未触发高位透支"
+              }
+            ],
+            "guard_passed": 11,
+            "guard_total": 12,
+            "check_total": 14,
+            "action": "连板核心B级预选",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 5.81,
+            "sector": {
+              "average_change": 22.54
+            }
+          },
+          {
+            "code": "600613",
+            "name": "神奇制药",
+            "industry": "化学制药",
+            "category": "化学制药",
+            "evaluation_date": "2026-08-21",
+            "score": 86,
+            "auction_base_score": 45,
+            "relay_score": 79,
+            "relay_matched": false,
+            "core_chain_matched": false,
+            "core_chain_score": 0,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 58,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": true,
+                "value": "昨日60.16万 / 前日162.54万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true,
+                "value": "1.88亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": false,
+                "value": "-10.05%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": true,
+                "value": "4.40%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "跌停竞价反核",
+            "priority_tier": "跌停反核观察",
+            "eligible": true,
+            "auction_liquidity_tier": "A",
+            "auction_amount_threshold": 50000000,
+            "tradable": true,
+            "tradability_label": "跌停竞价 · 等待打开跌停并确认主动买盘，否则不跟随",
+            "high_exhaustion": false,
+            "shrinking_acceleration": false,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": true,
+            "t1_downside_risk_score": 35,
+            "risk_reasons": [
+              "跌停附近竞价，只可作为反核观察；开盘承接失败可能继续封跌停"
+            ],
+            "board_stage_label": "1进2 · 目标2连板",
+            "previous_board_count": 1,
+            "target_board_count": 2,
+            "signal": "强竞价观察",
+            "auction_time": "09:31",
+            "auction_price": 7.7,
+            "auction_data_source": "新浪目标日09:31首根一分钟线（竞价代理）",
+            "auction_gap_percent": -10.05,
+            "auction_volume": 244047,
+            "auction_amount": 187916575.0,
+            "auction_volume_percent": 35.19,
+            "auction_turnover_percent": 4.4,
+            "previous_close": 8.56,
+            "previous_open": 8.56,
+            "previous_amount": 0.0,
+            "previous_volume": 601592,
+            "prior_volume": 1625428,
+            "previous_volume_contraction_ratio": 0.37,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 7.51,
+            "price_vs_ma5_percent": 2.5,
+            "three_day_change_percent": 21.42,
+            "five_day_change_percent": 46.83,
+            "ten_day_change_percent": 71.2,
+            "previous_volume_ratio": 0.97,
+            "previous_open_gap_percent": 10.03,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0.0,
+            "recent_limit_up_count": 5,
+            "recent_5_limit_up_count": 4,
+            "recent_10_limit_up_count": 5,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 1,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": 47888491.0,
+            "snapshot_main_ratio": 5.11,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": -0.77,
+              "ten_day_change": 51.28,
+              "thirty_day_change": 62.79,
+              "level": "normal",
+              "label": "未接近公开数值阈值",
+              "ordinary_trigger": false,
+              "serious_trigger": false,
+              "possible_trigger": false,
+              "near_threshold": false,
+              "summary": "3日累计-0.77%、10日累计+51.28%、30日累计+62.79%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 20.36,
+            "market_cap": 5287309117.0,
+            "float_market_cap": 4745267782.0,
+            "listing_date": "19920820",
+            "listed_sessions": 159,
+            "is_new_stock": false,
+            "snapshot_time": 1787555418,
+            "entry_confirmation": {
+              "status": "secondary",
+              "label": "等待打开跌停并确认承接",
+              "requirements": [
+                "快速打开跌停",
+                "主动买盘持续放大",
+                "价格快速拉离跌停价",
+                "板块核心同步走强"
+              ],
+              "note": "跌停竞价只是反核观察池；09:30后未打开跌停或买盘不连续时不跟随。"
+            },
+            "reasons": [
+              "竞价量显著放大",
+              "竞价成交额充足",
+              "竞价价位站上MA5",
+              "昨日量能健康",
+              "前日收盘靠近区间高位",
+              "近20日存在涨停活性",
+              "前日上影压力较小",
+              "前日仍保留涨停连续性",
+              "近5日涨停活性强",
+              "跌停竞价成交额与量能达到反核观察门槛"
+            ],
+            "risks": [
+              "竞价缺口不在打板观察区间",
+              "近3日涨幅过大",
+              "近5日涨幅透支",
+              "近10日涨幅过大",
+              "前序交易日主力资金暂不可用",
+              "跌停附近竞价，只可作为反核观察；开盘承接失败可能继续封跌停",
+              "跌停竞价不代表必然反转，仅低优先级观察",
+              "09:30后必须确认打开跌停、主动买盘和回封失败风险"
+            ],
+            "theme_bucket": "医药",
+            "theme_context": {
+              "bucket": "医药",
+              "strong_peer_count": 0,
+              "score": 0,
+              "label": "题材共振不足",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 86,
+            "continuation_score": 39,
+            "checks": [
+              {
+                "name": "前日仍有涨停连续性",
+                "passed": true
+              },
+              {
+                "name": "近5日至少3次涨停",
+                "passed": true
+              },
+              {
+                "name": "竞价位于跌停附近",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额>5000万",
+                "passed": true
+              },
+              {
+                "name": "竞价量/近5日均量≥5%",
+                "passed": true
+              },
+              {
+                "name": "前日收盘承接强",
+                "passed": true
+              },
+              {
+                "name": "流通市值<200亿",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "未接近公开数值阈值 · 3日累计-0.77%、10日累计+51.28%、30日累计+62.79%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": null,
+                "note": "题材共振不足；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": false,
+                "note": "当前39分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": true,
+                "note": "跌停竞价 · 等待打开跌停并确认主动买盘，否则不跟随"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "跌停附近竞价，只可作为反核观察；开盘承接失败可能继续封跌停"
+              }
+            ],
+            "guard_passed": 10,
+            "guard_total": 11,
+            "check_total": 13,
+            "action": "跌停竞价反核观察 · 仅低优先级",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": -10.05,
+            "sector": {
+              "average_change": 21.42
+            }
+          },
+          {
+            "code": "002412",
+            "name": "汉森制药",
+            "industry": "中药Ⅱ",
+            "category": "中药Ⅱ",
+            "evaluation_date": "2026-08-21",
+            "score": 94,
+            "auction_base_score": 20,
+            "relay_score": 94,
+            "relay_matched": true,
+            "core_chain_matched": true,
+            "core_chain_score": 91,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 67,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": true,
+                "value": "昨日4.35万 / 前日31.76万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true,
+                "value": "1.56亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": true,
+                "value": "+10.04%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": false,
+                "value": "2.54%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "连板核心（历史代理）",
+            "priority_tier": "连板优先",
+            "eligible": true,
+            "auction_liquidity_tier": "A",
+            "auction_amount_threshold": 50000000,
+            "tradable": false,
+            "tradability_label": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板",
+            "high_exhaustion": false,
+            "shrinking_acceleration": true,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 63,
+            "risk_reasons": [
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动",
+              "连续板后前日缩量加速，次日一旦分歧可能缺少退出流动性"
+            ],
+            "board_stage_label": "2进3 · 目标3连板",
+            "previous_board_count": 2,
+            "target_board_count": 3,
+            "signal": "强竞价观察",
+            "auction_time": "09:31",
+            "auction_price": 10.19,
+            "auction_data_source": "新浪目标日09:31首根一分钟线（竞价代理）",
+            "auction_gap_percent": 10.04,
+            "auction_volume": 153168,
+            "auction_amount": 156078558.84,
+            "auction_volume_percent": 60.64,
+            "auction_turnover_percent": 2.54,
+            "previous_close": 9.26,
+            "previous_open": 9.26,
+            "previous_amount": 0.0,
+            "previous_volume": 43481,
+            "prior_volume": 317597,
+            "previous_volume_contraction_ratio": 0.137,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 8.03,
+            "price_vs_ma5_percent": 26.87,
+            "three_day_change_percent": 23.3,
+            "five_day_change_percent": 26.16,
+            "ten_day_change_percent": 32.29,
+            "previous_volume_ratio": 0.14,
+            "previous_open_gap_percent": 9.98,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0,
+            "recent_limit_up_count": 2,
+            "recent_5_limit_up_count": 2,
+            "recent_10_limit_up_count": 2,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 2,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": 57382786.0,
+            "snapshot_main_ratio": 14.21,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 33.2,
+              "ten_day_change": 40.17,
+              "thirty_day_change": 69.83,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+33.20%、10日累计+40.17%、30日累计+69.83%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 7.33,
+            "market_cap": 5640872000.0,
+            "float_market_cap": 5580842450.0,
+            "listing_date": "20100525",
+            "listed_sessions": 159,
+            "is_new_stock": false,
+            "snapshot_time": 1787555430,
+            "entry_confirmation": {
+              "status": "pending",
+              "label": "等待T日盘中封板确认",
+              "requirements": [
+                "实际触及涨停价",
+                "封单与主动买盘不弱",
+                "炸板后快速回封",
+                "板块核心未同步转弱"
+              ],
+              "note": "09:25仅生成次日连板预选，未完成封板确认前不得视为打板信号。"
+            },
+            "reasons": [
+              "截至昨日连续2个涨停",
+              "竞价涨幅与连板高度共同确认",
+              "竞价量额达到核心门槛",
+              "流通市值低于200亿且非新股",
+              "近20日已有两次涨停",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价量达到强接力级别",
+              "竞价成交额超过5000万",
+              "处于连板加速而非弱势启动",
+              "前日强收后竞价接近涨停，符合强势加速"
+            ],
+            "risks": [
+              "接近涨停开盘，可能无法成交或炸板",
+              "竞价量异常大，需防高位集中兑现",
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动",
+              "连续板后前日缩量加速，次日一旦分歧可能缺少退出流动性"
+            ],
+            "theme_bucket": "医药",
+            "theme_context": {
+              "bucket": "医药",
+              "strong_peer_count": 0,
+              "score": 0,
+              "label": "题材共振不足",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 90,
+            "continuation_score": 34,
+            "checks": [
+              {
+                "name": "昨日涨停",
+                "passed": true
+              },
+              {
+                "name": "连续涨停≥2天",
+                "passed": true
+              },
+              {
+                "name": "竞价涨幅≥1%",
+                "passed": true
+              },
+              {
+                "name": "连板≥3或竞价涨幅≥5%",
+                "passed": true
+              },
+              {
+                "name": "历史首分钟量≥45%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额>5000万",
+                "passed": true,
+                "note": "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留"
+              },
+              {
+                "name": "流通市值<200亿",
+                "passed": true
+              },
+              {
+                "name": "上市满60个交易日",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+33.20%、10日累计+40.17%、30日累计+69.83%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": null,
+                "note": "题材共振不足；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": false,
+                "note": "当前34分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": false,
+                "note": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动；连续板后前日缩量加速，次日一旦分歧可能缺少退出流动性"
+              }
+            ],
+            "guard_passed": 10,
+            "guard_total": 12,
+            "check_total": 14,
+            "action": "一字板打板观察 · 挂单未必成交",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 10.04,
+            "sector": {
+              "average_change": 23.3
+            }
+          }
+        ],
+        "actionable_count": 0,
+        "screening": {
+          "scanned": 3111,
+          "prefiltered": 500,
+          "deep_scanned": 500,
+          "qualified_count": 4,
+          "failed": 22,
+          "source": "全主板T-1历史K线 + 新浪目标日09:31首根一分钟线",
+          "method": "全主板逐只读取目标日前K线并初筛500只；使用历史09:31代理量计算T+1连板预期分，2进3及以上优先，量价亮眼的一进二与首板降级观察，再结合题材、大单和异动风险排序。",
+          "snapshot_time": null,
+          "relay_qualified_count": 13,
+          "core_qualified_count": 2,
+          "reversal_qualified_count": 0,
+          "first_board_qualified_count": 1,
+          "continuation_primary_count": 3,
+          "untradable_count": 4,
+          "risk_veto_count": 0,
+          "one_to_two_count": 0,
+          "first_board_watch_count": 0,
+          "leader_repair_count": 0,
+          "nuclear_button_count": 0,
+          "capacity_relay_count": 0,
+          "leader_reversal_count": 0,
+          "auction_grab_count": 0,
+          "overnight_secondary_count": 0,
+          "replay_warning": "历史逐笔接口不支持按日期回放，因此使用目标日09:31首根一分钟线的开盘价和累计量作为竞价代理；行业名称取当前分类，不参与评分。"
+        },
+        "position_plan": {
+          "max_positions": 0,
+          "per_position": 0,
+          "max_new_exposure": 0,
+          "cash_reserve": 100000,
+          "rule": "历史回放不生成可执行仓位，只用于比较规则。"
+        },
+        "strategy_profile": {
+          "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
+          "core_rule": "最近交易日完整涨停池强制深扫；昨日连续涨停≥2天、竞价涨幅与量能确认。竞价额>5000万为A级；至少2连板、接力评分≥90且前序主力确认时，3000万–5000万仅进入B级风险观察。",
+          "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；只保留流通市值低于200亿的主板股。",
+          "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
+          "first_board_rule": "一进二和首板不进入连板优先；流通市值、竞价高开、量比、竞价额和前日承接足够亮眼时进入低优先级观察，并明确标注目标板数。",
+          "nuclear_button_rule": "仅用当日09:25最终竞价：昨日成交额≥5亿且成交量低于前日、竞价额≥5000万、高开≥7%、竞价换手≥3%；市场冰点与强势股性保留人工确认，命中后仍属于高风险观察。",
+          "recognition_rule": "新增三条动态观察通道：200亿–350亿但近10日涨停活性很高的容量接力；高辨识度龙头前日分歧后竞价反包；近期有股性且竞价接近涨停、量额换手显著的抢筹首板。均不直接获得可执行仓位。",
+          "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；一进二和首板降级观察，题材孤立且资金量价不够强、极端竞价爆量、大单偏弱或大市值则剔除。"
+        },
+        "data_scope": [
+          "全部非ST沪深主板批量快照",
+          "前序80个交易日K线与昨日成交额",
+          "近5/10日涨停活性与连续涨停",
+          "T+1连板预期分",
+          "连板优先与隔日启动双层",
+          "反核按钮09:25五项硬条件",
+          "近3/5/10/30日走势",
+          "前日收盘位置与上影线",
+          "竞价量额、竞价换手、大单/五档支撑",
+          "题材板块共振",
+          "T日盘中封板/回封执行门槛",
+          "T+1开盘与收盘复盘"
+        ],
+        "generated_at": "2026-08-24T15:12:54+08:00",
+        "disclaimer": "历史结果只用于比较规则，不代表当时可成交，也不得作为当前交易信号。",
+        "snapshot_kind": "latest_strategy_replay",
+        "snapshot_label": "最新版策略历史回放",
+        "frozen": false
+      }
+    },
+    "2026-08-24": {
+      "indicative": {
+        "capital": 100000,
+        "strategy_version": "2026.08.21.3",
+        "stage": "09:20不可撤单观察 · 等待09:25确认",
+        "selected_date": "2026-08-24",
+        "historical": false,
+        "auction_phase": "indicative",
+        "market": {
+          "score": 0,
+          "state": "空仓",
+          "allow_new_positions": false,
+          "candidate_count": 0,
+          "strong_count": 0,
+          "average_score": 0,
+          "average_gap": 0,
+          "auction_amount": 0,
+          "advance_ratio": 0,
+          "average_change": 0,
+          "limit_up": 0,
+          "limit_down": 0,
+          "sample_size": 0,
+          "source": "前序交易日K线 + 09:20不可撤单阶段参考撮合"
+        },
+        "candidates": [],
+        "actionable_count": 0,
+        "screening": {
+          "scanned": 3037,
+          "prefiltered": 0,
+          "deep_scanned": 0,
+          "qualified_count": 0,
+          "failed": 0,
+          "source": "东方财富延迟全主板批量快照 + 09:20不可撤单阶段参考撮合",
+          "method": "09:20进入不可撤单阶段后，扫描全部非ST沪深主板并用参考撮合价量生成观察池；09:25再以最终竞价成交复核。",
+          "snapshot_time": "2026-08-24T09:24:45+08:00",
+          "relay_qualified_count": 0,
+          "core_qualified_count": 0,
+          "reversal_qualified_count": 0,
+          "first_board_qualified_count": 0,
+          "continuation_primary_count": 0,
+          "untradable_count": 0,
+          "risk_veto_count": 0,
+          "one_to_two_count": 0,
+          "first_board_watch_count": 0,
+          "overnight_secondary_count": 0,
+          "replay_warning": null
+        },
+        "position_plan": {
+          "max_positions": 0,
+          "per_position": 0,
+          "max_new_exposure": 0,
+          "cash_reserve": 100000,
+          "rule": "09:20只生成不可撤单阶段观察池，不分配仓位；09:25最终竞价复核通过后，A级候选才进入仓位计划。"
+        },
+        "strategy_profile": {
+          "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
+          "core_rule": "昨日涨停且连续涨停≥2天，竞价涨幅≥1%，并满足连板≥3或竞价涨幅≥5%；竞价量/近5日均量>1%、竞价额>5000万、流通市值<200亿、上市满60个交易日。",
+          "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；只保留流通市值低于200亿的主板股。",
+          "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
+          "first_board_rule": "一进二和首板不进入连板优先；流通市值、竞价高开、量比、竞价额和前日承接足够亮眼时进入低优先级观察，并明确标注目标板数。",
+          "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；一进二和首板降级观察，题材孤立且资金量价不够强、极端竞价爆量、大单偏弱或大市值则剔除。"
+        },
+        "data_scope": [
+          "全部非ST沪深主板批量快照",
+          "前序80个交易日K线",
+          "近5/10日涨停活性与连续涨停",
+          "T+1连板预期分",
+          "连板优先与隔日启动双层",
+          "近3/5/10/30日走势",
+          "前日收盘位置与上影线",
+          "竞价量额、大单/五档支撑",
+          "题材板块共振",
+          "T日盘中封板/回封执行门槛",
+          "T+1开盘与收盘复盘"
+        ],
+        "generated_at": "2026-08-24T09:24:46+08:00",
+        "disclaimer": "09:20后原委托不能撤销，但仍可新增委托，参考撮合价量并非最终开盘结果；本页仅生成观察池，09:25必须再次复核。本页竞价决策不使用09:30后的现价或盘口；批量主力字段以快照时间为准。仅为竞价研究决策，不保证盈利；A股T+1下存在炸板、无法成交及次日跳空风险。",
+        "snapshot_kind": "actual_indicative",
+        "snapshot_label": "09:20不可撤单观察快照",
+        "frozen": false
+      },
+      "final": {
+        "capital": 100000,
+        "strategy_version": "2026.08.21.3",
+        "stage": "09:25竞价决策已生成",
+        "selected_date": "2026-08-24",
+        "historical": false,
+        "auction_phase": "final",
+        "market": {
+          "score": 0,
+          "state": "空仓",
+          "allow_new_positions": false,
+          "candidate_count": 0,
+          "strong_count": 0,
+          "average_score": 0,
+          "average_gap": 0,
+          "auction_amount": 0,
+          "advance_ratio": 0,
+          "average_change": 0,
+          "limit_up": 0,
+          "limit_down": 0,
+          "sample_size": 0,
+          "source": "前序交易日K线 + 09:25最终竞价"
+        },
+        "candidates": [],
+        "actionable_count": 0,
+        "screening": {
+          "scanned": 3041,
+          "prefiltered": 301,
+          "deep_scanned": 301,
+          "qualified_count": 0,
+          "failed": 0,
+          "source": "东方财富延迟全主板批量快照 + 09:25最终竞价成交",
+          "method": "先扫描全部非ST沪深主板，普通活跃股初筛Top300，再追加所有涨停/跌停附近竞价股进入必扫池；候选竞价成交额必须大于5000万元，一字板和跌停反核靠后展示，最多6只。",
+          "snapshot_time": "2026-08-24T09:25:10+08:00",
+          "relay_qualified_count": 0,
+          "core_qualified_count": 0,
+          "reversal_qualified_count": 0,
+          "first_board_qualified_count": 0,
+          "continuation_primary_count": 0,
+          "untradable_count": 0,
+          "risk_veto_count": 0,
+          "one_to_two_count": 0,
+          "first_board_watch_count": 0,
+          "overnight_secondary_count": 0,
+          "replay_warning": null
+        },
+        "position_plan": {
+          "max_positions": 0,
+          "per_position": 0,
+          "max_new_exposure": 0,
+          "cash_reserve": 100000,
+          "rule": "只有A级候选才分配仓位；仓位由前序交易日走势、主力资金与09:25竞价质量决定，盘中变化不回写本页。"
+        },
+        "strategy_profile": {
+          "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
+          "core_rule": "昨日涨停且连续涨停≥2天，竞价涨幅≥1%，并满足连板≥3或竞价涨幅≥5%；竞价量/近5日均量>1%、竞价额>5000万、流通市值<200亿、上市满60个交易日。",
+          "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；只保留流通市值低于200亿的主板股。",
+          "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
+          "first_board_rule": "一进二和首板不进入连板优先；流通市值、竞价高开、量比、竞价额和前日承接足够亮眼时进入低优先级观察，并明确标注目标板数。",
+          "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；一进二和首板降级观察，题材孤立且资金量价不够强、极端竞价爆量、大单偏弱或大市值则剔除。"
+        },
+        "data_scope": [
+          "全部非ST沪深主板批量快照",
+          "前序80个交易日K线",
+          "近5/10日涨停活性与连续涨停",
+          "T+1连板预期分",
+          "连板优先与隔日启动双层",
+          "近3/5/10/30日走势",
+          "前日收盘位置与上影线",
+          "竞价量额、大单/五档支撑",
+          "题材板块共振",
+          "T日盘中封板/回封执行门槛",
+          "T+1开盘与收盘复盘"
+        ],
+        "generated_at": "2026-08-24T09:25:37+08:00",
+        "disclaimer": "本页竞价决策不使用09:30后的现价或盘口；批量主力字段以快照时间为准。仅为竞价研究决策，不保证盈利；A股T+1下存在炸板、无法成交及次日跳空风险。",
+        "snapshot_kind": "actual_final",
+        "snapshot_label": "09:25当日最终快照",
+        "frozen": true
+      },
+      "replay": {
+        "capital": 100000,
+        "strategy_version": "2026.08.24.4",
+        "stage": "收盘复盘（非盘中买入信号）",
+        "selected_date": "2026-08-24",
+        "historical": false,
+        "auction_phase": "historical",
+        "market": {
+          "score": 69,
+          "state": "谨慎",
+          "allow_new_positions": true,
+          "candidate_count": 4,
+          "strong_count": 4,
+          "qualified_count": 4,
+          "deep_scanned": 339,
+          "fund_confirmed_count": 0,
+          "average_score": 92.8,
+          "average_gap": 6.3,
+          "auction_amount": 257438619.0,
+          "source": "前序交易日K线 + 09:25最终竞价",
+          "advance_ratio": 1.0,
+          "average_change": 6.3,
+          "limit_up": 4,
+          "limit_down": 0,
+          "sample_size": 4
+        },
+        "candidates": [
+          {
+            "code": "002412",
+            "name": "汉森制药",
+            "industry": "中药Ⅱ",
+            "category": "中药Ⅱ",
+            "evaluation_date": "2026-08-24",
+            "score": 100,
+            "auction_base_score": 61,
+            "relay_score": 100,
+            "relay_matched": true,
+            "core_chain_matched": true,
+            "core_chain_score": 99,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 87,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": false,
+                "value": "昨日22.53万 / 前日4.35万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true,
+                "value": "1.43亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": false,
+                "value": "+6.97%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": false,
+                "value": "2.40%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "连板核心",
+            "priority_tier": "连板优先",
+            "eligible": true,
+            "auction_liquidity_tier": "A",
+            "auction_amount_threshold": 50000000,
+            "tradable": true,
+            "tradability_label": "可等待开盘确认",
+            "high_exhaustion": false,
+            "shrinking_acceleration": false,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 18,
+            "risk_reasons": [],
+            "board_stage_label": "3进4 · 目标4连板",
+            "previous_board_count": 3,
+            "target_board_count": 4,
+            "signal": "强竞价观察",
+            "auction_time": "09:25:00",
+            "auction_price": 10.9,
+            "auction_data_source": "腾讯当日09:25逐笔成交",
+            "auction_gap_percent": 6.97,
+            "auction_volume": 131608,
+            "auction_amount": 143452720.0,
+            "auction_volume_percent": 52.16,
+            "auction_turnover_percent": 2.4,
+            "previous_close": 10.19,
+            "previous_open": 10.19,
+            "previous_amount": 0.0,
+            "previous_volume": 225251,
+            "prior_volume": 43481,
+            "previous_volume_contraction_ratio": 5.18,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 8.61,
+            "price_vs_ma5_percent": 26.66,
+            "three_day_change_percent": 33.2,
+            "five_day_change_percent": 39.21,
+            "ten_day_change_percent": 40.17,
+            "previous_volume_ratio": 0.89,
+            "previous_open_gap_percent": 10.04,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0,
+            "recent_limit_up_count": 3,
+            "recent_5_limit_up_count": 3,
+            "recent_10_limit_up_count": 3,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 3,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": 57382786.0,
+            "snapshot_main_ratio": 14.21,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 29.45,
+              "ten_day_change": 49.93,
+              "thirty_day_change": 78.98,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+29.45%、10日累计+49.93%、30日累计+78.98%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 7.33,
+            "market_cap": 5640872000.0,
+            "float_market_cap": 5580842450.0,
+            "listing_date": "20100525",
+            "listed_sessions": 80,
+            "is_new_stock": false,
+            "snapshot_time": 1787555565,
+            "entry_confirmation": {
+              "status": "pending",
+              "label": "等待T日盘中封板确认",
+              "requirements": [
+                "实际触及涨停价",
+                "封单与主动买盘不弱",
+                "炸板后快速回封",
+                "板块核心未同步转弱"
+              ],
+              "note": "09:25仅生成次日连板预选，未完成封板确认前不得视为打板信号。"
+            },
+            "reasons": [
+              "截至昨日连续3个涨停",
+              "竞价涨幅与连板高度共同确认",
+              "竞价量额达到核心门槛",
+              "流通市值低于200亿且非新股",
+              "近20日涨停活性很强",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价量达到强接力级别",
+              "竞价成交额超过5000万",
+              "竞价缺口适合强势接力观察",
+              "前日量能延续而非极端爆量",
+              "处于连板加速而非弱势启动"
+            ],
+            "risks": [],
+            "theme_bucket": "医药",
+            "theme_context": {
+              "bucket": "医药",
+              "strong_peer_count": 2,
+              "score": 4,
+              "label": "题材/板块竞价共振",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 100,
+            "continuation_score": 78,
+            "checks": [
+              {
+                "name": "昨日涨停",
+                "passed": true
+              },
+              {
+                "name": "连续涨停≥2天",
+                "passed": true
+              },
+              {
+                "name": "竞价涨幅≥1%",
+                "passed": true
+              },
+              {
+                "name": "连板≥3或竞价涨幅≥5%",
+                "passed": true
+              },
+              {
+                "name": "竞价量/近5日均量>1%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额>5000万",
+                "passed": true,
+                "note": "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留"
+              },
+              {
+                "name": "流通市值<200亿",
+                "passed": true
+              },
+              {
+                "name": "上市满60个交易日",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+29.45%、10日累计+49.93%、30日累计+78.98%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": true,
+                "note": "题材/板块竞价共振；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": true,
+                "note": "当前78分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": true,
+                "note": "可等待开盘确认"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "未触发高位透支"
+              }
+            ],
+            "guard_passed": 13,
+            "guard_total": 13,
+            "check_total": 14,
+            "action": "连板核心A级预选",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 6.97,
+            "sector": {
+              "average_change": 33.2
+            }
+          },
+          {
+            "code": "603958",
+            "name": "哈森股份",
+            "industry": "服装家纺",
+            "category": "服装家纺",
+            "evaluation_date": "2026-08-24",
+            "score": 94,
+            "auction_base_score": 85,
+            "relay_score": 98,
+            "relay_matched": true,
+            "core_chain_matched": false,
+            "core_chain_score": 0,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 81,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": true,
+                "value": "昨日15.34万 / 前日16.88万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": false,
+                "value": "0.36亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": false,
+                "value": "+4.67%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": false,
+                "value": "0.70%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "连板接力",
+            "priority_tier": "连板优先",
+            "eligible": true,
+            "auction_liquidity_tier": "B",
+            "auction_amount_threshold": 30000000,
+            "tradable": true,
+            "tradability_label": "可等待开盘确认",
+            "high_exhaustion": false,
+            "shrinking_acceleration": false,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 18,
+            "risk_reasons": [],
+            "board_stage_label": "2进3 · 目标3连板",
+            "previous_board_count": 2,
+            "target_board_count": 3,
+            "signal": "强竞价观察",
+            "auction_time": "09:25:01",
+            "auction_price": 21.51,
+            "auction_data_source": "腾讯当日09:25逐笔成交",
+            "auction_gap_percent": 4.67,
+            "auction_volume": 16936,
+            "auction_amount": 36429336.0,
+            "auction_volume_percent": 12.69,
+            "auction_turnover_percent": 0.7,
+            "previous_close": 20.55,
+            "previous_open": 20.0,
+            "previous_amount": 0.0,
+            "previous_volume": 153420,
+            "prior_volume": 168792,
+            "previous_volume_contraction_ratio": 0.909,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 18.29,
+            "price_vs_ma5_percent": 17.61,
+            "three_day_change_percent": 11.32,
+            "five_day_change_percent": 34.75,
+            "ten_day_change_percent": 39.04,
+            "previous_volume_ratio": 1.34,
+            "previous_open_gap_percent": 7.07,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0.0,
+            "recent_limit_up_count": 4,
+            "recent_5_limit_up_count": 4,
+            "recent_10_limit_up_count": 4,
+            "previous_limit_up_breaks": 2,
+            "consecutive_limit_up_days": 2,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": -89917255.0,
+            "snapshot_main_ratio": -9.32,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 26.68,
+              "ten_day_change": 44.46,
+              "thirty_day_change": 45.14,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+26.68%、10日累计+44.46%、30日累计+45.14%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 19.91,
+            "market_cap": 4959729600.0,
+            "float_market_cap": 4959729600.0,
+            "listing_date": "20160629",
+            "listed_sessions": 80,
+            "is_new_stock": false,
+            "snapshot_time": 1787555571,
+            "entry_confirmation": {
+              "status": "pending",
+              "label": "等待T日盘中封板确认",
+              "requirements": [
+                "实际触及涨停价",
+                "封单与主动买盘不弱",
+                "炸板后快速回封",
+                "板块核心未同步转弱"
+              ],
+              "note": "09:25仅生成次日连板预选，未完成封板确认前不得视为打板信号。"
+            },
+            "reasons": [
+              "近20日涨停活性很强",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价量达到强接力级别",
+              "竞价缺口适合强势接力观察",
+              "前日量能延续而非极端爆量",
+              "处于连板加速而非弱势启动"
+            ],
+            "risks": [
+              "前序交易日主力资金暂不可用",
+              "竞价成交额未达5000万A级线，仅因成熟连板结构进入B级观察；前序主力不得明确走弱",
+              "竞价资金强度弱于A级核心，开盘后炸板风险较高，必须等待封单确认",
+              "前一交易日涨停过程中炸板2次，封板稳定性弱于零炸板核心"
+            ],
+            "theme_bucket": "服装家纺",
+            "theme_context": {
+              "bucket": "服装家纺",
+              "strong_peer_count": 0,
+              "score": 0,
+              "label": "题材共振不足",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 90,
+            "continuation_score": 68,
+            "checks": [
+              {
+                "name": "涨停活性足够新鲜",
+                "passed": true
+              },
+              {
+                "name": "前日收盘位于近5日高位",
+                "passed": true
+              },
+              {
+                "name": "前日上影线较短",
+                "passed": true
+              },
+              {
+                "name": "竞价量达到均量1%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额≥3000万（成熟连板B级）",
+                "passed": true,
+                "note": "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留"
+              },
+              {
+                "name": "竞价高开2%–10.2%",
+                "passed": true
+              },
+              {
+                "name": "前日量比不过度爆量",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "近10日涨幅未超过60%",
+                "passed": true
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+26.68%、10日累计+44.46%、30日累计+45.14%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": null,
+                "note": "题材共振不足；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": true,
+                "note": "当前68分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": true,
+                "note": "可等待开盘确认"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "未触发高位透支"
+              }
+            ],
+            "guard_passed": 12,
+            "guard_total": 12,
+            "check_total": 14,
+            "action": "连板接力B级预选",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 4.67,
+            "sector": {
+              "average_change": 11.32
+            }
+          },
+          {
+            "code": "600613",
+            "name": "神奇制药",
+            "industry": "化学制药",
+            "category": "化学制药",
+            "evaluation_date": "2026-08-24",
+            "score": 85,
+            "auction_base_score": 60,
+            "relay_score": 82,
+            "relay_matched": true,
+            "core_chain_matched": false,
+            "core_chain_score": 0,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 60,
+            "leader_repair_matched": true,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": false,
+                "value": "昨日176.32万 / 前日60.16万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": false,
+                "value": "0.42亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": false,
+                "value": "+3.56%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": false,
+                "value": "0.86%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "龙头断板修复",
+            "priority_tier": "龙头修复观察",
+            "eligible": true,
+            "auction_liquidity_tier": "B",
+            "auction_amount_threshold": 30000000,
+            "tradable": true,
+            "tradability_label": "可等待开盘确认",
+            "high_exhaustion": false,
+            "shrinking_acceleration": false,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 8,
+            "risk_reasons": [],
+            "board_stage_label": "龙头断板修复",
+            "previous_board_count": 0,
+            "target_board_count": 1,
+            "signal": "强竞价观察",
+            "auction_time": "09:25:02",
+            "auction_price": 9.32,
+            "auction_data_source": "腾讯当日09:25逐笔成交",
+            "auction_gap_percent": 3.56,
+            "auction_volume": 45272,
+            "auction_amount": 42193504.0,
+            "auction_volume_percent": 4.43,
+            "auction_turnover_percent": 0.86,
+            "previous_close": 9.0,
+            "previous_open": 7.7,
+            "previous_amount": 0.0,
+            "previous_volume": 1763221,
+            "prior_volume": 601592,
+            "previous_volume_contraction_ratio": 2.931,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 8.03,
+            "price_vs_ma5_percent": 16.06,
+            "three_day_change_percent": 15.98,
+            "five_day_change_percent": 40.41,
+            "ten_day_change_percent": 76.82,
+            "previous_volume_ratio": 2.54,
+            "previous_open_gap_percent": -10.05,
+            "previous_close_position_percent": 92.12,
+            "previous_upper_shadow_ratio": 0.128,
+            "recent_limit_up_count": 5,
+            "recent_5_limit_up_count": 3,
+            "recent_10_limit_up_count": 5,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 0,
+            "previous_day_limit_up": false,
+            "snapshot_main_net": 47888491.0,
+            "snapshot_main_ratio": 5.11,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 19.79,
+              "ten_day_change": 79.58,
+              "thirty_day_change": 93.76,
+              "level": "watch",
+              "label": "接近异动监管公开阈值",
+              "ordinary_trigger": false,
+              "serious_trigger": false,
+              "possible_trigger": false,
+              "near_threshold": true,
+              "summary": "3日累计+19.79%、10日累计+79.58%、30日累计+93.76%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 20.36,
+            "market_cap": 5287309117.0,
+            "float_market_cap": 4745267782.0,
+            "listing_date": "19920820",
+            "listed_sessions": 80,
+            "is_new_stock": false,
+            "snapshot_time": 1787555571,
+            "entry_confirmation": {
+              "status": "secondary",
+              "label": "等待龙头修复封板确认",
+              "requirements": [
+                "开盘主动买盘持续",
+                "快速拉离竞价支撑",
+                "首次封板不反复炸板",
+                "医药板块核心同步走强"
+              ],
+              "note": "龙头断板修复属于高波动B级观察；未快速封板或反复炸板时不跟随。"
+            },
+            "reasons": [
+              "近20日涨停活性很强",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价缺口适合强势接力观察",
+              "处于连板加速而非弱势启动",
+              "近5/10日涨停活性显示高辨识度龙头",
+              "前日放量分歧但收盘仍在区间高位",
+              "竞价温和高开且量额达到修复确认线"
+            ],
+            "risks": [
+              "近10日涨幅超过60%，接力透支",
+              "前序交易日主力资金暂不可用",
+              "断板修复不等于重新进入连板周期，失败时回撤可能较快",
+              "竞价额未达5000万A级线，必须等待开盘主动买盘和快速封板确认",
+              "竞价成交额未达5000万A级线，仅按高辨识度龙头修复进入B级观察",
+              "竞价资金强度弱于A级核心，开盘后炸板风险较高，必须等待封单确认"
+            ],
+            "theme_bucket": "医药",
+            "theme_context": {
+              "bucket": "医药",
+              "strong_peer_count": 2,
+              "score": 4,
+              "label": "题材/板块竞价共振",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 85,
+            "continuation_score": 55,
+            "checks": [
+              {
+                "name": "近5日至少3次涨停",
+                "passed": true
+              },
+              {
+                "name": "近10日至少4次涨停",
+                "passed": true
+              },
+              {
+                "name": "竞价温和高开1%–5%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额≥3000万（龙头修复B级）",
+                "passed": true,
+                "note": "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留"
+              },
+              {
+                "name": "竞价量/近5日均量≥3%",
+                "passed": true
+              },
+              {
+                "name": "前日收盘承接≥85%",
+                "passed": true
+              },
+              {
+                "name": "前日分歧量比1.5–4倍",
+                "passed": true
+              },
+              {
+                "name": "前日上影线≤35%",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "接近异动监管公开阈值 · 3日累计+19.79%、10日累计+79.58%、30日累计+93.76%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": true,
+                "note": "题材/板块竞价共振；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": true,
+                "note": "当前55分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": true,
+                "note": "可等待开盘确认"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "未触发高位透支"
+              }
+            ],
+            "guard_passed": 13,
+            "guard_total": 13,
+            "check_total": 14,
+            "action": "龙头修复B级观察",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 3.56,
+            "sector": {
+              "average_change": 15.98
+            }
+          },
+          {
+            "code": "000931",
+            "name": "中 关 村",
+            "industry": "化学制药",
+            "category": "化学制药",
+            "evaluation_date": "2026-08-24",
+            "score": 92,
+            "auction_base_score": 25,
+            "relay_score": 92,
+            "relay_matched": true,
+            "core_chain_matched": true,
+            "core_chain_score": 89,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 62,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": false,
+                "value": "昨日62.73万 / 前日11.61万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": false,
+                "value": "0.35亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": true,
+                "value": "+10.02%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": false,
+                "value": "0.76%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "连板核心",
+            "priority_tier": "连板优先",
+            "eligible": true,
+            "auction_liquidity_tier": "B",
+            "auction_amount_threshold": 30000000,
+            "tradable": false,
+            "tradability_label": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板",
+            "high_exhaustion": false,
+            "shrinking_acceleration": false,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 48,
+            "risk_reasons": [
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+            ],
+            "board_stage_label": "2进3 · 目标3连板",
+            "previous_board_count": 2,
+            "target_board_count": 3,
+            "signal": "强竞价观察",
+            "auction_time": "09:25:00",
+            "auction_price": 5.6,
+            "auction_data_source": "腾讯当日09:25逐笔成交",
+            "auction_gap_percent": 10.02,
+            "auction_volume": 63148,
+            "auction_amount": 35363059.0,
+            "auction_volume_percent": 29.21,
+            "auction_turnover_percent": 0.76,
+            "previous_close": 5.09,
+            "previous_open": 5.08,
+            "previous_amount": 0.0,
+            "previous_volume": 627285,
+            "prior_volume": 116099,
+            "previous_volume_contraction_ratio": 5.403,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 4.51,
+            "price_vs_ma5_percent": 24.11,
+            "three_day_change_percent": 18.65,
+            "five_day_change_percent": 18.37,
+            "ten_day_change_percent": 22.95,
+            "previous_volume_ratio": 4.53,
+            "previous_open_gap_percent": 9.72,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0.0,
+            "recent_limit_up_count": 2,
+            "recent_5_limit_up_count": 2,
+            "recent_10_limit_up_count": 2,
+            "previous_limit_up_breaks": 1,
+            "consecutive_limit_up_days": 2,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": -26693732.0,
+            "snapshot_main_ratio": -4.33,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 33.02,
+              "ten_day_change": 32.7,
+              "thirty_day_change": 34.94,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+33.02%、10日累计+32.70%、30日累计+34.94%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 14.99,
+            "market_cap": 4217511099.0,
+            "float_market_cap": 4205765379.0,
+            "listing_date": "19990712",
+            "listed_sessions": 80,
+            "is_new_stock": false,
+            "snapshot_time": 1787555565,
+            "entry_confirmation": {
+              "status": "pending",
+              "label": "等待T日盘中封板确认",
+              "requirements": [
+                "实际触及涨停价",
+                "封单与主动买盘不弱",
+                "炸板后快速回封",
+                "板块核心未同步转弱"
+              ],
+              "note": "09:25仅生成次日连板预选，未完成封板确认前不得视为打板信号。"
+            },
+            "reasons": [
+              "截至昨日连续2个涨停",
+              "竞价涨幅与连板高度共同确认",
+              "竞价量额达到核心门槛",
+              "流通市值低于200亿且非新股",
+              "近20日已有两次涨停",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价量达到强接力级别",
+              "处于连板加速而非弱势启动",
+              "前日强收后竞价接近涨停，符合强势加速"
+            ],
+            "risks": [
+              "接近涨停开盘，可能无法成交或炸板",
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动",
+              "竞价成交额未达5000万A级线，仅因成熟连板结构进入B级观察；前序主力不得明确走弱",
+              "竞价资金强度弱于A级核心，开盘后炸板风险较高，必须等待封单确认"
+            ],
+            "theme_bucket": "医药",
+            "theme_context": {
+              "bucket": "医药",
+              "strong_peer_count": 2,
+              "score": 4,
+              "label": "题材/板块竞价共振",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 92,
+            "continuation_score": 39,
+            "checks": [
+              {
+                "name": "昨日涨停",
+                "passed": true
+              },
+              {
+                "name": "连续涨停≥2天",
+                "passed": true
+              },
+              {
+                "name": "竞价涨幅≥1%",
+                "passed": true
+              },
+              {
+                "name": "连板≥3或竞价涨幅≥5%",
+                "passed": true
+              },
+              {
+                "name": "竞价量/近5日均量>1%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额≥3000万（成熟连板B级）",
+                "passed": true,
+                "note": "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留"
+              },
+              {
+                "name": "流通市值<200亿",
+                "passed": true
+              },
+              {
+                "name": "上市满60个交易日",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+33.02%、10日累计+32.70%、30日累计+34.94%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": true,
+                "note": "题材/板块竞价共振；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": false,
+                "note": "当前39分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": false,
+                "note": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+              }
+            ],
+            "guard_passed": 11,
+            "guard_total": 13,
+            "check_total": 14,
+            "action": "一字板打板观察 · 挂单未必成交",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 10.02,
+            "sector": {
+              "average_change": 18.65
+            }
+          }
+        ],
+        "actionable_count": 0,
+        "screening": {
+          "scanned": 3044,
+          "prefiltered": 339,
+          "deep_scanned": 339,
+          "qualified_count": 4,
+          "failed": 0,
+          "source": "东方财富延迟全主板批量快照 + 最近交易日完整涨停必扫池 + 09:25最终竞价成交",
+          "method": "先扫描全部非ST沪深主板，普通活跃股初筛Top300，并强制追加最近交易日完整涨停池及涨跌停附近竞价股；同时识别昨日成交额≥5亿且成交量低于前日、09:25竞价额≥5000万、高开≥7%、竞价换手≥3%的反核按钮高风险观察股，最多6只。",
+          "snapshot_time": "2026-08-24T15:12:55+08:00",
+          "relay_qualified_count": 11,
+          "core_qualified_count": 3,
+          "reversal_qualified_count": 0,
+          "first_board_qualified_count": 3,
+          "continuation_primary_count": 3,
+          "untradable_count": 11,
+          "risk_veto_count": 0,
+          "one_to_two_count": 0,
+          "first_board_watch_count": 0,
+          "leader_repair_count": 1,
+          "nuclear_button_count": 0,
+          "capacity_relay_count": 0,
+          "leader_reversal_count": 0,
+          "auction_grab_count": 0,
+          "overnight_secondary_count": 0,
+          "replay_warning": "收盘后首次运行时，批量初筛含盘中快照，只能作为形态复盘；正式候选应在09:25后立即生成并留存。"
+        },
+        "position_plan": {
+          "max_positions": 0,
+          "per_position": 0,
+          "max_new_exposure": 0,
+          "cash_reserve": 100000,
+          "rule": "只有A级候选才分配仓位；仓位由前序交易日走势、主力资金与09:25竞价质量决定，盘中变化不回写本页。"
+        },
+        "strategy_profile": {
+          "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
+          "core_rule": "最近交易日完整涨停池强制深扫；昨日连续涨停≥2天、竞价涨幅与量能确认。竞价额>5000万为A级；至少2连板、接力评分≥90且前序主力确认时，3000万–5000万仅进入B级风险观察。",
+          "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；只保留流通市值低于200亿的主板股。",
+          "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
+          "first_board_rule": "一进二和首板不进入连板优先；流通市值、竞价高开、量比、竞价额和前日承接足够亮眼时进入低优先级观察，并明确标注目标板数。",
+          "nuclear_button_rule": "仅用当日09:25最终竞价：昨日成交额≥5亿且成交量低于前日、竞价额≥5000万、高开≥7%、竞价换手≥3%；市场冰点与强势股性保留人工确认，命中后仍属于高风险观察。",
+          "recognition_rule": "新增三条动态观察通道：200亿–350亿但近10日涨停活性很高的容量接力；高辨识度龙头前日分歧后竞价反包；近期有股性且竞价接近涨停、量额换手显著的抢筹首板。均不直接获得可执行仓位。",
+          "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；一进二和首板降级观察，题材孤立且资金量价不够强、极端竞价爆量、大单偏弱或大市值则剔除。"
+        },
+        "data_scope": [
+          "全部非ST沪深主板批量快照",
+          "前序80个交易日K线与昨日成交额",
+          "近5/10日涨停活性与连续涨停",
+          "T+1连板预期分",
+          "连板优先与隔日启动双层",
+          "反核按钮09:25五项硬条件",
+          "近3/5/10/30日走势",
+          "前日收盘位置与上影线",
+          "竞价量额、竞价换手、大单/五档支撑",
+          "题材板块共振",
+          "T日盘中封板/回封执行门槛",
+          "T+1开盘与收盘复盘"
+        ],
+        "generated_at": "2026-08-24T15:14:09+08:00",
+        "disclaimer": "本页竞价决策不使用09:30后的现价或盘口；批量主力字段以快照时间为准。仅为竞价研究决策，不保证盈利；A股T+1下存在炸板、无法成交及次日跳空风险。",
+        "snapshot_kind": "latest_strategy_replay",
+        "snapshot_label": "最新版策略历史回放",
+        "frozen": false,
+        "original_snapshot_generated_at": "2026-08-24T09:25:37+08:00",
+        "original_snapshot_candidate_count": 0
+      }
+    },
+    "2026-08-18": {
+      "replay": {
+        "capital": 100000,
+        "strategy_version": "2026.08.24.4",
+        "stage": "历史回放 · 2026-08-18",
+        "selected_date": "2026-08-18",
+        "historical": true,
+        "auction_phase": "historical",
+        "market": {
+          "score": 69,
+          "state": "谨慎",
+          "allow_new_positions": true,
+          "candidate_count": 6,
+          "strong_count": 6,
+          "qualified_count": 9,
+          "deep_scanned": 500,
+          "fund_confirmed_count": 0,
+          "average_score": 91.2,
+          "average_gap": 8.61,
+          "auction_amount": 1753940104.5700002,
+          "source": "前序交易日K线 + 09:25最终竞价",
+          "advance_ratio": 1.0,
+          "average_change": 8.61,
+          "limit_up": 6,
+          "limit_down": 0,
+          "sample_size": 6
+        },
+        "candidates": [
+          {
+            "code": "600127",
+            "name": "金健米业",
+            "industry": "农产品加工",
+            "category": "农产品加工",
+            "evaluation_date": "2026-08-18",
+            "score": 90,
+            "auction_base_score": 81,
+            "relay_score": 90,
+            "relay_matched": true,
+            "core_chain_matched": false,
+            "core_chain_score": 0,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 99,
+            "first_board_matched": true,
+            "continuation_base_score": 74,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": false,
+                "value": "昨日38.14万 / 前日32.97万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true,
+                "value": "2.44亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": false,
+                "value": "+6.04%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": true,
+                "value": "4.24%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "连板接力",
+            "priority_tier": "一进二观察",
+            "eligible": true,
+            "auction_liquidity_tier": "A",
+            "auction_amount_threshold": 50000000,
+            "tradable": true,
+            "tradability_label": "可等待开盘确认",
+            "high_exhaustion": false,
+            "shrinking_acceleration": false,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 0,
+            "risk_reasons": [],
+            "board_stage_label": "1进2 · 目标2连板",
+            "previous_board_count": 1,
+            "target_board_count": 2,
+            "signal": "强竞价观察",
+            "auction_time": "09:31",
+            "auction_price": 6.85,
+            "auction_data_source": "新浪目标日09:31首根一分钟线（竞价代理）",
+            "auction_gap_percent": 6.04,
+            "auction_volume": 356148,
+            "auction_amount": 243961414.25,
+            "auction_volume_percent": 112.93,
+            "auction_turnover_percent": 4.24,
+            "previous_close": 6.46,
+            "previous_open": 6.32,
+            "previous_amount": 0.0,
+            "previous_volume": 381413,
+            "prior_volume": 329665,
+            "previous_volume_contraction_ratio": 1.157,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 6.14,
+            "price_vs_ma5_percent": 11.53,
+            "three_day_change_percent": 5.56,
+            "five_day_change_percent": 2.54,
+            "ten_day_change_percent": 13.93,
+            "previous_volume_ratio": 1.09,
+            "previous_open_gap_percent": 7.67,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0.0,
+            "recent_limit_up_count": 2,
+            "recent_5_limit_up_count": 1,
+            "recent_10_limit_up_count": 2,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 1,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": -129613052.0,
+            "snapshot_main_ratio": -5.81,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 12.11,
+              "ten_day_change": 21.45,
+              "thirty_day_change": 27.8,
+              "level": "normal",
+              "label": "未接近公开数值阈值",
+              "ordinary_trigger": false,
+              "serious_trigger": false,
+              "possible_trigger": false,
+              "near_threshold": false,
+              "summary": "3日累计+12.11%、10日累计+21.45%、30日累计+27.80%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 41.65,
+            "market_cap": 5429486024.0,
+            "float_market_cap": 5429486024.0,
+            "listing_date": "19980506",
+            "listed_sessions": 156,
+            "is_new_stock": false,
+            "snapshot_time": 1787555793,
+            "entry_confirmation": {
+              "status": "secondary",
+              "label": "等待二板封板确认",
+              "requirements": [
+                "量价和竞价额达到亮眼门槛",
+                "资金与买盘不弱",
+                "开盘后不跌破竞价支撑",
+                "封板或快速回封后再确认"
+              ],
+              "note": "1进2 · 目标2连板属于低于连板优先的观察层，不与2进3及以上候选等权。"
+            },
+            "reasons": [
+              "近20日已有两次涨停",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价量达到强接力级别",
+              "竞价成交额超过5000万",
+              "竞价缺口适合强势接力观察",
+              "前日量能延续而非极端爆量"
+            ],
+            "risks": [
+              "竞价量异常大，需防高位集中兑现",
+              "前序交易日主力资金暂不可用",
+              "题材共振不足，仅凭亮眼量价进入低优先级观察"
+            ],
+            "theme_bucket": "农业消费",
+            "theme_context": {
+              "bucket": "农业消费",
+              "strong_peer_count": 0,
+              "score": 0,
+              "label": "题材共振不足",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 90,
+            "continuation_score": 63,
+            "checks": [
+              {
+                "name": "涨停活性足够新鲜",
+                "passed": true
+              },
+              {
+                "name": "前日收盘位于近5日高位",
+                "passed": true
+              },
+              {
+                "name": "前日上影线较短",
+                "passed": true
+              },
+              {
+                "name": "竞价量达到均量1%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额>5000万",
+                "passed": true,
+                "note": "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留"
+              },
+              {
+                "name": "竞价高开2%–10.2%",
+                "passed": true
+              },
+              {
+                "name": "前日量比不过度爆量",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "近10日涨幅未超过60%",
+                "passed": true
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "未接近公开数值阈值 · 3日累计+12.11%、10日累计+21.45%、30日累计+27.80%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": null,
+                "note": "题材共振不足；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": true,
+                "note": "当前63分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": true,
+                "note": "可等待开盘确认"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "未触发高位透支"
+              }
+            ],
+            "guard_passed": 12,
+            "guard_total": 12,
+            "check_total": 14,
+            "action": "一进二B级观察",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 6.04,
+            "sector": {
+              "average_change": 5.56
+            }
+          },
+          {
+            "code": "600353",
+            "name": "旭光电子",
+            "industry": "其他电子Ⅱ",
+            "category": "其他电子Ⅱ",
+            "evaluation_date": "2026-08-18",
+            "score": 88,
+            "auction_base_score": 65,
+            "relay_score": 88,
+            "relay_matched": true,
+            "core_chain_matched": false,
+            "core_chain_score": 0,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 58,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": true,
+                "value": "昨日32.62万 / 前日69.34万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true,
+                "value": "2.72亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": false,
+                "value": "+5.48%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": false,
+                "value": "0.84%"
+              }
+            ],
+            "capacity_relay_matched": true,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "高辨识度容量接力",
+            "priority_tier": "容量龙头观察",
+            "eligible": true,
+            "auction_liquidity_tier": "A",
+            "auction_amount_threshold": 50000000,
+            "tradable": true,
+            "tradability_label": "可等待开盘确认",
+            "high_exhaustion": false,
+            "shrinking_acceleration": true,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 33,
+            "risk_reasons": [
+              "连续板后前日缩量加速，次日一旦分歧可能缺少退出流动性"
+            ],
+            "board_stage_label": "容量龙头 · 2进3 · 目标3连板",
+            "previous_board_count": 2,
+            "target_board_count": 3,
+            "signal": "强竞价观察",
+            "auction_time": "09:31",
+            "auction_price": 36.0,
+            "auction_data_source": "新浪目标日09:31首根一分钟线（竞价代理）",
+            "auction_gap_percent": 5.48,
+            "auction_volume": 75652,
+            "auction_amount": 272348640.0,
+            "auction_volume_percent": 11.41,
+            "auction_turnover_percent": 0.84,
+            "previous_close": 34.13,
+            "previous_open": 33.0,
+            "previous_amount": 0.0,
+            "previous_volume": 326184,
+            "prior_volume": 693415,
+            "previous_volume_contraction_ratio": 0.47,
+            "previous_new_high": false,
+            "strong_characteristics": true,
+            "ma5": 30.37,
+            "price_vs_ma5_percent": 18.53,
+            "three_day_change_percent": 17.33,
+            "five_day_change_percent": 25.02,
+            "ten_day_change_percent": 62.14,
+            "previous_volume_ratio": 0.46,
+            "previous_open_gap_percent": 6.35,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0.0,
+            "recent_limit_up_count": 4,
+            "recent_5_limit_up_count": 2,
+            "recent_10_limit_up_count": 4,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 2,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": -91247488.0,
+            "snapshot_main_ratio": -2.27,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 27.61,
+              "ten_day_change": 55.44,
+              "thirty_day_change": -11.5,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+27.61%、10日累计+55.44%、30日累计-11.50%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 13.43,
+            "market_cap": 30682589106.0,
+            "float_market_cap": 30682589106.0,
+            "listing_date": "20021120",
+            "listed_sessions": 156,
+            "is_new_stock": false,
+            "snapshot_time": 1787555796,
+            "entry_confirmation": {
+              "status": "secondary",
+              "label": "等待容量龙头封板确认",
+              "requirements": [
+                "竞价后承接稳定",
+                "成交额持续放大",
+                "板块共振",
+                "封单规模匹配大市值"
+              ],
+              "note": "容量股超过200亿需要更多资金推动，未形成板块合力时不跟随。"
+            },
+            "reasons": [
+              "近20日涨停活性很强",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价量达到强接力级别",
+              "竞价成交额超过5000万",
+              "竞价缺口适合强势接力观察",
+              "处于连板加速而非弱势启动",
+              "近期涨停活性高且前日强势收盘",
+              "竞价量额达到容量接力门槛",
+              "流通市值虽超过200亿，但辨识度允许扩容观察"
+            ],
+            "risks": [
+              "近10日涨幅超过60%，接力透支",
+              "前序交易日主力资金暂不可用",
+              "连续板后前日缩量加速，次日一旦分歧可能缺少退出流动性",
+              "流通市值200亿–350亿，封板所需资金更大，只进入容量龙头观察层",
+              "开盘主动买盘不足或板块不同步时不得因历史股性追高"
+            ],
+            "theme_bucket": "大科技",
+            "theme_context": {
+              "bucket": "大科技",
+              "strong_peer_count": 3,
+              "score": 7,
+              "label": "题材/板块竞价共振",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 73,
+            "continuation_score": 45,
+            "checks": [
+              {
+                "name": "昨日仍有涨停连续性",
+                "passed": true
+              },
+              {
+                "name": "近10日至少4次涨停",
+                "passed": true
+              },
+              {
+                "name": "流通市值200亿–350亿",
+                "passed": true
+              },
+              {
+                "name": "竞价高开5%–10.2%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true
+              },
+              {
+                "name": "前日强收且短上影",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+27.61%、10日累计+55.44%、30日累计-11.50%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": true,
+                "note": "题材/板块竞价共振；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": false,
+                "note": "当前45分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": true,
+                "note": "可等待开盘确认"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "连续板后前日缩量加速，次日一旦分歧可能缺少退出流动性"
+              }
+            ],
+            "guard_passed": 10,
+            "guard_total": 11,
+            "check_total": 12,
+            "action": "容量龙头接力 · B级观察",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 5.48,
+            "sector": {
+              "average_change": 17.33
+            }
+          },
+          {
+            "code": "603773",
+            "name": "沃格光电",
+            "industry": "光学光电子",
+            "category": "光学光电子",
+            "evaluation_date": "2026-08-18",
+            "score": 88,
+            "auction_base_score": 40,
+            "relay_score": 86,
+            "relay_matched": true,
+            "core_chain_matched": false,
+            "core_chain_score": 0,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 55,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": true,
+                "value": "昨日6.56万 / 前日14.26万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true,
+                "value": "3.02亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": true,
+                "value": "+10.00%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": false,
+                "value": "1.29%"
+              }
+            ],
+            "capacity_relay_matched": true,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "高辨识度容量接力",
+            "priority_tier": "容量龙头观察",
+            "eligible": true,
+            "auction_liquidity_tier": "A",
+            "auction_amount_threshold": 50000000,
+            "tradable": false,
+            "tradability_label": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板",
+            "high_exhaustion": false,
+            "shrinking_acceleration": false,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 38,
+            "risk_reasons": [
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+            ],
+            "board_stage_label": "容量龙头 · 1进2 · 目标2连板",
+            "previous_board_count": 1,
+            "target_board_count": 2,
+            "signal": "强竞价观察",
+            "auction_time": "09:31",
+            "auction_price": 114.94,
+            "auction_data_source": "新浪目标日09:31首根一分钟线（竞价代理）",
+            "auction_gap_percent": 10.0,
+            "auction_volume": 26235,
+            "auction_amount": 301545090.0,
+            "auction_volume_percent": 14.55,
+            "auction_turnover_percent": 1.29,
+            "previous_close": 104.49,
+            "previous_open": 96.84,
+            "previous_amount": 0.0,
+            "previous_volume": 65636,
+            "prior_volume": 142640,
+            "previous_volume_contraction_ratio": 0.46,
+            "previous_new_high": false,
+            "strong_characteristics": true,
+            "ma5": 97.36,
+            "price_vs_ma5_percent": 18.06,
+            "three_day_change_percent": 6.51,
+            "five_day_change_percent": 9.26,
+            "ten_day_change_percent": 60.9,
+            "previous_volume_ratio": 0.28,
+            "previous_open_gap_percent": 1.95,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0.0,
+            "recent_limit_up_count": 6,
+            "recent_5_limit_up_count": 1,
+            "recent_10_limit_up_count": 5,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 1,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": -141375088.0,
+            "snapshot_main_ratio": -6.94,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 22.54,
+              "ten_day_change": 60.91,
+              "thirty_day_change": -4.76,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+22.54%、10日累计+60.91%、30日累计-4.76%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 9.61,
+            "market_cap": 21250105109.0,
+            "float_market_cap": 21250105109.0,
+            "listing_date": "20180417",
+            "listed_sessions": 156,
+            "is_new_stock": false,
+            "snapshot_time": 1787555796,
+            "entry_confirmation": {
+              "status": "secondary",
+              "label": "等待容量龙头封板确认",
+              "requirements": [
+                "竞价后承接稳定",
+                "成交额持续放大",
+                "板块共振",
+                "封单规模匹配大市值"
+              ],
+              "note": "容量股超过200亿需要更多资金推动，未形成板块合力时不跟随。"
+            },
+            "reasons": [
+              "近20日涨停活性很强",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价量达到强接力级别",
+              "竞价成交额超过5000万",
+              "前日强收后竞价接近涨停，符合强势加速",
+              "近期涨停活性高且前日强势收盘",
+              "竞价量额达到容量接力门槛",
+              "流通市值虽超过200亿，但辨识度允许扩容观察"
+            ],
+            "risks": [
+              "接近涨停开盘，可能无法成交或炸板",
+              "近10日涨幅超过60%，接力透支",
+              "前序交易日主力资金暂不可用",
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动",
+              "流通市值200亿–350亿，封板所需资金更大，只进入容量龙头观察层",
+              "开盘主动买盘不足或板块不同步时不得因历史股性追高"
+            ],
+            "theme_bucket": "大科技",
+            "theme_context": {
+              "bucket": "大科技",
+              "strong_peer_count": 3,
+              "score": 7,
+              "label": "题材/板块竞价共振",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 73,
+            "continuation_score": 40,
+            "checks": [
+              {
+                "name": "昨日仍有涨停连续性",
+                "passed": true
+              },
+              {
+                "name": "近10日至少4次涨停",
+                "passed": true
+              },
+              {
+                "name": "流通市值200亿–350亿",
+                "passed": true
+              },
+              {
+                "name": "竞价高开5%–10.2%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true
+              },
+              {
+                "name": "前日强收且短上影",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+22.54%、10日累计+60.91%、30日累计-4.76%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": true,
+                "note": "题材/板块竞价共振；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": false,
+                "note": "当前40分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": false,
+                "note": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+              }
+            ],
+            "guard_passed": 9,
+            "guard_total": 11,
+            "check_total": 12,
+            "action": "容量龙头一字观察 · 排队难成交",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 10.0,
+            "sector": {
+              "average_change": 6.51
+            }
+          },
+          {
+            "code": "000620",
+            "name": "盈新发展",
+            "industry": "房地产开发",
+            "category": "房地产开发",
+            "evaluation_date": "2026-08-18",
+            "score": 84,
+            "auction_base_score": 40,
+            "relay_score": 61,
+            "relay_matched": false,
+            "core_chain_matched": false,
+            "core_chain_score": 0,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 55,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": false,
+                "value": "昨日676.02万 / 前日542.94万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true,
+                "value": "5.39亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": true,
+                "value": "+10.00%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": true,
+                "value": "3.02%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": true,
+            "strategy_mode": "竞价抢筹首板",
+            "priority_tier": "抢筹首板观察",
+            "eligible": true,
+            "auction_liquidity_tier": "A",
+            "auction_amount_threshold": 50000000,
+            "tradable": false,
+            "tradability_label": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板",
+            "high_exhaustion": false,
+            "shrinking_acceleration": false,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 38,
+            "risk_reasons": [
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+            ],
+            "board_stage_label": "竞价抢筹首板",
+            "previous_board_count": 0,
+            "target_board_count": 1,
+            "signal": "强竞价观察",
+            "auction_time": "09:31",
+            "auction_price": 3.41,
+            "auction_data_source": "新浪目标日09:31首根一分钟线（竞价代理）",
+            "auction_gap_percent": 10.0,
+            "auction_volume": 1581604,
+            "auction_amount": 539327298.1800001,
+            "auction_volume_percent": 43.16,
+            "auction_turnover_percent": 3.02,
+            "previous_close": 3.1,
+            "previous_open": 3.18,
+            "previous_amount": 0.0,
+            "previous_volume": 6760249,
+            "prior_volume": 5429446,
+            "previous_volume_contraction_ratio": 1.245,
+            "previous_new_high": false,
+            "strong_characteristics": true,
+            "ma5": 2.9,
+            "price_vs_ma5_percent": 17.67,
+            "three_day_change_percent": 9.54,
+            "five_day_change_percent": 12.32,
+            "ten_day_change_percent": 16.98,
+            "previous_volume_ratio": 2.63,
+            "previous_open_gap_percent": 4.95,
+            "previous_close_position_percent": 74.51,
+            "previous_upper_shadow_ratio": 0.179,
+            "recent_limit_up_count": 1,
+            "recent_5_limit_up_count": 1,
+            "recent_10_limit_up_count": 1,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 0,
+            "previous_day_limit_up": false,
+            "snapshot_main_net": 483220863.0,
+            "snapshot_main_ratio": 33.18,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 24.0,
+              "ten_day_change": 25.37,
+              "thirty_day_change": 2.4,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+24.00%、10日累计+25.37%、30日累计+2.40%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 9.12,
+            "market_cap": 20375198189.0,
+            "float_market_cap": 16210968388.0,
+            "listing_date": "19961029",
+            "listed_sessions": 156,
+            "is_new_stock": false,
+            "snapshot_time": 1787555775,
+            "entry_confirmation": {
+              "status": "secondary",
+              "label": "等待抢筹首板可成交确认",
+              "requirements": [
+                "实际可成交",
+                "开盘不快速回落",
+                "主动买盘持续",
+                "首次封板稳定"
+              ],
+              "note": "接近一字的抢筹首板可能买不到；若能成交且封单松动，需优先防炸板。"
+            },
+            "reasons": [
+              "竞价量显著放大",
+              "竞价成交额充足",
+              "近3日趋势强但未明显透支",
+              "近5日趋势健康",
+              "近10日趋势未失控",
+              "前日收盘靠近区间高位",
+              "近20日存在涨停活性",
+              "前日上影压力较小",
+              "近期存在涨停股性但昨日并非连续涨停",
+              "竞价接近涨停且成交额、换手率显著放大",
+              "前日趋势与承接未明显破坏"
+            ],
+            "risks": [
+              "竞价缺口不在打板观察区间",
+              "偏离MA5较大",
+              "前序交易日主力资金暂不可用",
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动",
+              "竞价抢筹首板不等于封板成功，开盘兑现风险高",
+              "接近一字涨停可能无法成交；能成交时需警惕封单松动"
+            ],
+            "theme_bucket": "基建地产",
+            "theme_context": {
+              "bucket": "基建地产",
+              "strong_peer_count": 0,
+              "score": 0,
+              "label": "题材共振不足",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 80,
+            "continuation_score": 33,
+            "checks": [
+              {
+                "name": "近10日存在涨停股性",
+                "passed": true
+              },
+              {
+                "name": "竞价接近涨停9.5%–10.2%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true
+              },
+              {
+                "name": "竞价换手率≥1%",
+                "passed": true
+              },
+              {
+                "name": "前日承接和上影未破坏",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+24.00%、10日累计+25.37%、30日累计+2.40%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": null,
+                "note": "题材共振不足；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": false,
+                "note": "当前33分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": false,
+                "note": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+              }
+            ],
+            "guard_passed": 7,
+            "guard_total": 9,
+            "check_total": 11,
+            "action": "抢筹首板一字观察 · 排队难成交",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 10.0,
+            "sector": {
+              "average_change": 9.54
+            }
+          },
+          {
+            "code": "603330",
+            "name": "天洋新材",
+            "industry": "塑料",
+            "category": "塑料",
+            "evaluation_date": "2026-08-18",
+            "score": 97,
+            "auction_base_score": 20,
+            "relay_score": 86,
+            "relay_matched": true,
+            "core_chain_matched": true,
+            "core_chain_score": 97,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 78,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": true,
+                "value": "昨日11.86万 / 前日25.38万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true,
+                "value": "3.52亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": true,
+                "value": "+10.04%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": true,
+                "value": "7.16%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "连板核心（历史代理）",
+            "priority_tier": "连板优先",
+            "eligible": true,
+            "auction_liquidity_tier": "A",
+            "auction_amount_threshold": 50000000,
+            "tradable": false,
+            "tradability_label": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板",
+            "high_exhaustion": true,
+            "shrinking_acceleration": true,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 93,
+            "risk_reasons": [
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动",
+              "连续4板且竞价价偏离MA5 31.9%，高位透支",
+              "连续板后前日缩量加速，次日一旦分歧可能缺少退出流动性"
+            ],
+            "board_stage_label": "4进5 · 目标5连板",
+            "previous_board_count": 4,
+            "target_board_count": 5,
+            "signal": "强竞价观察",
+            "auction_time": "09:31",
+            "auction_price": 12.93,
+            "auction_data_source": "新浪目标日09:31首根一分钟线（竞价代理）",
+            "auction_gap_percent": 10.04,
+            "auction_volume": 271955,
+            "auction_amount": 351639082.14,
+            "auction_volume_percent": 92.19,
+            "auction_turnover_percent": 7.16,
+            "previous_close": 11.75,
+            "previous_open": 11.75,
+            "previous_amount": 0.0,
+            "previous_volume": 118591,
+            "prior_volume": 253789,
+            "previous_volume_contraction_ratio": 0.467,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 9.8,
+            "price_vs_ma5_percent": 31.94,
+            "three_day_change_percent": 33.07,
+            "five_day_change_percent": 47.8,
+            "ten_day_change_percent": 69.06,
+            "previous_volume_ratio": 0.38,
+            "previous_open_gap_percent": 10.02,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0,
+            "recent_limit_up_count": 5,
+            "recent_5_limit_up_count": 4,
+            "recent_10_limit_up_count": 4,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 4,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": -5954612.0,
+            "snapshot_main_ratio": -0.48,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 33.16,
+              "ten_day_change": 82.11,
+              "thirty_day_change": 53.75,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+33.16%、10日累计+82.11%、30日累计+53.75%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 28.75,
+            "market_cap": 4746429930.0,
+            "float_market_cap": 4461644133.0,
+            "listing_date": "20170213",
+            "listed_sessions": 156,
+            "is_new_stock": false,
+            "snapshot_time": 1787555790,
+            "entry_confirmation": {
+              "status": "pending",
+              "label": "等待T日盘中封板确认",
+              "requirements": [
+                "实际触及涨停价",
+                "封单与主动买盘不弱",
+                "炸板后快速回封",
+                "板块核心未同步转弱"
+              ],
+              "note": "09:25仅生成次日连板预选，未完成封板确认前不得视为打板信号。"
+            },
+            "reasons": [
+              "截至昨日连续4个涨停",
+              "竞价涨幅与连板高度共同确认",
+              "竞价量额达到核心门槛",
+              "流通市值低于200亿且非新股",
+              "近20日涨停活性很强",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价量达到强接力级别",
+              "竞价成交额超过5000万",
+              "前日强收后竞价接近涨停，符合强势加速"
+            ],
+            "risks": [
+              "接近涨停开盘，可能无法成交或炸板",
+              "近10日涨幅超过60%，接力透支",
+              "竞价量异常大，需防高位集中兑现",
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动",
+              "连续4板且竞价价偏离MA5 31.9%，高位透支",
+              "连续板后前日缩量加速，次日一旦分歧可能缺少退出流动性"
+            ],
+            "theme_bucket": "塑料",
+            "theme_context": {
+              "bucket": "塑料",
+              "strong_peer_count": 0,
+              "score": 0,
+              "label": "题材共振不足",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 93,
+            "continuation_score": 31,
+            "checks": [
+              {
+                "name": "昨日涨停",
+                "passed": true
+              },
+              {
+                "name": "连续涨停≥2天",
+                "passed": true
+              },
+              {
+                "name": "竞价涨幅≥1%",
+                "passed": true
+              },
+              {
+                "name": "连板≥3或竞价涨幅≥5%",
+                "passed": true
+              },
+              {
+                "name": "历史首分钟量≥45%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额>5000万",
+                "passed": true,
+                "note": "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留"
+              },
+              {
+                "name": "流通市值<200亿",
+                "passed": true
+              },
+              {
+                "name": "上市满60个交易日",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+33.16%、10日累计+82.11%、30日累计+53.75%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": null,
+                "note": "题材共振不足；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": false,
+                "note": "当前31分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": false,
+                "note": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动；连续4板且竞价价偏离MA5 31.9%，高位透支；连续板后前日缩量加速，次日一旦分歧可能缺少退出流动性"
+              }
+            ],
+            "guard_passed": 10,
+            "guard_total": 12,
+            "check_total": 14,
+            "action": "一字板打板观察 · 挂单未必成交",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 10.04,
+            "sector": {
+              "average_change": 33.07
+            }
+          },
+          {
+            "code": "600613",
+            "name": "神奇制药",
+            "industry": "化学制药",
+            "category": "化学制药",
+            "evaluation_date": "2026-08-18",
+            "score": 100,
+            "auction_base_score": 15,
+            "relay_score": 100,
+            "relay_matched": true,
+            "core_chain_matched": false,
+            "core_chain_score": 0,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 79,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": false,
+                "value": "昨日39.25万 / 前日12.49万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": false,
+                "value": "0.45亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": true,
+                "value": "+10.07%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": false,
+                "value": "0.86%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "强势加速",
+            "priority_tier": "连板优先",
+            "eligible": true,
+            "auction_liquidity_tier": "B",
+            "auction_amount_threshold": 30000000,
+            "tradable": false,
+            "tradability_label": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板",
+            "high_exhaustion": false,
+            "shrinking_acceleration": false,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 48,
+            "risk_reasons": [
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+            ],
+            "board_stage_label": "3进4 · 目标4连板",
+            "previous_board_count": 3,
+            "target_board_count": 4,
+            "signal": "强竞价观察",
+            "auction_time": "09:31",
+            "auction_price": 7.76,
+            "auction_data_source": "新浪目标日09:31首根一分钟线（竞价代理）",
+            "auction_gap_percent": 10.07,
+            "auction_volume": 58142,
+            "auction_amount": 45118580.0,
+            "auction_volume_percent": 28.61,
+            "auction_turnover_percent": 0.86,
+            "previous_close": 7.05,
+            "previous_open": 6.9,
+            "previous_amount": 0.0,
+            "previous_volume": 392467,
+            "prior_volume": 124938,
+            "previous_volume_contraction_ratio": 3.141,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 5.95,
+            "price_vs_ma5_percent": 30.38,
+            "three_day_change_percent": 33.02,
+            "five_day_change_percent": 35.84,
+            "ten_day_change_percent": 41.28,
+            "previous_volume_ratio": 2.67,
+            "previous_open_gap_percent": 7.64,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0.0,
+            "recent_limit_up_count": 3,
+            "recent_5_limit_up_count": 3,
+            "recent_10_limit_up_count": 3,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 3,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": 47888491.0,
+            "snapshot_main_ratio": 5.11,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 33.1,
+              "ten_day_change": 54.58,
+              "thirty_day_change": 68.33,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+33.10%、10日累计+54.58%、30日累计+68.33%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 20.36,
+            "market_cap": 5287309117.0,
+            "float_market_cap": 4745267782.0,
+            "listing_date": "19920820",
+            "listed_sessions": 156,
+            "is_new_stock": false,
+            "snapshot_time": 1787555793,
+            "entry_confirmation": {
+              "status": "pending",
+              "label": "等待T日盘中封板确认",
+              "requirements": [
+                "实际触及涨停价",
+                "封单与主动买盘不弱",
+                "炸板后快速回封",
+                "板块核心未同步转弱"
+              ],
+              "note": "09:25仅生成次日连板预选，未完成封板确认前不得视为打板信号。"
+            },
+            "reasons": [
+              "近20日涨停活性很强",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价量达到强接力级别",
+              "处于连板加速而非弱势启动",
+              "前日强收后竞价接近涨停，符合强势加速"
+            ],
+            "risks": [
+              "接近涨停开盘，可能无法成交或炸板",
+              "前序交易日主力资金暂不可用",
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动",
+              "竞价成交额未达5000万A级线，仅因成熟连板结构进入B级观察；前序主力不得明确走弱",
+              "竞价资金强度弱于A级核心，开盘后炸板风险较高，必须等待封单确认"
+            ],
+            "theme_bucket": "医药",
+            "theme_context": {
+              "bucket": "医药",
+              "strong_peer_count": 0,
+              "score": 0,
+              "label": "题材共振不足",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 96,
+            "continuation_score": 52,
+            "checks": [
+              {
+                "name": "涨停活性足够新鲜",
+                "passed": true
+              },
+              {
+                "name": "前日收盘位于近5日高位",
+                "passed": true
+              },
+              {
+                "name": "前日上影线较短",
+                "passed": true
+              },
+              {
+                "name": "竞价量达到均量1%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额≥3000万（成熟连板B级）",
+                "passed": true,
+                "note": "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留"
+              },
+              {
+                "name": "竞价高开2%–10.2%",
+                "passed": true
+              },
+              {
+                "name": "前日量比不过度爆量",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "近10日涨幅未超过60%",
+                "passed": true
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+33.10%、10日累计+54.58%、30日累计+68.33%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": null,
+                "note": "题材共振不足；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": false,
+                "note": "当前52分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": false,
+                "note": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+              }
+            ],
+            "guard_passed": 10,
+            "guard_total": 12,
+            "check_total": 14,
+            "action": "一字板打板观察 · 挂单未必成交",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 10.07,
+            "sector": {
+              "average_change": 33.02
+            }
+          }
+        ],
+        "actionable_count": 0,
+        "screening": {
+          "scanned": 3111,
+          "prefiltered": 500,
+          "deep_scanned": 500,
+          "qualified_count": 9,
+          "failed": 15,
+          "source": "全主板T-1历史K线 + 新浪目标日09:31首根一分钟线",
+          "method": "全主板逐只读取目标日前K线并初筛500只；使用历史09:31代理量计算T+1连板预期分，2进3及以上优先，量价亮眼的一进二与首板降级观察，再结合题材、大单和异动风险排序。",
+          "snapshot_time": null,
+          "relay_qualified_count": 26,
+          "core_qualified_count": 3,
+          "reversal_qualified_count": 0,
+          "first_board_qualified_count": 1,
+          "continuation_primary_count": 4,
+          "untradable_count": 12,
+          "risk_veto_count": 1,
+          "one_to_two_count": 2,
+          "first_board_watch_count": 0,
+          "leader_repair_count": 0,
+          "nuclear_button_count": 0,
+          "capacity_relay_count": 2,
+          "leader_reversal_count": 0,
+          "auction_grab_count": 1,
+          "overnight_secondary_count": 2,
+          "replay_warning": "历史逐笔接口不支持按日期回放，因此使用目标日09:31首根一分钟线的开盘价和累计量作为竞价代理；行业名称取当前分类，不参与评分。"
+        },
+        "position_plan": {
+          "max_positions": 0,
+          "per_position": 0,
+          "max_new_exposure": 0,
+          "cash_reserve": 100000,
+          "rule": "历史回放不生成可执行仓位，只用于比较规则。"
+        },
+        "strategy_profile": {
+          "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
+          "core_rule": "最近交易日完整涨停池强制深扫；昨日连续涨停≥2天、竞价涨幅与量能确认。竞价额>5000万为A级；至少2连板、接力评分≥90且前序主力确认时，3000万–5000万仅进入B级风险观察。",
+          "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；只保留流通市值低于200亿的主板股。",
+          "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
+          "first_board_rule": "一进二和首板不进入连板优先；流通市值、竞价高开、量比、竞价额和前日承接足够亮眼时进入低优先级观察，并明确标注目标板数。",
+          "nuclear_button_rule": "仅用当日09:25最终竞价：昨日成交额≥5亿且成交量低于前日、竞价额≥5000万、高开≥7%、竞价换手≥3%；市场冰点与强势股性保留人工确认，命中后仍属于高风险观察。",
+          "recognition_rule": "新增三条动态观察通道：200亿–350亿但近10日涨停活性很高的容量接力；高辨识度龙头前日分歧后竞价反包；近期有股性且竞价接近涨停、量额换手显著的抢筹首板。均不直接获得可执行仓位。",
+          "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；一进二和首板降级观察，题材孤立且资金量价不够强、极端竞价爆量、大单偏弱或大市值则剔除。"
+        },
+        "data_scope": [
+          "全部非ST沪深主板批量快照",
+          "前序80个交易日K线与昨日成交额",
+          "近5/10日涨停活性与连续涨停",
+          "T+1连板预期分",
+          "连板优先与隔日启动双层",
+          "反核按钮09:25五项硬条件",
+          "近3/5/10/30日走势",
+          "前日收盘位置与上影线",
+          "竞价量额、竞价换手、大单/五档支撑",
+          "题材板块共振",
+          "T日盘中封板/回封执行门槛",
+          "T+1开盘与收盘复盘"
+        ],
+        "generated_at": "2026-08-24T15:18:45+08:00",
+        "disclaimer": "历史结果只用于比较规则，不代表当时可成交，也不得作为当前交易信号。",
+        "snapshot_kind": "latest_strategy_replay",
+        "snapshot_label": "最新版策略历史回放",
+        "frozen": false
+      }
+    },
+    "2026-08-19": {
+      "replay": {
+        "capital": 100000,
+        "strategy_version": "2026.08.24.4",
+        "stage": "历史回放 · 2026-08-19",
+        "selected_date": "2026-08-19",
+        "historical": true,
+        "auction_phase": "historical",
+        "market": {
+          "score": 69,
+          "state": "谨慎",
+          "allow_new_positions": true,
+          "candidate_count": 5,
+          "strong_count": 5,
+          "qualified_count": 6,
+          "deep_scanned": 500,
+          "fund_confirmed_count": 0,
+          "average_score": 98.4,
+          "average_gap": 8.3,
+          "auction_amount": 781631514.78,
+          "source": "前序交易日K线 + 09:25最终竞价",
+          "advance_ratio": 1.0,
+          "average_change": 8.3,
+          "limit_up": 5,
+          "limit_down": 0,
+          "sample_size": 5
+        },
+        "candidates": [
+          {
+            "code": "600613",
+            "name": "神奇制药",
+            "industry": "化学制药",
+            "category": "化学制药",
+            "evaluation_date": "2026-08-19",
+            "score": 100,
+            "auction_base_score": 55,
+            "relay_score": 85,
+            "relay_matched": true,
+            "core_chain_matched": true,
+            "core_chain_score": 100,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 85,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": false,
+                "value": "昨日72.30万 / 前日39.25万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true,
+                "value": "2.19亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": false,
+                "value": "+5.54%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": true,
+                "value": "4.37%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "连板核心（历史代理）",
+            "priority_tier": "连板优先",
+            "eligible": true,
+            "auction_liquidity_tier": "A",
+            "auction_amount_threshold": 50000000,
+            "tradable": true,
+            "tradability_label": "可等待开盘确认",
+            "high_exhaustion": true,
+            "shrinking_acceleration": false,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 48,
+            "risk_reasons": [
+              "连续4板且竞价价偏离MA5 26.6%，高位透支"
+            ],
+            "board_stage_label": "4进5 · 目标5连板",
+            "previous_board_count": 4,
+            "target_board_count": 5,
+            "signal": "强竞价观察",
+            "auction_time": "09:31",
+            "auction_price": 8.19,
+            "auction_data_source": "新浪目标日09:31首根一分钟线（竞价代理）",
+            "auction_gap_percent": 5.54,
+            "auction_volume": 267432,
+            "auction_amount": 219027332.16,
+            "auction_volume_percent": 81.73,
+            "auction_turnover_percent": 4.37,
+            "previous_close": 7.76,
+            "previous_open": 7.76,
+            "previous_amount": 0.0,
+            "previous_volume": 723040,
+            "prior_volume": 392467,
+            "previous_volume_contraction_ratio": 1.842,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 6.47,
+            "price_vs_ma5_percent": 26.58,
+            "three_day_change_percent": 33.1,
+            "five_day_change_percent": 50.1,
+            "ten_day_change_percent": 54.58,
+            "previous_volume_ratio": 3.56,
+            "previous_open_gap_percent": 10.07,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0.0,
+            "recent_limit_up_count": 4,
+            "recent_5_limit_up_count": 4,
+            "recent_10_limit_up_count": 4,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 4,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": 47888491.0,
+            "snapshot_main_ratio": 5.11,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 27.77,
+              "ten_day_change": 65.79,
+              "thirty_day_change": 76.89,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+27.77%、10日累计+65.79%、30日累计+76.89%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 20.36,
+            "market_cap": 5287309117.0,
+            "float_market_cap": 4745267782.0,
+            "listing_date": "19920820",
+            "listed_sessions": 157,
+            "is_new_stock": false,
+            "snapshot_time": 1787555418,
+            "entry_confirmation": {
+              "status": "pending",
+              "label": "等待T日盘中封板确认",
+              "requirements": [
+                "实际触及涨停价",
+                "封单与主动买盘不弱",
+                "炸板后快速回封",
+                "板块核心未同步转弱"
+              ],
+              "note": "09:25仅生成次日连板预选，未完成封板确认前不得视为打板信号。"
+            },
+            "reasons": [
+              "截至昨日连续4个涨停",
+              "竞价涨幅与连板高度共同确认",
+              "竞价量额达到核心门槛",
+              "流通市值低于200亿且非新股",
+              "近20日涨停活性很强",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价量达到强接力级别",
+              "竞价成交额超过5000万",
+              "竞价缺口适合强势接力观察"
+            ],
+            "risks": [
+              "竞价量异常大，需防高位集中兑现",
+              "连续4板且竞价价偏离MA5 26.6%，高位透支"
+            ],
+            "theme_bucket": "医药",
+            "theme_context": {
+              "bucket": "医药",
+              "strong_peer_count": 0,
+              "score": 0,
+              "label": "题材共振不足",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 96,
+            "continuation_score": 58,
+            "checks": [
+              {
+                "name": "昨日涨停",
+                "passed": true
+              },
+              {
+                "name": "连续涨停≥2天",
+                "passed": true
+              },
+              {
+                "name": "竞价涨幅≥1%",
+                "passed": true
+              },
+              {
+                "name": "连板≥3或竞价涨幅≥5%",
+                "passed": true
+              },
+              {
+                "name": "历史首分钟量≥45%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额>5000万",
+                "passed": true,
+                "note": "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留"
+              },
+              {
+                "name": "流通市值<200亿",
+                "passed": true
+              },
+              {
+                "name": "上市满60个交易日",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+27.77%、10日累计+65.79%、30日累计+76.89%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": null,
+                "note": "题材共振不足；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": true,
+                "note": "当前58分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": true,
+                "note": "可等待开盘确认"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "连续4板且竞价价偏离MA5 26.6%，高位透支"
+              }
+            ],
+            "guard_passed": 12,
+            "guard_total": 12,
+            "check_total": 14,
+            "action": "连板核心B级预选",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 5.54,
+            "sector": {
+              "average_change": 33.1
+            }
+          },
+          {
+            "code": "603823",
+            "name": "百合花",
+            "industry": "化学制品",
+            "category": "化学制品",
+            "evaluation_date": "2026-08-19",
+            "score": 92,
+            "auction_base_score": 72,
+            "relay_score": 92,
+            "relay_matched": true,
+            "core_chain_matched": false,
+            "core_chain_score": 0,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 58,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": true,
+                "value": "昨日13.23万 / 前日14.52万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true,
+                "value": "1.51亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": false,
+                "value": "+5.94%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": false,
+                "value": "0.49%"
+              }
+            ],
+            "capacity_relay_matched": true,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "高辨识度容量接力",
+            "priority_tier": "容量龙头观察",
+            "eligible": true,
+            "auction_liquidity_tier": "A",
+            "auction_amount_threshold": 50000000,
+            "tradable": true,
+            "tradability_label": "可等待开盘确认",
+            "high_exhaustion": false,
+            "shrinking_acceleration": true,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 33,
+            "risk_reasons": [
+              "连续板后前日缩量加速，次日一旦分歧可能缺少退出流动性"
+            ],
+            "board_stage_label": "容量龙头 · 2进3 · 目标3连板",
+            "previous_board_count": 2,
+            "target_board_count": 3,
+            "signal": "强竞价观察",
+            "auction_time": "09:31",
+            "auction_price": 91.0,
+            "auction_data_source": "新浪目标日09:31首根一分钟线（竞价代理）",
+            "auction_gap_percent": 5.94,
+            "auction_volume": 16571,
+            "auction_amount": 150796100.0,
+            "auction_volume_percent": 8.26,
+            "auction_turnover_percent": 0.49,
+            "previous_close": 85.9,
+            "previous_open": 81.9,
+            "previous_amount": 0.0,
+            "previous_volume": 132348,
+            "prior_volume": 145219,
+            "previous_volume_contraction_ratio": 0.911,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 77.74,
+            "price_vs_ma5_percent": 17.06,
+            "three_day_change_percent": 13.03,
+            "five_day_change_percent": 14.2,
+            "ten_day_change_percent": 55.59,
+            "previous_volume_ratio": 0.59,
+            "previous_open_gap_percent": 4.88,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0.0,
+            "recent_limit_up_count": 6,
+            "recent_5_limit_up_count": 2,
+            "recent_10_limit_up_count": 5,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 2,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": -71484087.0,
+            "snapshot_main_ratio": -6.94,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 28.19,
+              "ten_day_change": 49.84,
+              "thirty_day_change": 30.39,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+28.19%、10日累计+49.84%、30日累计+30.39%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 3.4,
+            "market_cap": 29137411926.0,
+            "float_market_cap": 29137411926.0,
+            "listing_date": "20161220",
+            "listed_sessions": 157,
+            "is_new_stock": false,
+            "snapshot_time": 1787555424,
+            "entry_confirmation": {
+              "status": "secondary",
+              "label": "等待容量龙头封板确认",
+              "requirements": [
+                "竞价后承接稳定",
+                "成交额持续放大",
+                "板块共振",
+                "封单规模匹配大市值"
+              ],
+              "note": "容量股超过200亿需要更多资金推动，未形成板块合力时不跟随。"
+            },
+            "reasons": [
+              "近20日涨停活性很强",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价成交额超过5000万",
+              "竞价缺口适合强势接力观察",
+              "处于连板加速而非弱势启动",
+              "近期涨停活性高且前日强势收盘",
+              "竞价量额达到容量接力门槛",
+              "流通市值虽超过200亿，但辨识度允许扩容观察"
+            ],
+            "risks": [
+              "前序交易日主力资金暂不可用",
+              "连续板后前日缩量加速，次日一旦分歧可能缺少退出流动性",
+              "流通市值200亿–350亿，封板所需资金更大，只进入容量龙头观察层",
+              "开盘主动买盘不足或板块不同步时不得因历史股性追高"
+            ],
+            "theme_bucket": "化学制品",
+            "theme_context": {
+              "bucket": "化学制品",
+              "strong_peer_count": 0,
+              "score": 0,
+              "label": "题材共振不足",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 70,
+            "continuation_score": 38,
+            "checks": [
+              {
+                "name": "昨日仍有涨停连续性",
+                "passed": true
+              },
+              {
+                "name": "近10日至少4次涨停",
+                "passed": true
+              },
+              {
+                "name": "流通市值200亿–350亿",
+                "passed": true
+              },
+              {
+                "name": "竞价高开5%–10.2%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true
+              },
+              {
+                "name": "前日强收且短上影",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+28.19%、10日累计+49.84%、30日累计+30.39%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": null,
+                "note": "题材共振不足；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": false,
+                "note": "当前38分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": true,
+                "note": "可等待开盘确认"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "连续板后前日缩量加速，次日一旦分歧可能缺少退出流动性"
+              }
+            ],
+            "guard_passed": 9,
+            "guard_total": 10,
+            "check_total": 12,
+            "action": "容量龙头接力 · B级观察",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 5.94,
+            "sector": {
+              "average_change": 13.03
+            }
+          },
+          {
+            "code": "600127",
+            "name": "金健米业",
+            "industry": "农产品加工",
+            "category": "农产品加工",
+            "evaluation_date": "2026-08-19",
+            "score": 100,
+            "auction_base_score": 45,
+            "relay_score": 100,
+            "relay_matched": true,
+            "core_chain_matched": false,
+            "core_chain_score": 0,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 81,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": false,
+                "value": "昨日54.80万 / 前日38.14万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true,
+                "value": "0.79亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": true,
+                "value": "+9.99%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": false,
+                "value": "1.32%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "强势加速",
+            "priority_tier": "连板优先",
+            "eligible": true,
+            "auction_liquidity_tier": "A",
+            "auction_amount_threshold": 50000000,
+            "tradable": false,
+            "tradability_label": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板",
+            "high_exhaustion": false,
+            "shrinking_acceleration": false,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 48,
+            "risk_reasons": [
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+            ],
+            "board_stage_label": "2进3 · 目标3连板",
+            "previous_board_count": 2,
+            "target_board_count": 3,
+            "signal": "强竞价观察",
+            "auction_time": "09:31",
+            "auction_price": 7.82,
+            "auction_data_source": "新浪目标日09:31首根一分钟线（竞价代理）",
+            "auction_gap_percent": 9.99,
+            "auction_volume": 100700,
+            "auction_amount": 78748009.96000001,
+            "auction_volume_percent": 28.52,
+            "auction_turnover_percent": 1.32,
+            "previous_close": 7.11,
+            "previous_open": 6.85,
+            "previous_amount": 0.0,
+            "previous_volume": 547965,
+            "prior_volume": 381413,
+            "previous_volume_contraction_ratio": 1.437,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 6.33,
+            "price_vs_ma5_percent": 23.46,
+            "three_day_change_percent": 16.37,
+            "five_day_change_percent": 15.61,
+            "ten_day_change_percent": 26.06,
+            "previous_volume_ratio": 1.74,
+            "previous_open_gap_percent": 6.04,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0.0,
+            "recent_limit_up_count": 3,
+            "recent_5_limit_up_count": 2,
+            "recent_10_limit_up_count": 3,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 2,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": -129613052.0,
+            "snapshot_main_ratio": -5.81,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 33.22,
+              "ten_day_change": 39.39,
+              "thirty_day_change": 45.08,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+33.22%、10日累计+39.39%、30日累计+45.08%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 41.65,
+            "market_cap": 5429486024.0,
+            "float_market_cap": 5429486024.0,
+            "listing_date": "19980506",
+            "listed_sessions": 157,
+            "is_new_stock": false,
+            "snapshot_time": 1787555426,
+            "entry_confirmation": {
+              "status": "pending",
+              "label": "等待T日盘中封板确认",
+              "requirements": [
+                "实际触及涨停价",
+                "封单与主动买盘不弱",
+                "炸板后快速回封",
+                "板块核心未同步转弱"
+              ],
+              "note": "09:25仅生成次日连板预选，未完成封板确认前不得视为打板信号。"
+            },
+            "reasons": [
+              "近20日涨停活性很强",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价量达到强接力级别",
+              "竞价成交额超过5000万",
+              "前日量能延续而非极端爆量",
+              "处于连板加速而非弱势启动",
+              "前日强收后竞价接近涨停，符合强势加速"
+            ],
+            "risks": [
+              "接近涨停开盘，可能无法成交或炸板",
+              "前序交易日主力资金暂不可用",
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+            ],
+            "theme_bucket": "农业消费",
+            "theme_context": {
+              "bucket": "农业消费",
+              "strong_peer_count": 2,
+              "score": 4,
+              "label": "题材/板块竞价共振",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 100,
+            "continuation_score": 58,
+            "checks": [
+              {
+                "name": "涨停活性足够新鲜",
+                "passed": true
+              },
+              {
+                "name": "前日收盘位于近5日高位",
+                "passed": true
+              },
+              {
+                "name": "前日上影线较短",
+                "passed": true
+              },
+              {
+                "name": "竞价量达到均量1%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额>5000万",
+                "passed": true,
+                "note": "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留"
+              },
+              {
+                "name": "竞价高开2%–10.2%",
+                "passed": true
+              },
+              {
+                "name": "前日量比不过度爆量",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "近10日涨幅未超过60%",
+                "passed": true
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+33.22%、10日累计+39.39%、30日累计+45.08%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": true,
+                "note": "题材/板块竞价共振；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": true,
+                "note": "当前58分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": false,
+                "note": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+              }
+            ],
+            "guard_passed": 12,
+            "guard_total": 13,
+            "check_total": 14,
+            "action": "一字板打板观察 · 挂单未必成交",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 9.99,
+            "sector": {
+              "average_change": 16.37
+            }
+          },
+          {
+            "code": "600313",
+            "name": "农发种业",
+            "industry": "种植业",
+            "category": "种植业",
+            "evaluation_date": "2026-08-19",
+            "score": 100,
+            "auction_base_score": 30,
+            "relay_score": 100,
+            "relay_matched": true,
+            "core_chain_matched": false,
+            "core_chain_score": 0,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 69,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": false,
+                "value": "昨日94.75万 / 前日58.64万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true,
+                "value": "1.35亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": true,
+                "value": "+10.03%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": false,
+                "value": "1.71%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "强势加速",
+            "priority_tier": "连板优先",
+            "eligible": true,
+            "auction_liquidity_tier": "A",
+            "auction_amount_threshold": 50000000,
+            "tradable": false,
+            "tradability_label": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板",
+            "high_exhaustion": false,
+            "shrinking_acceleration": false,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 48,
+            "risk_reasons": [
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+            ],
+            "board_stage_label": "2进3 · 目标3连板",
+            "previous_board_count": 2,
+            "target_board_count": 3,
+            "signal": "强竞价观察",
+            "auction_time": "09:31",
+            "auction_price": 7.46,
+            "auction_data_source": "新浪目标日09:31首根一分钟线（竞价代理）",
+            "auction_gap_percent": 10.03,
+            "auction_volume": 181146,
+            "auction_amount": 135135072.66,
+            "auction_volume_percent": 43.12,
+            "auction_turnover_percent": 1.71,
+            "previous_close": 6.78,
+            "previous_open": 6.3,
+            "previous_amount": 0.0,
+            "previous_volume": 947493,
+            "prior_volume": 586356,
+            "previous_volume_contraction_ratio": 1.616,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 5.99,
+            "price_vs_ma5_percent": 24.5,
+            "three_day_change_percent": 18.95,
+            "five_day_change_percent": 18.53,
+            "ten_day_change_percent": 19.37,
+            "previous_volume_ratio": 3.35,
+            "previous_open_gap_percent": 2.27,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0.0,
+            "recent_limit_up_count": 2,
+            "recent_5_limit_up_count": 2,
+            "recent_10_limit_up_count": 2,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 2,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": 22105350.0,
+            "snapshot_main_ratio": 2.35,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 33.21,
+              "ten_day_change": 32.27,
+              "thirty_day_change": 45.14,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+33.21%、10日累计+32.27%、30日累计+45.14%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 13.08,
+            "market_cap": 7723136894.0,
+            "float_market_cap": 7196621109.0,
+            "listing_date": "20010119",
+            "listed_sessions": 157,
+            "is_new_stock": false,
+            "snapshot_time": 1787555427,
+            "entry_confirmation": {
+              "status": "pending",
+              "label": "等待T日盘中封板确认",
+              "requirements": [
+                "实际触及涨停价",
+                "封单与主动买盘不弱",
+                "炸板后快速回封",
+                "板块核心未同步转弱"
+              ],
+              "note": "09:25仅生成次日连板预选，未完成封板确认前不得视为打板信号。"
+            },
+            "reasons": [
+              "近20日已有两次涨停",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价量达到强接力级别",
+              "竞价成交额超过5000万",
+              "处于连板加速而非弱势启动",
+              "前日强收后竞价接近涨停，符合强势加速"
+            ],
+            "risks": [
+              "接近涨停开盘，可能无法成交或炸板",
+              "前序交易日主力资金暂不可用",
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+            ],
+            "theme_bucket": "农业消费",
+            "theme_context": {
+              "bucket": "农业消费",
+              "strong_peer_count": 2,
+              "score": 4,
+              "label": "题材/板块竞价共振",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 100,
+            "continuation_score": 46,
+            "checks": [
+              {
+                "name": "涨停活性足够新鲜",
+                "passed": true
+              },
+              {
+                "name": "前日收盘位于近5日高位",
+                "passed": true
+              },
+              {
+                "name": "前日上影线较短",
+                "passed": true
+              },
+              {
+                "name": "竞价量达到均量1%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额>5000万",
+                "passed": true,
+                "note": "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留"
+              },
+              {
+                "name": "竞价高开2%–10.2%",
+                "passed": true
+              },
+              {
+                "name": "前日量比不过度爆量",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "近10日涨幅未超过60%",
+                "passed": true
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+33.21%、10日累计+32.27%、30日累计+45.14%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": true,
+                "note": "题材/板块竞价共振；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": false,
+                "note": "当前46分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": false,
+                "note": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+              }
+            ],
+            "guard_passed": 11,
+            "guard_total": 13,
+            "check_total": 14,
+            "action": "一字板打板观察 · 挂单未必成交",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 10.03,
+            "sector": {
+              "average_change": 18.95
+            }
+          },
+          {
+            "code": "603395",
+            "name": "红四方",
+            "industry": "农化制品",
+            "category": "农化制品",
+            "evaluation_date": "2026-08-19",
+            "score": 100,
+            "auction_base_score": 45,
+            "relay_score": 100,
+            "relay_matched": true,
+            "core_chain_matched": true,
+            "core_chain_score": 91,
+            "reversal_score": 0,
+            "reversal_matched": false,
+            "first_board_score": 0,
+            "first_board_matched": false,
+            "continuation_base_score": 61,
+            "leader_repair_matched": false,
+            "nuclear_button_matched": false,
+            "nuclear_button_hard_matched": false,
+            "nuclear_button_checks": [
+              {
+                "name": "昨日成交额≥5亿",
+                "passed": false,
+                "value": "数据缺失"
+              },
+              {
+                "name": "昨日成交量低于前日（缩量）",
+                "passed": true,
+                "value": "昨日4.87万 / 前日5.01万"
+              },
+              {
+                "name": "竞价成交额≥5000万",
+                "passed": true,
+                "value": "1.98亿"
+              },
+              {
+                "name": "竞价涨幅≥7%",
+                "passed": true,
+                "value": "+10.02%"
+              },
+              {
+                "name": "竞价换手率≥3%",
+                "passed": true,
+                "value": "10.67%"
+              }
+            ],
+            "capacity_relay_matched": false,
+            "leader_reversal_matched": false,
+            "auction_grab_matched": false,
+            "strategy_mode": "连板核心（历史代理）",
+            "priority_tier": "连板优先",
+            "eligible": true,
+            "auction_liquidity_tier": "A",
+            "auction_amount_threshold": 50000000,
+            "tradable": false,
+            "tradability_label": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板",
+            "high_exhaustion": false,
+            "shrinking_acceleration": false,
+            "risk_veto": false,
+            "expectation_break": false,
+            "limit_down_auction": false,
+            "t1_downside_risk_score": 48,
+            "risk_reasons": [
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+            ],
+            "board_stage_label": "2进3 · 目标3连板",
+            "previous_board_count": 2,
+            "target_board_count": 3,
+            "signal": "强竞价观察",
+            "auction_time": "09:31",
+            "auction_price": 29.0,
+            "auction_data_source": "新浪目标日09:31首根一分钟线（竞价代理）",
+            "auction_gap_percent": 10.02,
+            "auction_volume": 68250,
+            "auction_amount": 197925000.0,
+            "auction_volume_percent": 214.05,
+            "auction_turnover_percent": 10.67,
+            "previous_close": 26.36,
+            "previous_open": 26.0,
+            "previous_amount": 0.0,
+            "previous_volume": 48702,
+            "prior_volume": 50113,
+            "previous_volume_contraction_ratio": 0.972,
+            "previous_new_high": true,
+            "strong_characteristics": true,
+            "ma5": 23.3,
+            "price_vs_ma5_percent": 24.44,
+            "three_day_change_percent": 19.49,
+            "five_day_change_percent": 17.94,
+            "ten_day_change_percent": 15.31,
+            "previous_volume_ratio": 1.79,
+            "previous_open_gap_percent": 8.51,
+            "previous_close_position_percent": 100.0,
+            "previous_upper_shadow_ratio": 0.0,
+            "recent_limit_up_count": 2,
+            "recent_5_limit_up_count": 2,
+            "recent_10_limit_up_count": 2,
+            "previous_limit_up_breaks": 0,
+            "consecutive_limit_up_days": 2,
+            "previous_day_limit_up": true,
+            "snapshot_main_net": -18126425.0,
+            "snapshot_main_ratio": -3.97,
+            "decision_main_net": null,
+            "decision_main_ratio": null,
+            "auction_order_imbalance": null,
+            "auction_bid_volume5": null,
+            "auction_ask_volume5": null,
+            "big_order_support": {
+              "status": "unknown",
+              "label": "大单支撑待确认",
+              "score": 0,
+              "details": []
+            },
+            "regulatory_risk": {
+              "three_day_change": 33.15,
+              "ten_day_change": 27.87,
+              "thirty_day_change": 42.79,
+              "level": "watch",
+              "label": "可能触发普通异常波动公告",
+              "ordinary_trigger": true,
+              "serious_trigger": false,
+              "possible_trigger": true,
+              "near_threshold": true,
+              "summary": "3日累计+33.15%、10日累计+27.87%、30日累计+42.79%",
+              "basis": "主板公开参考：3日偏离值累计20%属于普通异常波动；严重异常参考10日4次同向异常、10日100%或30日200%。",
+              "note": "本地仅计算个股累计涨幅，未扣除对应指数涨幅，也不知道异常公告后的指标重置状态；只能预警，不能替代交易所认定。"
+            },
+            "fund_data_date": null,
+            "snapshot_turnover_rate": 26.84,
+            "market_cap": 6747000000.0,
+            "float_market_cap": 1686750000.0,
+            "listing_date": "20241126",
+            "listed_sessions": 157,
+            "is_new_stock": false,
+            "snapshot_time": 1787555403,
+            "entry_confirmation": {
+              "status": "pending",
+              "label": "等待T日盘中封板确认",
+              "requirements": [
+                "实际触及涨停价",
+                "封单与主动买盘不弱",
+                "炸板后快速回封",
+                "板块核心未同步转弱"
+              ],
+              "note": "09:25仅生成次日连板预选，未完成封板确认前不得视为打板信号。"
+            },
+            "reasons": [
+              "截至昨日连续2个涨停",
+              "竞价涨幅与连板高度共同确认",
+              "竞价量额达到核心门槛",
+              "流通市值低于200亿且非新股",
+              "近20日已有两次涨停",
+              "前日强势收在区间高位",
+              "前日几乎无上影抛压",
+              "竞价量达到强接力级别",
+              "竞价成交额超过5000万",
+              "前日量能延续而非极端爆量",
+              "处于连板加速而非弱势启动",
+              "前日强收后竞价接近涨停，符合强势加速"
+            ],
+            "risks": [
+              "接近涨停开盘，可能无法成交或炸板",
+              "竞价量异常大，需防高位集中兑现",
+              "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+            ],
+            "theme_bucket": "农业消费",
+            "theme_context": {
+              "bucket": "农业消费",
+              "strong_peer_count": 2,
+              "score": 4,
+              "label": "题材/板块竞价共振",
+              "policy_note": "政策催化需以权威新闻或公司公告另行确认"
+            },
+            "selection_score": 95,
+            "continuation_score": 38,
+            "checks": [
+              {
+                "name": "昨日涨停",
+                "passed": true
+              },
+              {
+                "name": "连续涨停≥2天",
+                "passed": true
+              },
+              {
+                "name": "竞价涨幅≥1%",
+                "passed": true
+              },
+              {
+                "name": "连板≥3或竞价涨幅≥5%",
+                "passed": true
+              },
+              {
+                "name": "历史首分钟量≥45%",
+                "passed": true
+              },
+              {
+                "name": "竞价成交额>5000万",
+                "passed": true,
+                "note": "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留"
+              },
+              {
+                "name": "流通市值<200亿",
+                "passed": true
+              },
+              {
+                "name": "上市满60个交易日",
+                "passed": true
+              },
+              {
+                "name": "大单/买盘支撑",
+                "passed": null,
+                "state": "unknown",
+                "note": "大单支撑待确认 "
+              },
+              {
+                "name": "未进入高异动风险区",
+                "passed": true,
+                "note": "可能触发普通异常波动公告 · 3日累计+33.15%、10日累计+27.87%、30日累计+42.79%"
+              },
+              {
+                "name": "题材/板块共振",
+                "passed": true,
+                "note": "题材/板块竞价共振；政策催化需以权威新闻或公司公告另行确认"
+              },
+              {
+                "name": "T+1涨停预期分达到观察线",
+                "passed": false,
+                "note": "当前38分；只表示结构匹配，不是涨停概率"
+              },
+              {
+                "name": "具备实际可成交性",
+                "passed": false,
+                "note": "一字板/近涨停 · 可挂单打板，但可能排不到；成交后需防开板"
+              },
+              {
+                "name": "未触发高位透支硬否决",
+                "passed": true,
+                "note": "竞价接近一字涨停，正常情况下难以成交；若能成交需先视为封板松动"
+              }
+            ],
+            "guard_passed": 11,
+            "guard_total": 13,
+            "check_total": 14,
+            "action": "一字板打板观察 · 挂单未必成交",
+            "actionable": false,
+            "execution_ready": false,
+            "current_change_percent": 10.02,
+            "sector": {
+              "average_change": 19.49
+            }
+          }
+        ],
+        "actionable_count": 0,
+        "screening": {
+          "scanned": 3111,
+          "prefiltered": 500,
+          "deep_scanned": 500,
+          "qualified_count": 6,
+          "failed": 17,
+          "source": "全主板T-1历史K线 + 新浪目标日09:31首根一分钟线",
+          "method": "全主板逐只读取目标日前K线并初筛500只；使用历史09:31代理量计算T+1连板预期分，2进3及以上优先，量价亮眼的一进二与首板降级观察，再结合题材、大单和异动风险排序。",
+          "snapshot_time": null,
+          "relay_qualified_count": 10,
+          "core_qualified_count": 3,
+          "reversal_qualified_count": 0,
+          "first_board_qualified_count": 1,
+          "continuation_primary_count": 5,
+          "untradable_count": 6,
+          "risk_veto_count": 2,
+          "one_to_two_count": 0,
+          "first_board_watch_count": 0,
+          "leader_repair_count": 0,
+          "nuclear_button_count": 0,
+          "capacity_relay_count": 1,
+          "leader_reversal_count": 0,
+          "auction_grab_count": 0,
+          "overnight_secondary_count": 0,
+          "replay_warning": "历史逐笔接口不支持按日期回放，因此使用目标日09:31首根一分钟线的开盘价和累计量作为竞价代理；行业名称取当前分类，不参与评分。"
+        },
+        "position_plan": {
+          "max_positions": 0,
+          "per_position": 0,
+          "max_new_exposure": 0,
+          "cash_reserve": 100000,
+          "rule": "历史回放不生成可执行仓位，只用于比较规则。"
+        },
+        "strategy_profile": {
+          "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
+          "core_rule": "最近交易日完整涨停池强制深扫；昨日连续涨停≥2天、竞价涨幅与量能确认。竞价额>5000万为A级；至少2连板、接力评分≥90且前序主力确认时，3000万–5000万仅进入B级风险观察。",
+          "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；只保留流通市值低于200亿的主板股。",
+          "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
+          "first_board_rule": "一进二和首板不进入连板优先；流通市值、竞价高开、量比、竞价额和前日承接足够亮眼时进入低优先级观察，并明确标注目标板数。",
+          "nuclear_button_rule": "仅用当日09:25最终竞价：昨日成交额≥5亿且成交量低于前日、竞价额≥5000万、高开≥7%、竞价换手≥3%；市场冰点与强势股性保留人工确认，命中后仍属于高风险观察。",
+          "recognition_rule": "新增三条动态观察通道：200亿–350亿但近10日涨停活性很高的容量接力；高辨识度龙头前日分歧后竞价反包；近期有股性且竞价接近涨停、量额换手显著的抢筹首板。均不直接获得可执行仓位。",
+          "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；一进二和首板降级观察，题材孤立且资金量价不够强、极端竞价爆量、大单偏弱或大市值则剔除。"
+        },
+        "data_scope": [
+          "全部非ST沪深主板批量快照",
+          "前序80个交易日K线与昨日成交额",
+          "近5/10日涨停活性与连续涨停",
+          "T+1连板预期分",
+          "连板优先与隔日启动双层",
+          "反核按钮09:25五项硬条件",
+          "近3/5/10/30日走势",
+          "前日收盘位置与上影线",
+          "竞价量额、竞价换手、大单/五档支撑",
+          "题材板块共振",
+          "T日盘中封板/回封执行门槛",
+          "T+1开盘与收盘复盘"
+        ],
+        "generated_at": "2026-08-24T15:11:18+08:00",
+        "disclaimer": "历史结果只用于比较规则，不代表当时可成交，也不得作为当前交易信号。",
+        "snapshot_kind": "latest_strategy_replay",
+        "snapshot_label": "最新版策略历史回放",
+        "frozen": false
       }
     }
   }

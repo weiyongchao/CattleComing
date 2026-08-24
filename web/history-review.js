@@ -5,7 +5,7 @@
   const byId = (id) => document.getElementById(id);
   const number = (value, digits = 2) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "--";
   const signed = (value, digits = 2) => Number.isFinite(Number(value)) ? `${Number(value) >= 0 ? "+" : ""}${Number(value).toFixed(digits)}%` : "--";
-  const label = (source) => source === "board" ? "打板候选" : "主板候选";
+  const label = (source) => source === "board" ? "打板候选" : "每日推荐";
   const tone = (value) => value === "规则有效" ? "positive" : value === "规则问题" ? "negative" : "neutral";
 
   function candidateRows(snapshot, review) {
@@ -46,7 +46,7 @@
     const tabs = byId("historyReviewDateTabs"), container = byId("historyReviewDays");
     if (!historyDays.length) {
       tabs.innerHTML = "";
-      container.innerHTML = '<div class="card review-empty">暂无记录。先刷新“打板决策”或“主板筛选”，系统会冻结当天首次有效候选。</div>';
+      container.innerHTML = '<div class="card review-empty">暂无记录。先刷新“打板决策”或“每日推荐”，系统会冻结当天首次有效候选。</div>';
       return;
     }
     if (!historyDays.some((day) => day.date === selectedReviewDate)) selectedReviewDate = historyDays[0].date;
