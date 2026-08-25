@@ -11,7 +11,7 @@ from .auction import screen_auction_candidates, screen_historical_auction_candid
 from .market import EastmoneyProvider, MarketDataError
 
 
-BOARD_STRATEGY_VERSION = "2026.08.24.4"
+BOARD_STRATEGY_VERSION = "2026.08.25.1"
 from .screener import LEADER_POOL, is_main_board, is_risk_stock_name
 
 
@@ -90,10 +90,13 @@ def _market_emotion(auction_count: int) -> dict:
 
 def _auction_gate(candidates: list[dict], context: dict | None = None) -> dict:
     context = context or {}
+    phase = context.get("auction_phase")
     source = (
+        "前序交易日K线 + 09:17可撤单阶段参考撮合"
+        if phase == "cancelable" else
         "前序交易日K线 + 09:20不可撤单阶段参考撮合"
-        if context.get("auction_phase") == "indicative"
-        else "前序交易日K线 + 09:25最终竞价"
+        if phase == "indicative" else
+        "前序交易日K线 + 09:25最终竞价"
     )
     if not candidates:
         return {
@@ -141,7 +144,7 @@ def _auction_decision(candidate: dict) -> dict:
     priority_tier = candidate.get("priority_tier") or ""
     liquidity_b_watch = candidate.get("auction_liquidity_tier") == "B"
     amount_check = {
-        "name": "竞价成交额≥3000万（龙头修复B级）" if mode == "龙头断板修复" else "竞价成交额≥3000万（成熟连板B级）" if liquidity_b_watch else "竞价成交额>5000万",
+        "name": "竞价成交额≥3000万（一进二B级）" if liquidity_b_watch and candidate.get("one_to_two_matched") else "竞价成交额≥3000万（龙头修复B级）" if mode == "龙头断板修复" else "竞价成交额≥3000万（成熟连板B级）" if liquidity_b_watch else "竞价成交额>5000万",
         "passed": candidate["auction_amount"] >= 30_000_000 if liquidity_b_watch else candidate["auction_amount"] > 50_000_000,
         "note": "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留",
     }
@@ -163,7 +166,29 @@ def _auction_decision(candidate: dict) -> dict:
             "state": "unknown" if fund_ratio is None else "passed" if fund_ratio > -3 else "failed",
             "note": "数据源暂不可用" if fund_ratio is None else f"主力净占比{fund_ratio:+.2f}%",
         }
-    if mode == "高辨识度容量接力":
+    if mode == "容量一进二":
+        checks = [
+            {"name": "昨日首板", "passed": candidate.get("consecutive_limit_up_days", 0) == 1},
+            {"name": "流通市值200亿–500亿", "passed": 20_000_000_000 <= candidate.get("float_market_cap", 0) < 50_000_000_000},
+            {"name": "竞价高开5%–8.5%", "passed": 5 <= candidate.get("auction_gap_percent", 0) <= 8.5},
+            {"name": "竞价成交额≥1亿元", "passed": candidate.get("auction_amount", 0) >= 100_000_000},
+            {"name": "竞价量达到容量确认线", "passed": candidate.get("auction_volume_percent", 0) >= (25 if candidate.get("auction_time") == "09:31" else 5)},
+            {"name": "前日强收且短上影", "passed": candidate.get("previous_close_position_percent", 0) >= 95 and candidate.get("previous_upper_shadow_ratio", 1) <= 0.10},
+            {"name": "同主题竞价共振", "passed": (candidate.get("theme_context") or {}).get("score", 0) > 0},
+            fund_check,
+        ]
+    elif mode == "一进二竞价接力":
+        checks = [
+            {"name": "昨日首板", "passed": candidate.get("consecutive_limit_up_days", 0) == 1},
+            {"name": "竞价高开3%–10.2%", "passed": 3 <= candidate.get("auction_gap_percent", 0) <= 10.2},
+            amount_check,
+            {"name": "竞价量达到一进二确认线", "passed": candidate.get("auction_volume_percent", 0) >= (25 if candidate.get("auction_time") == "09:31" else 1)},
+            {"name": "流通市值30亿–200亿", "passed": 3_000_000_000 <= candidate.get("float_market_cap", 0) < 20_000_000_000},
+            {"name": "前日强收且短上影", "passed": candidate.get("previous_close_position_percent", 0) >= 85 and candidate.get("previous_upper_shadow_ratio", 1) <= 0.30},
+            {"name": "首板量比不过度爆量", "passed": 0.4 <= candidate.get("previous_volume_ratio", 0) <= 4},
+            fund_check,
+        ]
+    elif mode == "高辨识度容量接力":
         checks = [
             {"name": "昨日仍有涨停连续性", "passed": candidate.get("previous_day_limit_up", False)},
             {"name": "近10日至少4次涨停", "passed": candidate.get("recent_10_limit_up_count", 0) >= 4},
@@ -323,7 +348,7 @@ def _auction_decision(candidate: dict) -> dict:
         else candidate.get("decision_main_ratio") is not None and candidate["decision_main_ratio"] >= 0
     )
     regulation_high = bool(regulation and regulation.get("level") == "high")
-    formal_modes = {"连板接力", "强势加速", "分歧转强", "首板预期", "隔日启动"}
+    formal_modes = {"连板接力", "强势加速", "分歧转强", "一进二竞价接力", "首板预期", "隔日启动"}
     decision_score = candidate.get("continuation_score", candidate.get("selection_score", candidate["score"]))
     strong_core_auction_confirmation = (
         core_mode and candidate.get("auction_liquidity_tier") == "A"
@@ -344,6 +369,8 @@ def _auction_decision(candidate: dict) -> dict:
         action = "龙头分歧反包 · 高风险观察"
     elif mode == "高辨识度容量接力":
         action = "容量龙头接力 · B级观察"
+    elif mode == "容量一进二":
+        action = "容量一进二 · 板块共振B级观察"
     elif mode == "竞价抢筹首板":
         action = "竞价抢筹首板 · 高风险观察"
     elif priority_tier == "跌停反核观察":
@@ -353,7 +380,7 @@ def _auction_decision(candidate: dict) -> dict:
     elif not liquidity_b_watch and decision_score >= (65 if core_mode or mode in formal_modes else 60) and passed >= 7 and (fund_confirmed or strong_core_auction_confirmation) and not regulation_high:
         action = "一进二A级观察" if priority_tier == "一进二观察" else "首板A级观察" if priority_tier == "首板观察" else "连板核心A级预选" if core_mode else "弱转强A级预选" if mode == "分歧转强" else "连板接力A级预选" if mode in {"连板接力", "强势加速"} else "隔日启动A级观察" if mode in {"首板预期", "隔日启动"} else "竞价A级观察"
     elif candidate["score"] >= 68 and passed >= 6:
-        action = "异动风险观察" if regulation_high else "龙头修复B级观察" if mode == "龙头断板修复" else "一进二B级观察" if priority_tier == "一进二观察" else "首板B级观察" if priority_tier == "首板观察" else "连板核心B级预选" if core_mode else "弱转强B级预选" if mode == "分歧转强" else "连板接力B级预选" if mode in {"连板接力", "强势加速"} else "隔日启动B级观察" if mode in {"首板预期", "隔日启动"} else "竞价B级观察"
+        action = "异动风险观察" if regulation_high else "容量一进二 · 板块共振B级观察" if priority_tier == "容量一进二观察" else "龙头修复B级观察" if mode == "龙头断板修复" else "一进二B级观察" if priority_tier == "一进二观察" else "首板B级观察" if priority_tier == "首板观察" else "连板核心B级预选" if core_mode else "弱转强B级预选" if mode == "分歧转强" else "连板接力B级预选" if mode in {"连板接力", "强势加速"} else "隔日启动B级观察" if mode in {"首板预期", "隔日启动"} else "竞价B级观察"
     else:
         action = "取消候选"
     return {
@@ -369,8 +396,10 @@ def _auction_decision(candidate: dict) -> dict:
 
 def _auction_phase(now: datetime) -> str:
     hhmm = now.hour * 100 + now.minute
-    if hhmm < 920:
+    if hhmm < 917:
         return "preauction"
+    if hhmm < 920:
+        return "cancelable"
     if hhmm < 925:
         return "indicative"
     return "final"
@@ -378,8 +407,10 @@ def _auction_phase(now: datetime) -> str:
 
 def _session_stage(now: datetime) -> str:
     hhmm = now.hour * 100 + now.minute
+    if hhmm < 917:
+        return "竞价进行中 · 09:17开始预选"
     if hhmm < 920:
-        return "竞价进行中 · 09:20刷新"
+        return "09:17可撤单预选 · 等待09:20确认"
     if hhmm < 925:
         return "09:20不可撤单观察 · 等待09:25确认"
     if hhmm < 930:
@@ -400,28 +431,39 @@ def build_board_plan(
             "candidates": [], "ranked_count": 0, "qualified_count": 0,
             "relay_qualified_count": 0, "scanned": 0, "prefiltered": 0,
             "deep_scanned": 0, "failed": 0,
-            "universe_source": "09:20不可撤单观察窗口尚未开始",
+            "universe_source": "09:17可撤单预选窗口尚未开始",
             "snapshot_time": None,
             "auction_phase": "preauction",
-            "method": "09:20前仅运行盘前预选；09:20开始读取不可撤单阶段参考撮合数据。",
-            "replay_warning": "请等待09:20:05自动刷新观察候选，09:25:10再刷新最终竞价。",
+            "method": "09:17前仅运行盘前历史预选；09:17开始读取可撤单阶段参考撮合数据。",
+            "replay_warning": "请等待09:17自动生成竞价预选，09:20:05进入不可撤单阶段实时更新，09:25:10最终复核。",
             "disclaimer": "当前仅显示盘前阶段，不构成今日竞价候选。",
         }
     else:
         auction = (
-            screen_historical_auction_candidates(target_date, limit=6)
-            if historical else screen_auction_candidates(limit=6, preliminary=auction_phase == "indicative")
+            screen_historical_auction_candidates(target_date, limit=10)
+            if historical else screen_auction_candidates(limit=10, preliminary=auction_phase in {"cancelable", "indicative"})
         )
+        if auction_phase == "cancelable":
+            auction.update({
+                "auction_phase": "cancelable",
+                "universe_source": str(auction.get("universe_source") or "").replace(
+                    "09:20不可撤单阶段参考撮合", "09:17可撤单阶段参考撮合"
+                ),
+                "method": "09:17扫描全部非ST沪深主板，按可撤单阶段参考撮合价量生成早期预选；09:20后必须根据不可撤单挂单重新排序。",
+                "disclaimer": "09:17–09:20挂单仍可撤销，预选排名可能大幅变化，只用于提前关注，不构成下单依据。",
+            })
     candidates = [_auction_decision(candidate) for candidate in auction["candidates"]]
-    if auction_phase == "indicative":
+    if auction_phase in {"cancelable", "indicative"}:
         for candidate in candidates:
-            candidate["action"] = f"09:20观察 · {candidate['action']}"
+            phase_label = "09:17预选" if auction_phase == "cancelable" else "09:20观察"
+            candidate["action"] = f"{phase_label} · {candidate['action']}"
             candidate["actionable"] = False
     candidates.sort(key=lambda item: (
         item["actionable"],
         item.get("tradable", True) and item.get("priority_tier") != "跌停反核观察",
-        2 if item.get("auction_liquidity_tier") == "A" else 1 if item.get("auction_liquidity_tier") == "B" else 0,
         item.get("priority_tier") == "连板优先" and item.get("tradable", True),
+        item.get("previous_board_count", 0),
+        2 if item.get("auction_liquidity_tier") == "A" else 1 if item.get("auction_liquidity_tier") == "B" else 0,
         item.get("continuation_score", 0), item["score"], item["auction_amount"],
     ), reverse=True)
     gate = _auction_gate(candidates, auction)
@@ -471,17 +513,17 @@ def build_board_plan(
             "rule": (
                 "历史回放不生成可执行仓位，只用于比较规则。"
                 if historical else
-                "09:20只生成不可撤单阶段观察池，不分配仓位；09:25最终竞价复核通过后，A级候选才进入仓位计划。"
-                if auction_phase == "indicative" else
+                "09:17可撤单预选与09:20不可撤单观察都不分配仓位；09:25最终竞价复核通过后，A级候选才进入仓位计划。"
+                if auction_phase in {"cancelable", "indicative"} else
                 "只有A级候选才分配仓位；仓位由前序交易日走势、主力资金与09:25竞价质量决定，盘中变化不回写本页。"
             ),
         },
         "strategy_profile": {
             "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
-            "core_rule": "最近交易日完整涨停池强制深扫；昨日连续涨停≥2天、竞价涨幅与量能确认。竞价额>5000万为A级；至少2连板、接力评分≥90且前序主力确认时，3000万–5000万仅进入B级风险观察。",
+            "core_rule": "最近交易日完整涨停池强制深扫；昨日连续涨停≥2天、竞价涨幅与量能确认。竞价额>5000万为A级；3000万–5000万不再一票否决，成熟连板和亮眼一进二进入B级风险观察。",
             "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；只保留流通市值低于200亿的主板股。",
             "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
-            "first_board_rule": "一进二和首板不进入连板优先；流通市值、竞价高开、量比、竞价额和前日承接足够亮眼时进入低优先级观察，并明确标注目标板数。",
+            "first_board_rule": "一进二使用独立模型：首板后允许MA5和短期涨幅适度过热，3000万–5000万竞价额可进入B级；200亿–500亿容量股允许涨停竞价，并在同主题至少两只量价走强时进入容量核心观察。普通首板仍使用严格趋势门槛。",
             "nuclear_button_rule": "仅用当日09:25最终竞价：昨日成交额≥5亿且成交量低于前日、竞价额≥5000万、高开≥7%、竞价换手≥3%；市场冰点与强势股性保留人工确认，命中后仍属于高风险观察。",
             "recognition_rule": "新增三条动态观察通道：200亿–350亿但近10日涨停活性很高的容量接力；高辨识度龙头前日分歧后竞价反包；近期有股性且竞价接近涨停、量额换手显著的抢筹首板。均不直接获得可执行仓位。",
             "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；一进二和首板降级观察，题材孤立且资金量价不够强、极端竞价爆量、大单偏弱或大市值则剔除。",
@@ -491,7 +533,7 @@ def build_board_plan(
         "disclaimer": (
             auction.get("disclaimer", "历史回放只用于比较规则，不构成当前交易信号。")
             if historical else
-            ("09:20后原委托不能撤销，但仍可新增委托，参考撮合价量并非最终开盘结果；本页仅生成观察池，09:25必须再次复核。" if auction_phase == "indicative" else "")
+            ("09:17–09:20委托仍可撤销，榜单只用于提前关注；09:20后按不可撤单挂单持续更新，09:25必须最终复核。" if auction_phase == "cancelable" else "09:20后原委托不能撤销，但仍可新增委托，参考撮合价量并非最终开盘结果；本页仅生成观察池，09:25必须再次复核。" if auction_phase == "indicative" else "")
             + "本页竞价决策不使用09:30后的现价或盘口；批量主力字段以快照时间为准。仅为竞价研究决策，不保证盈利；A股T+1下存在炸板、无法成交及次日跳空风险。"
         ),
     }

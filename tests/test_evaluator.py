@@ -12,11 +12,13 @@ from src.stock_evaluator.auction import (
     _expand_live_prefilter_with_extremes, _relay_pattern_score,
     _history_prefilter_score, _select_high_confidence_candidates,
     _consecutive_limit_up_days, _core_chain_score, _divergence_reversal_score,
-    _first_board_score, _next_day_continuation_score, _board_stage,
+    _first_board_score, _one_to_two_score, _capacity_one_to_two_score,
+    _next_day_continuation_score, _board_stage,
     _big_order_support, _apply_dynamic_context, _execution_risk_profile,
     _expand_with_previous_limit_ups, _auction_amount_qualification,
     _nuclear_button_profile,
     _recognition_channel_profile,
+    _cache_live_history, _live_history,
 )
 from src.stock_evaluator.auction_trajectory import _profile
 from src.stock_evaluator.next_day import _holding_strategy
@@ -34,11 +36,12 @@ from src.stock_evaluator.history import (
 from src.stock_evaluator.premarket import _premarket_candidate
 from src.stock_evaluator.stock_search import _parse_suggestions
 from src.stock_evaluator.regulatory import regulatory_risk
-from src.stock_evaluator.open_guard import _open_confirmation
+from src.stock_evaluator.open_guard import _live_one_to_two_prefilter, _open_confirmation
 from src.stock_evaluator.daily_recommend import _daily_candidate
 from src.stock_evaluator.external_context import (
     _global_summary, _policy_signals, _tencent_global_rows, apply_external_context,
 )
+from src.stock_evaluator import server as app_server
 
 
 class EvaluatorTests(unittest.TestCase):
@@ -51,6 +54,59 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(secid_for("sz000001"), "0.000001")
         with self.assertRaises(ValueError):
             secid_for("123")
+
+    def test_local_trading_dates_falls_back_to_saved_history_and_today_snapshot(self):
+        from unittest.mock import patch
+
+        history = {"days": [
+            {"date": "2026-08-18"}, {"date": "2026-08-19"},
+            {"date": "2026-08-20"}, {"date": "2026-08-21"},
+            {"date": "2026-08-24"},
+        ]}
+        with patch.object(app_server, "list_history", return_value=history), patch.object(
+            app_server, "load_board_plan_snapshot",
+            side_effect=lambda day, phase: {"candidates": []} if day == "2026-08-25" and phase == "final" else None,
+        ):
+            self.assertEqual(app_server._local_trading_dates(date(2026, 8, 25)), [
+                "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-24", "2026-08-25",
+            ])
+
+    def test_board_plan_singleflight_shares_one_concurrent_scan(self):
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+        from unittest.mock import patch
+
+        calls = []
+        payload = {
+            "auction_phase": app_server._auction_phase(app_server.datetime.now()),
+            "candidates": [{"code": "600001"}], "screening": {},
+        }
+
+        def build(*args, **kwargs):
+            calls.append(1)
+            time.sleep(0.05)
+            return payload
+
+        app_server.AppHandler.board_plan_cache = None
+        with patch.object(app_server, "build_board_plan", side_effect=build):
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                results = list(executor.map(
+                    lambda _: app_server.AppHandler._build_board_plan_singleflight(force=True),
+                    range(4),
+                ))
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(all(result["candidates"] for result in results))
+        app_server.AppHandler.board_plan_cache = None
+
+    def test_premarket_history_cache_is_reused_by_auction_scan(self):
+        bars = self.bars([10, 10.1, 10.2, 10.3, 10.4])
+
+        class FailingProvider:
+            def history(self, code, limit):
+                raise AssertionError("缓存命中后不应再次请求上游")
+
+        _cache_live_history("600777", bars, 80)
+        self.assertEqual(_live_history(FailingProvider(), "600777", 80), bars)
 
     def test_stock_name_search_keeps_astock_and_prioritizes_exact_name(self):
         payload = {"QuotationCodeTable": {"Data": [
@@ -421,6 +477,39 @@ class EvaluatorTests(unittest.TestCase):
         self.assertGreaterEqual(established, 70)
         self.assertGreater(established - one_to_two_exhausted, 30)
 
+    def test_one_to_two_model_accepts_bright_30m_auction_without_reusing_first_board_heat_limit(self):
+        score, matched, reasons, risks = _one_to_two_score(
+            4.89, 13.71, 31_004_226, 9_271_154_776, 120,
+            12.39, 7.47, 4.01, 3.35, 100, 0,
+        )
+        self.assertTrue(matched)
+        self.assertGreaterEqual(score, 88)
+        self.assertTrue(reasons)
+        self.assertTrue(risks)
+        self.assertFalse(_one_to_two_score(
+            4.89, 13.71, 29_000_000, 9_271_154_776, 120,
+            12.39, 7.47, 4.01, 3.35, 100, 0,
+        )[1])
+
+    def test_capacity_one_to_two_requires_large_auction_and_strong_previous_close(self):
+        score, matched, _, _ = _capacity_one_to_two_score(
+            1, 1, 5.95, 5.98, 159_086_400, 26_615_571_224, 100, 0, 14.63,
+        )
+        self.assertTrue(matched)
+        self.assertGreaterEqual(score, 88)
+        self.assertFalse(_capacity_one_to_two_score(
+            1, 1, 5.95, 5.98, 90_000_000, 26_615_571_224, 100, 0, 14.63,
+        )[1])
+
+    def test_capacity_one_to_two_allows_limit_up_auction_when_amount_is_strong(self):
+        score, matched, reasons, risks = _capacity_one_to_two_score(
+            1, 1, 9.98, 13.0, 126_000_000, 49_600_000_000, 100, 0, 18,
+        )
+        self.assertTrue(matched)
+        self.assertGreaterEqual(score, 84)
+        self.assertTrue(reasons)
+        self.assertTrue(risks)
+
     def test_board_stage_labels_first_board_and_target_board_count(self):
         self.assertEqual(_board_stage(0)["board_stage_label"], "首板候选")
         self.assertEqual(_board_stage(1)["board_stage_label"], "1进2 · 目标2连板")
@@ -444,6 +533,32 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(strong["priority_tier"], "一进二观察")
         self.assertFalse(weak["eligible"])
         self.assertEqual(weak["priority_tier"], "不入选")
+
+    def test_capacity_one_to_two_requires_theme_peer(self):
+        common = {
+            "eligible": True, "priority_tier": "容量一进二观察", "score": 90,
+            "continuation_base_score": 76, "float_market_cap": 26_000_000_000,
+            "auction_gap_percent": 6, "auction_amount": 150_000_000,
+            "auction_volume_percent": 6, "big_order_support": {"status": "unknown"},
+            "regulatory_risk": {"level": "watch"}, "risks": [],
+            "t1_downside_risk_score": 8,
+        }
+        silver = {**common, "industry": "贵金属", "risks": []}
+        metal = {**common, "industry": "工业金属", "risks": []}
+        _apply_dynamic_context([silver, metal])
+        self.assertTrue(silver["eligible"])
+        self.assertTrue(metal["eligible"])
+        lone = {**common, "industry": "贵金属", "risks": []}
+        _apply_dynamic_context([lone])
+        self.assertFalse(lone["eligible"])
+
+    def test_live_one_to_two_prefilter_accepts_intraday_breakout(self):
+        row = {
+            "f2": 10.8, "f3": 8.0, "f6": 250_000_000, "f10": 1.2,
+            "f17": 10.0, "f16": 9.9, "f15": 10.9, "f184": -1,
+        }
+        self.assertTrue(_live_one_to_two_prefilter(row, 1, 0))
+        self.assertFalse(_live_one_to_two_prefilter(row, 2, 0))
 
     def test_board_review_counts_only_executable_and_targets_next_day_limit(self):
         outcome = {
@@ -547,11 +662,13 @@ class EvaluatorTests(unittest.TestCase):
         shenqi = _auction_amount_qualification(42_193_504, False, 0, 82, "unknown", True)
         hasen_unknown = _auction_amount_qualification(36_429_336, True, 2, 98, "unknown")
         weak = _auction_amount_qualification(36_429_336, True, 2, 98, "weak")
+        one_to_two = _auction_amount_qualification(31_004_226, False, 1, 71, "unknown", one_to_two=True)
         self.assertEqual(hansen, (True, "A"))
         self.assertEqual(hasen, (True, "B"))
         self.assertEqual(hasen_unknown, (True, "B"))
         self.assertEqual(shenqi, (True, "B"))
         self.assertEqual(weak, (False, "blocked"))
+        self.assertEqual(one_to_two, (True, "B"))
 
     def test_strong_a_liquidity_does_not_depend_on_auxiliary_fund_source(self):
         confirmed = _auction_amount_qualification(143_452_720, True, 3, 100, "confirmed")
@@ -565,6 +682,12 @@ class EvaluatorTests(unittest.TestCase):
         repair = {"code": "600613", "eligible": True, "tradable": True, "priority_tier": "龙头修复观察", "score": 85, "selection_score": 85, "continuation_score": 60, "auction_amount": 42_000_000, "auction_volume_percent": 4.4, "auction_liquidity_tier": "B", "leader_repair_matched": True, "risk_veto": False}
         selected = _select_high_confidence_candidates([lower_liquidity, core, repair], 6)
         self.assertEqual([item["code"] for item in selected], ["002412", "603958", "600613"])
+
+    def test_dynamic_selection_keeps_b_grade_one_to_two_watch(self):
+        core = {"code": "002412", "eligible": True, "tradable": True, "priority_tier": "连板优先", "score": 100, "selection_score": 100, "continuation_score": 92, "auction_amount": 143_000_000, "auction_liquidity_tier": "A"}
+        b_watch = {"code": "002017", "eligible": True, "tradable": True, "priority_tier": "一进二观察", "score": 88, "selection_score": 88, "continuation_score": 58, "auction_amount": 31_000_000, "auction_volume_percent": 13.71, "auction_liquidity_tier": "B", "risk_veto": False}
+        selected = _select_high_confidence_candidates([core, b_watch], 10)
+        self.assertEqual({item["code"] for item in selected}, {"002412", "002017"})
 
     def test_primary_board_prefers_exact_industry(self):
         boards = [{"code": "BK1", "name": "食品饮料"}, {"code": "BK2", "name": "白酒Ⅱ"}]
@@ -588,10 +711,12 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(gate["candidate_count"], 3)
         self.assertEqual(gate["source"], "前序交易日K线 + 09:25最终竞价")
 
-    def test_auction_phase_starts_observation_at_0920(self):
+    def test_auction_phase_starts_cancelable_preselection_at_0917(self):
         from datetime import datetime
 
-        self.assertEqual(_auction_phase(datetime(2026, 8, 19, 9, 19, 59)), "preauction")
+        self.assertEqual(_auction_phase(datetime(2026, 8, 19, 9, 16, 59)), "preauction")
+        self.assertEqual(_auction_phase(datetime(2026, 8, 19, 9, 17, 0)), "cancelable")
+        self.assertEqual(_auction_phase(datetime(2026, 8, 19, 9, 19, 59)), "cancelable")
         self.assertEqual(_auction_phase(datetime(2026, 8, 19, 9, 20, 0)), "indicative")
         self.assertEqual(_auction_phase(datetime(2026, 8, 19, 9, 24, 59)), "indicative")
         self.assertEqual(_auction_phase(datetime(2026, 8, 19, 9, 25, 0)), "final")
@@ -603,6 +728,14 @@ class EvaluatorTests(unittest.TestCase):
         }
         gate = _auction_gate([candidate], {"auction_phase": "indicative"})
         self.assertEqual(gate["source"], "前序交易日K线 + 09:20不可撤单阶段参考撮合")
+
+    def test_cancelable_gate_uses_0917_source_label(self):
+        candidate = {
+            "score": 80, "auction_gap_percent": 3, "auction_amount": 60_000_000,
+            "decision_main_ratio": 1,
+        }
+        gate = _auction_gate([candidate], {"auction_phase": "cancelable"})
+        self.assertEqual(gate["source"], "前序交易日K线 + 09:17可撤单阶段参考撮合")
 
     def test_board_decision_checks_history_and_auction_only(self):
         candidate = {
@@ -869,6 +1002,90 @@ class EvaluatorTests(unittest.TestCase):
             "quote": {"price": 10.35, "previous_close": 10, "open_price": 10.7, "high_price": 10.8, "change_percent": 3.5, "amount": 120_000_000},
         }, funds)
         self.assertEqual(rejected["decision"], "反核承接失败 · 放弃追入")
+
+    def test_open_confirmation_tracks_deep_opening_dip_recovery_in_stages(self):
+        candidate = {
+            "code": "002412", "name": "深回踩样本", "auction_price": 10.7,
+            "auction_amount": 50_000_000, "continuation_score": 82,
+            "priority_tier": "连板优先", "board_stage_label": "3进4",
+            "tradable": True,
+        }
+        common = {
+            "order_book": {"imbalance": 0.1, "signal": "盘口均衡"},
+            "regulatory_risk": {"level": "normal", "label": "常规"},
+        }
+        funds = {"is_today": True, "date": date.today().isoformat(), "main_ratio": 1, "main_net": 8_000_000}
+        falling = _open_confirmation(candidate, {
+            **common,
+            "quote": {
+                "price": 9.62, "previous_close": 10, "open_price": 10.7,
+                "high_price": 10.7, "low_price": 9.6, "change_percent": -3.8,
+                "amount": 90_000_000,
+            },
+            "metrics": {
+                "price_vs_open_percent": -10.09, "price_vs_ma5_percent": 2,
+                "volume_ratio": 1.1, "turnover_rate": 4,
+            },
+        }, funds)
+        self.assertEqual(falling["decision"], "深回踩待止跌 · 当前不买")
+        self.assertTrue(falling["opening_dip"])
+        self.assertFalse(falling["rebound_started"])
+
+        recovering = _open_confirmation(candidate, {
+            **common,
+            "quote": {
+                "price": 10.2, "previous_close": 10, "open_price": 10.7,
+                "high_price": 10.7, "low_price": 9.6, "change_percent": 2,
+                "amount": 150_000_000,
+            },
+            "metrics": {
+                "price_vs_open_percent": -4.67, "price_vs_ma5_percent": 6,
+                "volume_ratio": 1.4, "turnover_rate": 6,
+            },
+        }, funds)
+        self.assertEqual(recovering["decision"], "回踩修复中 · 观察仓")
+        self.assertTrue(recovering["rebound_started"])
+        self.assertFalse(recovering["reclaimed_auction"])
+
+        reclaimed = _open_confirmation(candidate, {
+            **common,
+            "quote": {
+                "price": 10.72, "previous_close": 10, "open_price": 10.7,
+                "high_price": 10.72, "low_price": 9.6, "change_percent": 7.2,
+                "amount": 210_000_000,
+            },
+            "metrics": {
+                "price_vs_open_percent": 0.19, "price_vs_ma5_percent": 10,
+                "volume_ratio": 1.8, "turnover_rate": 8,
+            },
+        }, funds)
+        self.assertEqual(reclaimed["decision"], "深回踩修复 · 小仓试错")
+        self.assertTrue(reclaimed["rebound_confirmed"])
+        self.assertIn("未持有：小仓试错", reclaimed["entry_advice"])
+
+    def test_open_confirmation_sealed_result_separates_entry_and_holding_advice(self):
+        candidate = {
+            "code": "003040", "name": "封板样本", "auction_price": 10.5,
+            "auction_amount": 50_000_000, "continuation_score": 80,
+            "priority_tier": "连板优先", "tradable": True,
+        }
+        result = {
+            "quote": {
+                "price": 11, "previous_close": 10, "open_price": 10.5,
+                "high_price": 11, "low_price": 9.5, "change_percent": 10,
+                "amount": 200_000_000,
+            },
+            "metrics": {
+                "price_vs_open_percent": 4.76, "price_vs_ma5_percent": 12,
+                "volume_ratio": 2, "turnover_rate": 9,
+            },
+            "order_book": {"imbalance": 0.8, "signal": "买盘占优"},
+            "regulatory_risk": {"level": "watch", "label": "关注"},
+        }
+        sealed = _open_confirmation(candidate, result, None)
+        self.assertTrue(sealed["rebound_confirmed"])
+        self.assertIn("已经封板，不追价", sealed["entry_advice"])
+        self.assertIn("继续观察封单", sealed["holding_advice"])
 
     def test_execution_risk_rejects_untradable_high_extension(self):
         risk = _execution_risk_profile(4, 9.98, 28.0, 0.72, 9.9, "normal", "unknown")

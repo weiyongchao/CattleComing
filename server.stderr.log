@@ -1,26 +1,32 @@
-127.0.0.1 - - [21/Aug/2026 14:12:59] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:06] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:07] "GET /?page=20260821-daily HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:07] "GET /styles.css HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:07] "GET /strategy-execution.css?v=20260814-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:07] "GET /history-review.css?v=20260814-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:07] "GET /app.js?v=20260821-02 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:07] "GET /daily-recommend.js?v=20260821-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:07] "GET /board-auction-only.js?v=20260821-04 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:07] "GET /intraday-leadership.js?v=20260814-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:07] "GET /strategy-execution.js?v=20260817-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:07] "GET /history-review.js?v=20260821-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:07] code 404, message File not found
-127.0.0.1 - - [21/Aug/2026 14:13:07] "GET /favicon.ico HTTP/1.1" 404 -
-127.0.0.1 - - [21/Aug/2026 14:13:07] "GET /api/trading-dates HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:07] "GET /api/evaluate?code=600519 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:07] "GET /api/funds?code=600519 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:10] "GET /api/sector-peers?code=600519 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:11] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:11] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:13] "GET /api/intraday-plan HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:02] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:02] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:02] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:02] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:02] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:02] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:03] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:03] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:03] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:03] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:24] "GET /?page=20260818-02 HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:24] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:24] "GET /strategy-execution.css?v=20260814-01 HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:24] "GET /history-review.css?v=20260814-01 HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:24] "GET /app.js?v=20260824-01 HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:24] "GET /daily-recommend.js?v=20260821-02 HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:24] "GET /intraday-leadership.js?v=20260824-01 HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:24] "GET /board-auction-only.js?v=20260824-08 HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:24] "GET /strategy-execution.js?v=20260817-01 HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:24] "GET /history-review.js?v=20260821-01 HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:25] code 404, message File not found
+127.0.0.1 - - [25/Aug/2026 09:54:25] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [25/Aug/2026 09:54:25] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:25] "GET /api/trading-dates HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:25] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:54:28] "GET /api/board-open-guard HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:55:11] "GET /api/intraday-plan HTTP/1.1" 200 -
 ----------------------------------------
-Exception occurred during processing of request from ('127.0.0.1', 56960)
+Exception occurred during processing of request from ('127.0.0.1', 50876)
 Traceback (most recent call last):
   File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\socketserver.py", line 697, in process_request_thread
     self.finish_request(request, client_address)
@@ -28,7 +34,7 @@ Traceback (most recent call last):
   File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\socketserver.py", line 362, in finish_request
     self.RequestHandlerClass(request, client_address, self)
     ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\82704\Desktop\abc\新建文件夹\src\stock_evaluator\server.py", line 57, in __init__
+  File "C:\Users\82704\Desktop\abc\新建文件夹\src\stock_evaluator\server.py", line 139, in __init__
     super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\http\server.py", line 721, in __init__
@@ -43,10 +49,10 @@ Traceback (most recent call last):
   File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\http\server.py", line 473, in handle_one_request
     method()
     ~~~~~~^^
-  File "C:\Users\82704\Desktop\abc\新建文件夹\src\stock_evaluator\server.py", line 337, in do_GET
+  File "C:\Users\82704\Desktop\abc\新建文件夹\src\stock_evaluator\server.py", line 472, in do_GET
     return self._json(200, payload)
            ~~~~~~~~~~^^^^^^^^^^^^^^
-  File "C:\Users\82704\Desktop\abc\新建文件夹\src\stock_evaluator\server.py", line 65, in _json
+  File "C:\Users\82704\Desktop\abc\新建文件夹\src\stock_evaluator\server.py", line 147, in _json
     self.wfile.write(body)
     ~~~~~~~~~~~~~~~~^^^^^^
   File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\socketserver.py", line 845, in write
@@ -54,104 +60,7 @@ Traceback (most recent call last):
     ~~~~~~~~~~~~~~~~~~^^^
 ConnectionAbortedError: [WinError 10053] 你的主机中的软件中止了一个已建立的连接。
 ----------------------------------------
-127.0.0.1 - - [21/Aug/2026 14:13:46] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:52] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:53] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:53] "GET /styles.css HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:53] "GET /strategy-execution.css?v=20260814-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:53] "GET /app.js?v=20260821-02 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:53] "GET /history-review.css?v=20260814-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:53] "GET /board-auction-only.js?v=20260821-04 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:53] "GET /daily-recommend.js?v=20260821-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:53] "GET /strategy-execution.js?v=20260817-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:53] "GET /intraday-leadership.js?v=20260814-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:53] "GET /history-review.js?v=20260821-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:53] "GET /api/trading-dates HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:53] code 404, message File not found
-127.0.0.1 - - [21/Aug/2026 14:13:53] "GET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1" 404 -
-127.0.0.1 - - [21/Aug/2026 14:13:53] code 404, message File not found
-127.0.0.1 - - [21/Aug/2026 14:13:53] "GET /content.css.map HTTP/1.1" 404 -
-127.0.0.1 - - [21/Aug/2026 14:13:53] code 404, message File not found
-127.0.0.1 - - [21/Aug/2026 14:13:53] "GET /sidebar.css.map HTTP/1.1" 404 -
-127.0.0.1 - - [21/Aug/2026 14:13:54] "GET /api/evaluate?code=600519 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:55] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:13:55] "GET /api/board-plan HTTP/1.1" 200 -
-----------------------------------------
-Exception occurred during processing of request from ('127.0.0.1', 58923)
-Traceback (most recent call last):
-  File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\socketserver.py", line 697, in process_request_thread
-    self.finish_request(request, client_address)
-    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\socketserver.py", line 362, in finish_request
-    self.RequestHandlerClass(request, client_address, self)
-    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\82704\Desktop\abc\新建文件夹\src\stock_evaluator\server.py", line 57, in __init__
-    super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
-    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\http\server.py", line 721, in __init__
-    super().__init__(*args, **kwargs)
-    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
-  File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\socketserver.py", line 766, in __init__
-    self.handle()
-    ~~~~~~~~~~~^^
-  File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\http\server.py", line 485, in handle
-    self.handle_one_request()
-    ~~~~~~~~~~~~~~~~~~~~~~~^^
-  File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\http\server.py", line 473, in handle_one_request
-    method()
-    ~~~~~~^^
-  File "C:\Users\82704\Desktop\abc\新建文件夹\src\stock_evaluator\server.py", line 258, in do_GET
-    return self._json(200, payload)
-           ~~~~~~~~~~^^^^^^^^^^^^^^
-  File "C:\Users\82704\Desktop\abc\新建文件夹\src\stock_evaluator\server.py", line 65, in _json
-    self.wfile.write(body)
-    ~~~~~~~~~~~~~~~~^^^^^^
-  File "C:\Users\82704\AppData\Local\Python\pythoncore-3.14-64\Lib\socketserver.py", line 845, in write
-    self._sock.sendall(b)
-    ~~~~~~~~~~~~~~~~~~^^^
-ConnectionAbortedError: [WinError 10053] 你的主机中的软件中止了一个已建立的连接。
-----------------------------------------
-127.0.0.1 - - [21/Aug/2026 14:13:57] "GET /api/sector-peers?code=600519 HTTP/1.1" 502 -
-127.0.0.1 - - [21/Aug/2026 14:14:00] "GET /api/funds?code=600519 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:14:03] "GET /api/intraday-plan HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:14:19] "GET /api/board-plan HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:14:19] "GET /api/board-open-guard HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:14:19] "GET /api/board-plan HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:14:25] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:14:54] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:15:24] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:15:55] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:16:25] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:16:55] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:17:46] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:18:46] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:19:46] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:46] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:55] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:57] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:57] "GET /styles.css HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:57] "GET /strategy-execution.css?v=20260814-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:57] "GET /history-review.css?v=20260814-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:57] "GET /app.js?v=20260821-02 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:57] "GET /board-auction-only.js?v=20260821-04 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:57] "GET /daily-recommend.js?v=20260821-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:57] "GET /intraday-leadership.js?v=20260814-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:57] "GET /strategy-execution.js?v=20260817-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:57] "GET /history-review.js?v=20260821-01 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:57] code 404, message File not found
-127.0.0.1 - - [21/Aug/2026 14:20:57] "GET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1" 404 -
-127.0.0.1 - - [21/Aug/2026 14:20:57] "GET /api/trading-dates HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:58] code 404, message File not found
-127.0.0.1 - - [21/Aug/2026 14:20:58] "GET /content.css.map HTTP/1.1" 404 -
-127.0.0.1 - - [21/Aug/2026 14:20:58] code 404, message File not found
-127.0.0.1 - - [21/Aug/2026 14:20:58] "GET /sidebar.css.map HTTP/1.1" 404 -
-127.0.0.1 - - [21/Aug/2026 14:20:58] "GET /api/evaluate?code=600519 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:58] "GET /api/funds?code=600519 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:20:59] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:21:00] "GET /api/sector-peers?code=600519 HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:21:04] "GET /api/intraday-plan HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:21:30] "GET /api/screen HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:21:46] "GET /api/board-plan HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:21:46] "GET /api/board-open-guard HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:21:46] "GET /api/board-plan HTTP/1.1" 200 -
-127.0.0.1 - - [21/Aug/2026 14:22:00] "GET /api/screen HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:57:43] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 09:57:49] "GET /api/board-open-guard HTTP/1.1" 502 -
+127.0.0.1 - - [25/Aug/2026 09:59:07] "GET /api/board-open-guard HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2026 10:00:40] "GET /api/board-open-guard HTTP/1.1" 200 -

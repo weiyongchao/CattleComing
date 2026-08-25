@@ -60,7 +60,7 @@
       ["A级候选", `${state.board.candidates.filter((item) => item.actionable).length}只`, "只保留观察资格"],
       ["竞价均值", signed(market.average_gap), "候选平均高开"],
       ["主力确认", `${market.fund_confirmed_count || 0}只`, "最近可用资金数据"],
-      ["盘中合格", `${state.intraday.qualified_count || 0}只`, "实时承接筛选"],
+      ["盘中确认", `${state.intraday.confirmed_count || 0}只`, "仅复核09:25候选"],
     ].map(([label, value, note]) => `<div><span>${label}</span><strong>${value}</strong><small>${note}</small></div>`).join("");
   };
 
@@ -89,7 +89,7 @@
     return [
       { key: "mainboard", label: "沪深主板且非ST", passed: !candidate.name.toUpperCase().includes("ST"), auto: true },
       { key: "auction", label: "09:25竞价A级候选", passed: Boolean(candidate.actionable), auto: true },
-      { key: "sector", label: "板块同步走强", passed: Boolean(live && live.sector_change_percent > 0), auto: true },
+      { key: "sector", label: "盘中量价承接未转弱", passed: Boolean(live && live.tone !== "reject"), auto: true },
       { key: "support", label: "开盘价与竞价价承接有效", passed: Boolean(manual.support), auto: false },
       { key: "initiative", label: "冲板主动、卖压被消化", passed: Boolean(manual.initiative), auto: false },
       { key: "announcement", label: "已核验公告、减持与解禁风险", passed: Boolean(manual.announcement), auto: false },
@@ -101,12 +101,12 @@
     if (!candidate) return;
     const live = getIntradayCandidate(candidate.code);
     byId("strategyFocus").className = "";
-    byId("strategyFocus").innerHTML = `<div class="strategy-focus-head"><div><h3>${escapeHtml(candidate.name)} <small>${escapeHtml(candidate.code)}</small></h3><p>${escapeHtml(candidate.category)} / ${escapeHtml(candidate.industry)} · 09:25排名候选</p></div><b class="${live ? "positive" : "neutral"}">${live ? escapeHtml(live.tier || "盘中观察") : "等待盘中共振"}</b></div>
+    byId("strategyFocus").innerHTML = `<div class="strategy-focus-head"><div><h3>${escapeHtml(candidate.name)} <small>${escapeHtml(candidate.code)}</small></h3><p>${escapeHtml(candidate.category)} / ${escapeHtml(candidate.industry)} · 09:25排名候选</p></div><b class="${live?.tone === "confirm" ? "positive" : live?.tone === "reject" ? "negative" : "neutral"}">${live ? escapeHtml(live.decision || "盘中观察") : "等待盘中确认"}</b></div>
       <div class="strategy-focus-stats">
         <div><span>竞价高开</span><strong>${signed(candidate.auction_gap_percent)}</strong></div>
         <div><span>竞价成交额</span><strong>${formatMoney(candidate.auction_amount)}</strong></div>
         <div><span>竞价 / MA5</span><strong>${signed(candidate.price_vs_ma5_percent)}</strong></div>
-        <div><span>盘中验证</span><strong>${live ? `${live.passed}/5项` : "未进入前排"}</strong></div>
+        <div><span>盘中验证</span><strong>${live ? `${live.passed}/${live.known_total}项` : "尚未读取"}</strong></div>
       </div>`;
     const checks = checksFor(candidate);
     byId("strategyChecklist").innerHTML = checks.map((check) => `<button type="button" class="strategy-check ${check.passed ? "active" : ""} ${check.auto ? "auto" : ""}" data-key="${check.key}" ${check.auto ? "disabled" : ""}><span>${check.label}</span><i>${check.passed ? "✓" : "○"}</i></button>`).join("");
@@ -195,10 +195,19 @@
     results.hidden = true;
     byId("strategyRefresh").disabled = true;
     try {
-      const [boardResponse, intradayResponse] = await Promise.all([fetch("/api/board-plan"), fetch("/api/intraday-plan")]);
-      const [board, intraday] = await Promise.all([boardResponse.json(), intradayResponse.json()]);
+      const boardResponse = await fetch("/api/board-plan");
+      const board = await boardResponse.json();
       if (!boardResponse.ok) throw new Error(board.error || "竞价策略读取失败");
-      if (!intradayResponse.ok) throw new Error(intraday.error || "盘中策略读取失败");
+      let intraday = { candidates: [], confirmed_count: 0 };
+      if (currentHHMM() >= 930 && currentHHMM() < 1505 && board.candidates.length) {
+        try {
+          const liveResponse = await fetch("/api/board-open-guard?scope=frozen");
+          const liveData = await liveResponse.json();
+          if (liveResponse.ok) intraday = liveData;
+        } catch (_) {
+          // 轻量盘中复核失败不阻断竞价候选与执行记录。
+        }
+      }
       state.board = board;
       state.intraday = intraday;
       state.selectedCode = board.candidates.find((item) => item.actionable)?.code || board.candidates[0]?.code || "";

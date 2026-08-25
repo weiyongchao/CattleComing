@@ -5212,6 +5212,52 @@
           ]
         }
       }
+    },
+    "2026-08-25": {
+      "date": "2026-08-25",
+      "sources": {
+        "main_board": {
+          "source": "main_board",
+          "captured_at": "2026-08-25T09:49:36+08:00",
+          "rule_version": "2026.08.1",
+          "market": null,
+          "method": "扫描全部非ST沪深主板；允许近5日强势和当日快速拉升，先用真实量价、主力资金、MA20偏离、波动与回撤建立候选，再用中国政府网近期政策和美股、日经、韩国指数做小幅行业加减分。09:25竞价仅作媒介参考；同一行业最多3只，总计最多5只，不达标不凑数。",
+          "candidates": [
+            {
+              "code": "600919",
+              "name": "江苏银行",
+              "industry": "银行Ⅱ",
+              "score": 89.0,
+              "signal": "稳健趋势关注",
+              "reference_price": 12.17,
+              "qualified": true,
+              "decision": "主板关注",
+              "change_percent_at_selection": 0.33,
+              "price_vs_ma5_percent": 0.0,
+              "volume_ratio": 0.0,
+              "turnover_rate": 0.09,
+              "risk_level": "",
+              "risks": []
+            },
+            {
+              "code": "600104",
+              "name": "上汽集团",
+              "industry": "乘用车",
+              "score": 26.0,
+              "signal": "不入选",
+              "reference_price": 10.23,
+              "qualified": false,
+              "decision": "技术观察",
+              "change_percent_at_selection": 0.39,
+              "price_vs_ma5_percent": 0.0,
+              "volume_ratio": 0.0,
+              "turnover_rate": 0.05,
+              "risk_level": "",
+              "risks": []
+            }
+          ]
+        }
+      }
     }
   }
 }

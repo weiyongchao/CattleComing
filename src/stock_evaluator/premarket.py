@@ -3,7 +3,10 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime
 
-from .auction import _completed_bars, _history_prefilter_score, _number, _recent_limit_up_count
+from .auction import (
+    _cache_live_history, _completed_bars, _history_prefilter_score, _number,
+    _recent_limit_up_count,
+)
 from .market import DailyBar, EastmoneyProvider
 from .screener import is_main_board, is_risk_stock_name
 from .universe import main_board_snapshots
@@ -67,8 +70,9 @@ def build_premarket_watchlist(
     target_date = target_date or date.today()
     provider = provider or EastmoneyProvider(timeout=8)
     snapshots = main_board_snapshots(cache_seconds=120, require_price=False)
-    candidates, failed = [], 0
-    with ThreadPoolExecutor(max_workers=32) as executor:
+    candidates, failed, warmed = [], 0, 0
+    # 盘前留出17分钟预热窗口；降低并发保护上游，成功K线直接供09:17/09:20复用。
+    with ThreadPoolExecutor(max_workers=8) as executor:
         futures = {
             executor.submit(provider.history, str(snapshot.get("f12") or ""), 80): snapshot
             for snapshot in snapshots
@@ -78,7 +82,10 @@ def build_premarket_watchlist(
         for future in as_completed(futures):
             snapshot = futures[future]
             try:
-                candidate = _premarket_candidate(snapshot, future.result(), target_date)
+                bars = future.result()
+                _cache_live_history(str(snapshot.get("f12") or ""), bars, 80)
+                warmed += 1
+                candidate = _premarket_candidate(snapshot, bars, target_date)
                 if candidate:
                     candidates.append(candidate)
             except Exception:
@@ -92,7 +99,8 @@ def build_premarket_watchlist(
     return {
         "date": target_date.isoformat(), "phase": "09:00盘前预选",
         "candidates": selected, "scanned": len(snapshots), "ranked_count": len(candidates),
-        "failed": failed, "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
-        "method": "仅使用目标日前已完成K线，按涨停活性、前日收盘位置、上影、近3/5/10日走势和前日量比动态选取最多6只。",
+        "failed": failed, "history_cache_warmed": warmed,
+        "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "method": "仅使用目标日前已完成K线，低并发预热全主板历史数据并供09:17/09:20复用；按涨停活性、前日收盘位置、上影、近3/5/10日走势和前日量比动态选取最多6只。",
         "disclaimer": "盘前预选不包含当日集合竞价、封单撤单和题材消息，只是09:25最终筛选的输入池，不是买入信号。",
     }
