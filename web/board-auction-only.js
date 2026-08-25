@@ -221,6 +221,7 @@
         ["连板核心", `${screening.core_qualified_count || 0}只`],
         ["分歧转强", `${screening.reversal_qualified_count || 0}只`],
         ["连板优先", `${screening.continuation_primary_count || 0}只`],
+        ["一字板C级推荐", `${screening.one_price_c_count || 0}只`],
         ["一进二观察", `${screening.one_to_two_count || 0}只`],
         ["首板观察", `${screening.first_board_watch_count || 0}只`],
         ["龙头修复", `${screening.leader_repair_count || 0}只`],
@@ -247,12 +248,11 @@
       const candidateEyebrow = candidateCard?.querySelector(".section-title span");
       if (candidateTitle) candidateTitle.textContent = "T+1涨停预选";
       if (candidateEyebrow) candidateEyebrow.textContent = "NEXT-DAY LIMIT-UP CANDIDATES";
-      const aGrade = data.candidates.filter((candidate) => candidate.actionable).length;
       document.getElementById("actionableCount").textContent = data.auction_phase === "cancelable"
         ? `${data.candidates.length}只09:17预选 · 09:20重排`
         : data.auction_phase === "indicative"
         ? `${data.candidates.length}只09:20观察 · 09:25复核`
-        : `${screening.continuation_primary_count || 0}只连板优先 · ${screening.one_to_two_count || 0}只一进二 · ${screening.first_board_watch_count || 0}只首板 · ${screening.nuclear_button_count || 0}只反核按钮`;
+        : `${screening.continuation_primary_count || 0}只连板优先 · ${screening.one_price_c_count || 0}只一字板C级推荐 · ${screening.one_to_two_count || 0}只一进二 · ${screening.first_board_watch_count || 0}只首板 · ${screening.nuclear_button_count || 0}只反核按钮`;
       candidateList.innerHTML = data.candidates.length ? data.candidates.map((candidate, index) => `
         <article class="action-box auction-only-card">
           <div style="display:flex;justify-content:space-between;gap:12px">
@@ -267,7 +267,7 @@
               <p style="color:${candidate.entry_confirmation?.status === "pending" ? "var(--amber)" : "var(--muted)"};font-size:12px;line-height:1.8">执行门槛：${candidate.entry_confirmation?.label || "待确认"} · ${candidate.entry_confirmation?.note || ""}</p>
               <p style="color:${candidate.risk_veto || candidate.tradable === false ? "var(--red)" : "var(--muted)"};font-size:12px;line-height:1.8">可成交性：${candidate.tradability_label || "等待开盘确认"} · T+1下跌风险 ${candidate.t1_downside_risk_score ?? "--"}分${candidate.auction_trajectory ? ` · ${candidate.auction_trajectory.label}（${candidate.auction_trajectory.sample_count}次，撮合涨幅漂移${signed(candidate.auction_trajectory.gap_drift_percent)}个百分点）` : " · 竞价轨迹待积累"}</p>
             </div>
-            <div style="text-align:right"><b class="${candidate.actionable ? "positive" : candidate.regulatory_risk?.level === "high" ? "negative" : "neutral"}">${candidate.action || candidate.decision || "观察"}</b><small style="display:block;margin-top:5px;color:var(--green)">T+1预期 ${candidate.continuation_score ?? "--"}分</small><small style="display:block">竞价动态${candidate.selection_score ?? candidate.score ?? "--"}分 · 原始${candidate.score ?? "--"}分</small><small style="display:block">核心${candidate.core_chain_score || 0} · 接力${candidate.relay_score || 0} · 弱转强${candidate.reversal_score || 0} · 隔日${candidate.first_board_score || 0}</small><small style="display:block">${candidate.guard_passed ?? "--"}/${candidate.guard_total ?? "--"}项</small></div>
+            <div style="text-align:right"><b class="${candidate.actionable || candidate.board_entry_allowed ? "positive" : candidate.regulatory_risk?.level === "high" ? "negative" : "neutral"}">${candidate.action || candidate.decision || "观察"}</b>${candidate.recommendation_badge ? `<small style="display:block;margin-top:6px;padding:3px 7px;border-radius:10px;background:#183126;color:var(--green)">✓ ${candidate.recommendation_badge}</small>` : ""}<small style="display:block;margin-top:5px;color:var(--green)">T+1预期 ${candidate.continuation_score ?? "--"}分</small><small style="display:block">竞价动态${candidate.selection_score ?? candidate.score ?? "--"}分 · 原始${candidate.score ?? "--"}分</small><small style="display:block">核心${candidate.core_chain_score || 0} · 接力${candidate.relay_score || 0} · 弱转强${candidate.reversal_score || 0} · 隔日${candidate.first_board_score || 0}</small><small style="display:block">${candidate.guard_passed ?? "--"}/${candidate.guard_total ?? "--"}项</small></div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">${(candidate.checks || []).map((check) => {
             const unknown = check.passed == null;

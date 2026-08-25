@@ -131,6 +131,7 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
     sealed = bool(limit_up_price and price >= limit_up_price - 0.005 and quote["change_percent"] >= 9.5)
     failed_board = touched_limit_up and not sealed
     auction_tradable = candidate.get("tradable", True)
+    board_entry_allowed = bool(candidate.get("board_entry_allowed"))
     nuclear_mode = candidate.get("strategy_mode") == "反核按钮竞价抄底"
     fund_current = bool(funds and funds.get("is_today") and str(funds.get("date")) == date.today().isoformat())
     main_ratio = _number(funds.get("main_ratio")) if fund_current and funds else None
@@ -186,6 +187,9 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
     if sealed and auction_tradable:
         decision, tone = "封板确认 · 已持有可观察", "confirm"
         summary = "盘中已经封住涨停，实际走势确认竞价逻辑；未持仓不追高，仍需防后续炸板。"
+    elif sealed and board_entry_allowed:
+        decision, tone = "C级一字板 · 推荐挂单打板", "confirm"
+        summary = "高辨识度一字板仍封住涨停，可按涨停价排队；挂单不等于成交，若开板成交则需确认快速回封。"
     elif sealed:
         decision, tone = "一字封板 · 排队难成交", "watch"
         summary = "走势很强但竞价阶段已接近一字，真实可成交性较低；不要把排队等同于已经买入。"
@@ -223,7 +227,10 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
         decision, tone = "继续观察 · 暂不追价", "watch"
         summary = "尚未出现明确破坏，但确认项不足，等待成交与买盘进一步稳定。"
 
-    if sealed:
+    if sealed and board_entry_allowed:
+        entry_advice = "未持有：可按涨停价挂单排队打板；未成交不追改价，开板成交需确认快速回封"
+        holding_advice = "已持有：继续观察封单；开板后不能快速回封则降低次日预期"
+    elif sealed:
         entry_advice = "未持有：已经封板，不追价、不把排队视为成交"
         holding_advice = "已持有：继续观察封单；炸板后不能快速回封则降低次日预期"
     elif failed_board:
@@ -258,6 +265,8 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
         "strategy_mode": candidate.get("strategy_mode"),
         "board_stage_label": candidate.get("board_stage_label"),
         "auction_action": candidate.get("action"),
+        "board_entry_allowed": board_entry_allowed,
+        "recommendation_badge": candidate.get("recommendation_badge"),
         "discovery_source": candidate.get("discovery_source") or "09:25冻结候选",
         "auction_rank": int(_number(candidate.get("_auction_rank"), 0)),
         "decision": decision, "tone": tone, "open_score": score,

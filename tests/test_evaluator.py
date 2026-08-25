@@ -37,6 +37,7 @@ from src.stock_evaluator.premarket import _premarket_candidate
 from src.stock_evaluator.stock_search import _parse_suggestions
 from src.stock_evaluator.regulatory import regulatory_risk
 from src.stock_evaluator.open_guard import _live_one_to_two_prefilter, _open_confirmation
+from src.stock_evaluator.outlook import infer_next_day_outlook
 from src.stock_evaluator.daily_recommend import _daily_candidate
 from src.stock_evaluator.external_context import (
     _global_summary, _policy_signals, _tencent_global_rows, apply_external_context,
@@ -157,6 +158,70 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(result["metrics"]["intraday_position_percent"], 80.0)
         self.assertEqual(result["metrics"]["price_vs_open_percent"], 12.5)
         self.assertGreater(result["components"]["intraday"], 0)
+
+    def test_next_day_outlook_combines_trend_close_and_current_funds(self):
+        quote = Quote(
+            "000001", "强势样本", 12, 11, 9.09, 1400, 16800,
+            turnover_rate=6, open_price=11.1, high_price=12, low_price=10.9,
+            order_imbalance=0.45,
+        )
+        bars = self.bars([9.8, 10, 10.2, 10.5, 11])
+        result = evaluate(quote, bars, {
+            "category": "测试板块", "average_change": 1.2,
+            "advance_ratio": 0.7, "sample_size": 10,
+        })
+        funds = {
+            "date": date.today().isoformat(), "is_today": True,
+            "main_net": 80_000_000, "main_ratio": 6,
+            "source": "测试资金", "combined_signal": {"score": 50, "label": "强流入"},
+        }
+        outlook = infer_next_day_outlook(
+            quote, bars, result, funds, now=app_server.datetime(2026, 8, 25, 15, 10),
+        )
+        self.assertGreater(outlook["direction"]["score"], 20)
+        self.assertEqual(outlook["direction"]["tone"], "positive")
+        self.assertTrue(outlook["fund_flow"]["current"])
+        self.assertGreater(outlook["weights"]["rise"], outlook["weights"]["fall"])
+        self.assertEqual(sum(outlook["weights"].values()), 100)
+
+    def test_next_day_outlook_marks_weak_trend_and_outflow_as_bearish(self):
+        quote = Quote(
+            "000001", "弱势样本", 8, 9, -11.11, 2200, 17600,
+            turnover_rate=15, open_price=8.8, high_price=8.9, low_price=8,
+            order_imbalance=-0.6,
+        )
+        bars = self.bars([10, 9.8, 9.5, 9.2, 9])
+        result = evaluate(quote, bars, {
+            "category": "弱势板块", "average_change": -2,
+            "advance_ratio": 0.2, "sample_size": 10,
+        })
+        funds = {
+            "date": date.today().isoformat(), "is_today": True,
+            "main_net": -100_000_000, "main_ratio": -8,
+            "source": "测试资金", "combined_signal": {"score": -70, "label": "强流出"},
+        }
+        outlook = infer_next_day_outlook(
+            quote, bars, result, funds, now=app_server.datetime(2026, 8, 25, 15, 10),
+        )
+        self.assertLess(outlook["direction"]["score"], -20)
+        self.assertEqual(outlook["direction"]["tone"], "negative")
+        self.assertIn("低", outlook["path"]["label"])
+        self.assertGreater(outlook["weights"]["fall"], outlook["weights"]["rise"])
+
+    def test_next_day_outlook_degrades_when_funds_are_missing(self):
+        quote = Quote(
+            "000001", "中性样本", 10.5, 10.2, 2.94, 1200, 12600,
+            turnover_rate=3, open_price=10.2, high_price=10.6, low_price=10.1,
+            order_imbalance=0.1,
+        )
+        bars = self.bars([9.9, 10, 10.1, 10.2, 10.2])
+        result = evaluate(quote, bars)
+        outlook = infer_next_day_outlook(
+            quote, bars, result, None, now=app_server.datetime(2026, 8, 25, 15, 10),
+        )
+        self.assertFalse(outlook["fund_flow"]["available"])
+        self.assertTrue(any("资金流未确认" in risk for risk in outlook["risks"]))
+        self.assertLessEqual(outlook["confidence"]["score"], 66)
 
     def test_weak_signal_blocks_new_position_and_adding(self):
         quote = Quote("000001", "测试", 8, 9, -4, 3000, 24000, 0.2, 9, 9, 8)
@@ -421,6 +486,23 @@ class EvaluatorTests(unittest.TestCase):
         selected = _select_high_confidence_candidates([candidate], limit=6)
         self.assertEqual([item["code"] for item in selected], ["002412"])
 
+    def test_dynamic_selection_keeps_c_grade_one_price_core_behind_ordinary(self):
+        ordinary = {
+            "code": "ordinary", "eligible": True, "priority_tier": "连板优先",
+            "tradable": True, "risk_veto": False, "auction_gap_percent": 6,
+            "score": 92, "selection_score": 94, "continuation_score": 72,
+            "auction_amount": 80_000_000, "auction_liquidity_tier": "A", "auction_time": "09:25",
+        }
+        c_grade = {
+            "code": "000017", "eligible": True, "priority_tier": "连板优先",
+            "tradable": False, "risk_veto": False, "auction_gap_percent": 9.97,
+            "score": 100, "selection_score": 92, "continuation_score": 44,
+            "core_chain_score": 92, "auction_amount": 20_185_868,
+            "auction_liquidity_tier": "C", "auction_time": "09:25",
+        }
+        selected = _select_high_confidence_candidates([c_grade, ordinary], limit=6)
+        self.assertEqual([item["code"] for item in selected], ["ordinary", "000017"])
+
     def test_dynamic_selection_keeps_special_candidates_behind_ordinary(self):
         common = {"eligible": True, "risk_veto": False, "auction_time": "09:25"}
         ordinary = {
@@ -670,6 +752,20 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(weak, (False, "blocked"))
         self.assertEqual(one_to_two, (True, "B"))
 
+    def test_high_recognition_three_board_one_price_can_enter_c_watch(self):
+        deep_zhonghua = _auction_amount_qualification(
+            20_185_868, True, 3, 100, "unknown", one_price_core=True,
+        )
+        too_small = _auction_amount_qualification(
+            14_999_999, True, 3, 100, "unknown", one_price_core=True,
+        )
+        ordinary_low_amount = _auction_amount_qualification(
+            20_185_868, True, 3, 100, "unknown",
+        )
+        self.assertEqual(deep_zhonghua, (True, "C"))
+        self.assertEqual(too_small, (False, "blocked"))
+        self.assertEqual(ordinary_low_amount, (False, "blocked"))
+
     def test_strong_a_liquidity_does_not_depend_on_auxiliary_fund_source(self):
         confirmed = _auction_amount_qualification(143_452_720, True, 3, 100, "confirmed")
         weak = _auction_amount_qualification(143_452_720, True, 3, 100, "weak")
@@ -789,6 +885,26 @@ class EvaluatorTests(unittest.TestCase):
         }
         result = _auction_decision(candidate)
         self.assertEqual(result["action"], "连板核心A级预选")
+
+    def test_board_decision_recommends_c_grade_one_price_for_board_queue(self):
+        candidate = {
+            "score": 100, "continuation_score": 44, "strategy_mode": "连板核心",
+            "priority_tier": "连板优先", "auction_liquidity_tier": "C",
+            "previous_day_limit_up": True, "consecutive_limit_up_days": 3,
+            "auction_gap_percent": 9.97, "auction_volume_percent": 15.97,
+            "auction_amount": 20_185_868, "float_market_cap": 3_791_068_779,
+            "listed_sessions": 80, "decision_main_ratio": None,
+            "three_day_change_percent": 33.13, "tradable": False,
+            "tradability_label": "一字板/近涨停 · 可挂单打板，但可能排不到",
+        }
+        result = _auction_decision(candidate)
+        self.assertEqual(result["action"], "高辨识度一字板C级推荐 · 可挂单打板")
+        self.assertFalse(result["actionable"])
+        self.assertTrue(result["recommended"])
+        self.assertTrue(result["board_entry_allowed"])
+        self.assertEqual(result["recommendation_badge"], "推荐 · 可挂单打板")
+        amount_check = next(check for check in result["checks"] if "竞价成交额" in check["name"])
+        self.assertTrue(amount_check["passed"])
 
     def test_simple_plan_allows_build_only_with_confirmed_funds(self):
         result = {
@@ -977,6 +1093,16 @@ class EvaluatorTests(unittest.TestCase):
             **common, "quote": {"price": 11, "previous_close": 10, "open_price": 11, "high_price": 11, "change_percent": 10, "amount": 20_000_000},
         }, funds)
         self.assertEqual(unbuyable["decision"], "一字封板 · 排队难成交")
+
+        c_grade = _open_confirmation({
+            **candidate, "tradable": False, "board_entry_allowed": True,
+            "recommendation_badge": "推荐 · 可挂单打板",
+        }, {
+            **common, "quote": {"price": 11, "previous_close": 10, "open_price": 11, "high_price": 11, "change_percent": 10, "amount": 20_000_000},
+        }, funds)
+        self.assertEqual(c_grade["decision"], "C级一字板 · 推荐挂单打板")
+        self.assertTrue(c_grade["board_entry_allowed"])
+        self.assertIn("可按涨停价挂单排队打板", c_grade["entry_advice"])
 
     def test_open_confirmation_requires_nuclear_button_to_hold_auction_support(self):
         candidate = {

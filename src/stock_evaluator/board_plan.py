@@ -11,7 +11,7 @@ from .auction import screen_auction_candidates, screen_historical_auction_candid
 from .market import EastmoneyProvider, MarketDataError
 
 
-BOARD_STRATEGY_VERSION = "2026.08.25.1"
+BOARD_STRATEGY_VERSION = "2026.08.25.4"
 from .screener import LEADER_POOL, is_main_board, is_risk_stock_name
 
 
@@ -143,10 +143,11 @@ def _auction_decision(candidate: dict) -> dict:
     mode = candidate.get("strategy_mode") or ""
     priority_tier = candidate.get("priority_tier") or ""
     liquidity_b_watch = candidate.get("auction_liquidity_tier") == "B"
+    liquidity_c_watch = candidate.get("auction_liquidity_tier") == "C"
     amount_check = {
-        "name": "竞价成交额≥3000万（一进二B级）" if liquidity_b_watch and candidate.get("one_to_two_matched") else "竞价成交额≥3000万（龙头修复B级）" if mode == "龙头断板修复" else "竞价成交额≥3000万（成熟连板B级）" if liquidity_b_watch else "竞价成交额>5000万",
-        "passed": candidate["auction_amount"] >= 30_000_000 if liquidity_b_watch else candidate["auction_amount"] > 50_000_000,
-        "note": "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留",
+        "name": "竞价成交额≥1500万（三板以上一字C级）" if liquidity_c_watch else "竞价成交额≥3000万（一进二B级）" if liquidity_b_watch and candidate.get("one_to_two_matched") else "竞价成交额≥3000万（龙头修复B级）" if mode == "龙头断板修复" else "竞价成交额≥3000万（成熟连板B级）" if liquidity_b_watch else "竞价成交额>5000万",
+        "passed": candidate["auction_amount"] >= 15_000_000 if liquidity_c_watch else candidate["auction_amount"] >= 30_000_000 if liquidity_b_watch else candidate["auction_amount"] > 50_000_000,
+        "note": "C级只保留至少3连板、核心评分≥90、竞价量占比≥10%且无硬否决的一字核心" if liquidity_c_watch else "未达5000万A级线，仅在至少2连板、接力评分≥90且前序主力确认时保留",
     }
     core_mode = mode.startswith("连板核心")
     fund_ratio = candidate.get("decision_main_ratio")
@@ -355,6 +356,12 @@ def _auction_decision(candidate: dict) -> dict:
         and candidate.get("consecutive_limit_up_days", 0) >= 3
         and candidate.get("score", 0) >= 95 and decision_score >= 55
     )
+    board_entry_allowed = bool(
+        liquidity_c_watch
+        and not candidate.get("tradable", True)
+        and candidate.get("eligible", True)
+        and not candidate.get("risk_veto", False)
+    )
     if mode == "龙头分歧反包" and not candidate.get("tradable", True):
         action = "龙头反包一字观察 · 排队难成交"
     elif mode == "高辨识度容量接力" and not candidate.get("tradable", True):
@@ -362,7 +369,7 @@ def _auction_decision(candidate: dict) -> dict:
     elif mode == "竞价抢筹首板" and not candidate.get("tradable", True):
         action = "抢筹首板一字观察 · 排队难成交"
     elif not candidate.get("tradable", True):
-        action = "一字板打板观察 · 挂单未必成交"
+        action = "高辨识度一字板C级推荐 · 可挂单打板" if board_entry_allowed else "一字板打板观察 · 挂单未必成交"
     elif mode == "反核按钮竞价抄底":
         action = "反核按钮竞价抄底 · 高风险观察"
     elif mode == "龙头分歧反包":
@@ -386,6 +393,9 @@ def _auction_decision(candidate: dict) -> dict:
     return {
         **candidate, "checks": checks,
         "guard_passed": passed, "guard_total": known_total, "check_total": len(checks), "action": action,
+        "recommended": board_entry_allowed,
+        "board_entry_allowed": board_entry_allowed,
+        "recommendation_badge": "推荐 · 可挂单打板" if board_entry_allowed else None,
         "actionable": action in {"隔日启动A级观察", "一进二A级观察", "首板A级观察"},
         "execution_ready": action in {"隔日启动A级观察", "一进二A级观察", "首板A级观察"},
         # 兼容旧页面首帧，字段值仍完全来自竞价或历史行情；新页面模块会替换为准确标签。
@@ -494,6 +504,7 @@ def build_board_plan(
             "reversal_qualified_count": auction.get("reversal_qualified_count", 0),
             "first_board_qualified_count": auction.get("first_board_qualified_count", 0),
             "continuation_primary_count": auction.get("continuation_primary_count", 0),
+            "one_price_c_count": auction.get("one_price_c_count", 0),
             "untradable_count": auction.get("untradable_count", 0),
             "risk_veto_count": auction.get("risk_veto_count", 0),
             "one_to_two_count": auction.get("one_to_two_count", 0),
@@ -515,7 +526,7 @@ def build_board_plan(
                 if historical else
                 "09:17可撤单预选与09:20不可撤单观察都不分配仓位；09:25最终竞价复核通过后，A级候选才进入仓位计划。"
                 if auction_phase in {"cancelable", "indicative"} else
-                "只有A级候选才分配仓位；仓位由前序交易日走势、主力资金与09:25竞价质量决定，盘中变化不回写本页。"
+                "A级候选进入常规仓位计划；高辨识度一字板C级可按涨停价排队，但不计作已成交仓位，未成交不追改价。"
             ),
         },
         "strategy_profile": {

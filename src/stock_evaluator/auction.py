@@ -127,9 +127,9 @@ def _expand_with_previous_limit_ups(
 def _auction_amount_qualification(
     auction_amount: float, continuation_primary: bool, consecutive_limit_ups: int,
     relay_score: float, support_status: str, leader_repair: bool = False,
-    one_to_two: bool = False,
+    one_to_two: bool = False, one_price_core: bool = False,
 ) -> tuple[bool, str]:
-    """5000万为A级线；成熟连板、龙头修复和亮眼一进二可由3000万进入B级观察。"""
+    """5000万为A级；3000万为B级；高辨识度三板以上一字核心可进C级风险观察。"""
     if auction_amount > 50_000_000:
         return True, "A"
     mature_chain_watch = (
@@ -140,7 +140,11 @@ def _auction_amount_qualification(
     leader_repair_watch = auction_amount >= 30_000_000 and leader_repair
     one_to_two_watch = auction_amount >= 30_000_000 and one_to_two and support_status != "weak"
     b_watch = mature_chain_watch or leader_repair_watch or one_to_two_watch
-    return b_watch, "B" if b_watch else "blocked"
+    if b_watch:
+        return True, "B"
+    if one_price_core and auction_amount >= 15_000_000:
+        return True, "C"
+    return False, "blocked"
 
 
 def _nuclear_button_profile(
@@ -1379,10 +1383,22 @@ def _auction_candidate(
             "接近一字涨停可能无法成交；能成交时需警惕封单松动",
         ]))
     overnight_secondary = one_to_two_secondary or capacity_one_to_two_secondary or first_board_secondary
+    one_price_core_watch = (
+        continuation_primary
+        and consecutive_limit_up_days >= 3
+        and core_chain_matched and core_chain_score >= 90
+        and 9.5 <= gap <= 10.2
+        and auction_amount >= 15_000_000
+        and auction_volume_percent >= 10
+        and previous_close_position >= 95
+        and previous_upper_shadow <= 0.10
+        and not execution_risk["risk_veto"]
+    )
     auction_amount_gate, auction_liquidity_tier = _auction_amount_qualification(
         auction_amount, continuation_primary, consecutive_limit_up_days,
         relay_score, str(support.get("status") or "unknown"), leader_repair_secondary,
         one_to_two=one_to_two_secondary or capacity_one_to_two_secondary,
+        one_price_core=one_price_core_watch,
     )
     if nuclear_button["matched"]:
         auction_amount_gate, auction_liquidity_tier = True, "A"
@@ -1400,6 +1416,14 @@ def _auction_candidate(
         risks = list(dict.fromkeys(risks + [
             liquidity_reason,
             "竞价资金强度弱于A级核心，开盘后炸板风险较高，必须等待封单确认",
+        ]))
+    elif auction_liquidity_tier == "C":
+        reasons = list(dict.fromkeys(reasons + [
+            "三板以上高辨识度一字核心达到C级竞价真实性门槛",
+        ]))
+        risks = list(dict.fromkeys(risks + [
+            "竞价额未达3000万B级线，仅作为C级一字板高风险观察",
+            "正常封单可能无法成交；若开板后能够成交，需先视为封单松动而非低风险买点",
         ]))
     previous_limit_up_breaks = int(_number(snapshot.get("_previous_limit_up_breaks")))
     if previous_limit_up_breaks >= 2:
@@ -1462,7 +1486,7 @@ def _auction_candidate(
         "auction_grab_matched": auction_grab_secondary,
         "strategy_mode": strategy_mode, "priority_tier": priority_tier, "eligible": eligible,
         "auction_liquidity_tier": auction_liquidity_tier,
-        "auction_amount_threshold": 30_000_000 if auction_liquidity_tier == "B" else 50_000_000,
+        "auction_amount_threshold": 15_000_000 if auction_liquidity_tier == "C" else 30_000_000 if auction_liquidity_tier == "B" else 50_000_000,
         **execution_risk,
         **board_stage,
         "signal": "强竞价观察" if score >= 75 and eligible else "竞价关注" if eligible else "不进入打板候选",
@@ -1511,6 +1535,10 @@ def _auction_candidate(
         "is_new_stock": listed_sessions < 60,
         "snapshot_time": int(_number(snapshot.get("f124"))) or None,
         "entry_confirmation": ({
+            "status": "secondary", "label": "一字板C级推荐 · 可挂单打板",
+            "requirements": ["至少3连板且核心评分≥90", "竞价额≥1500万且竞价量占比≥10%", "无风险硬否决", "开板后主动买盘能够快速重新封板"],
+            "note": "C级具备高辨识度一字板推荐资格，可按涨停价排队，固定排在可成交A级/B级之后；封死时可能排不到，开板能成交时先按封单松动处理。",
+        } if auction_liquidity_tier == "C" else {
             "status": "secondary", "label": "等待反核主动买盘确认",
             "requirements": ["9:25五项硬条件全部成立", "市场情绪处于冰点", "个股具备强势股性和题材辨识度", "开盘后不快速跌破竞价价"],
             "note": "反核按钮只进入高风险观察层；高开无承接、卖盘占优或题材退潮时不得跟随。",
@@ -1632,6 +1660,7 @@ def screen_auction_candidates(
         "reversal_qualified_count": sum(item.get("reversal_matched", False) for item in candidates),
         "first_board_qualified_count": sum(item.get("first_board_matched", False) for item in candidates),
         "continuation_primary_count": sum(item.get("eligible") and item.get("priority_tier") == "连板优先" for item in candidates),
+        "one_price_c_count": sum(item.get("eligible") and item.get("auction_liquidity_tier") == "C" for item in candidates),
         "untradable_count": sum(not item.get("tradable", True) for item in candidates),
         "risk_veto_count": sum(item.get("risk_veto", False) for item in candidates),
         "one_to_two_count": sum(item.get("eligible") and item.get("priority_tier") in {"一进二观察", "容量一进二观察"} for item in candidates),
@@ -1712,6 +1741,7 @@ def screen_historical_auction_candidates(
         "reversal_qualified_count": sum(item.get("reversal_matched", False) for item in candidates),
         "first_board_qualified_count": sum(item.get("first_board_matched", False) for item in candidates),
         "continuation_primary_count": sum(item.get("eligible") and item.get("priority_tier") == "连板优先" for item in candidates),
+        "one_price_c_count": sum(item.get("eligible") and item.get("auction_liquidity_tier") == "C" for item in candidates),
         "untradable_count": sum(not item.get("tradable", True) for item in candidates),
         "risk_veto_count": sum(item.get("risk_veto", False) for item in candidates),
         "one_to_two_count": sum(item.get("eligible") and item.get("priority_tier") in {"一进二观察", "容量一进二观察"} for item in candidates),

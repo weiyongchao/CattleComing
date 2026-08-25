@@ -58,6 +58,7 @@
     byId("strategyMarketMetrics").innerHTML = [
       ["竞价合格", `${state.board.screening.qualified_count || 0}只`, "09:25最终结果"],
       ["A级候选", `${state.board.candidates.filter((item) => item.actionable).length}只`, "只保留观察资格"],
+      ["可挂单C级", `${state.board.candidates.filter((item) => item.board_entry_allowed).length}只`, "高风险排队委托"],
       ["竞价均值", signed(market.average_gap), "候选平均高开"],
       ["主力确认", `${market.fund_confirmed_count || 0}只`, "最近可用资金数据"],
       ["盘中确认", `${state.intraday.confirmed_count || 0}只`, "仅复核09:25候选"],
@@ -75,7 +76,7 @@
       return `<button class="strategy-candidate ${item.code === state.selectedCode ? "selected" : ""}" data-code="${escapeHtml(item.code)}" type="button">
         <b class="strategy-candidate-rank">${index + 1}</b>
         <span class="strategy-candidate-main"><strong>${escapeHtml(item.name)} <small>${escapeHtml(item.code)} · ${escapeHtml(item.industry)}</small></strong><small>竞价 ${signed(item.auction_gap_percent)} · 竞价额 ${formatMoney(item.auction_amount)} · ${live ? `盘中${signed(live.change_percent)}` : "未进入盘中前排"}</small></span>
-        <span class="strategy-candidate-score"><b class="${item.actionable ? "positive" : item.action === "取消候选" ? "negative" : "neutral"}">${escapeHtml(item.action)}</b><small>${item.score}分 · ${item.guard_passed}/${item.guard_total}项</small></span>
+        <span class="strategy-candidate-score"><b class="${item.actionable || item.board_entry_allowed ? "positive" : item.action === "取消候选" ? "negative" : "neutral"}">${escapeHtml(item.action)}</b>${item.recommendation_badge ? `<small class="positive">✓ ${escapeHtml(item.recommendation_badge)}</small>` : ""}<small>${item.score}分 · ${item.guard_passed}/${item.guard_total}项</small></span>
       </button>`;
     }).join("");
     byId("strategyCandidates").querySelectorAll("button[data-code]").forEach((button) => {
@@ -88,7 +89,7 @@
     const manual = state.manual[candidate.code] || {};
     return [
       { key: "mainboard", label: "沪深主板且非ST", passed: !candidate.name.toUpperCase().includes("ST"), auto: true },
-      { key: "auction", label: "09:25竞价A级候选", passed: Boolean(candidate.actionable), auto: true },
+      { key: "auction", label: candidate.board_entry_allowed ? "C级一字板可挂单打板" : "09:25竞价A级候选", passed: Boolean(candidate.actionable || candidate.board_entry_allowed), auto: true },
       { key: "sector", label: "盘中量价承接未转弱", passed: Boolean(live && live.tone !== "reject"), auto: true },
       { key: "support", label: "开盘价与竞价价承接有效", passed: Boolean(manual.support), auto: false },
       { key: "initiative", label: "冲板主动、卖压被消化", passed: Boolean(manual.initiative), auto: false },
@@ -210,7 +211,7 @@
       }
       state.board = board;
       state.intraday = intraday;
-      state.selectedCode = board.candidates.find((item) => item.actionable)?.code || board.candidates[0]?.code || "";
+      state.selectedCode = board.candidates.find((item) => item.actionable)?.code || board.candidates.find((item) => item.board_entry_allowed)?.code || board.candidates[0]?.code || "";
       byId("strategyGeneratedAt").textContent = new Date(board.generated_at).toLocaleString("zh-CN", { hour12: false });
       renderMarket();
       renderCandidates();

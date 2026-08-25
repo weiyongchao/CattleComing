@@ -26,6 +26,7 @@ from .history import (
 )
 from .open_guard import build_open_guard
 from .next_day import build_next_day_strategy
+from .outlook import infer_next_day_outlook
 from .premarket import build_premarket_watchlist
 from .stock_search import resolve_stock_code, search_stocks
 
@@ -80,7 +81,18 @@ class AppHandler(SimpleHTTPRequestHandler):
     trading_dates_cache: tuple[float, list[str]] | None = None
     intraday_plan_cache: tuple[float, dict] | None = None
     simple_plan_cache: dict[tuple[str, float, int], tuple[float, dict]] = {}
+    evaluation_cache: dict[str, tuple[float, object, list, dict]] = {}
+    fund_flow_cache: dict[str, tuple[float, dict]] = {}
     board_plan_scan_lock = threading.Lock()
+
+    @classmethod
+    def _cached_fund_flow(cls, code: str, cache_seconds: int = 20) -> dict:
+        cached = cls.fund_flow_cache.get(code)
+        if cached and time.time() - cached[0] < cache_seconds:
+            return json.loads(json.dumps(cached[1], ensure_ascii=False))
+        payload = individual_fund_flow(code)
+        cls.fund_flow_cache[code] = (time.time(), payload)
+        return json.loads(json.dumps(payload, ensure_ascii=False))
 
     @classmethod
     def _build_board_plan_singleflight(
@@ -155,7 +167,6 @@ class AppHandler(SimpleHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/api/trading-dates":
-            import time
             cached_dates = type(self).trading_dates_cache
             if cached_dates and time.time() - cached_dates[0] < 300:
                 return self._json(200, {"dates": cached_dates[1]})
@@ -231,8 +242,34 @@ class AppHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/funds":
             code = parse_qs(parsed.query).get("code", ["600519"])[0]
             try:
-                return self._json(200, individual_fund_flow(code))
+                return self._json(200, type(self)._cached_fund_flow(code))
             except (MarketDataError, ValueError) as exc:
+                return self._json(502, {"error": str(exc)})
+        if parsed.path == "/api/next-day-outlook":
+            query = parse_qs(parsed.query).get("code", [""])[0]
+            try:
+                code = resolve_stock_code(query)
+                cached = type(self).evaluation_cache.get(code)
+                if cached and time.time() - cached[0] < 30:
+                    _, quote, bars, result = cached
+                else:
+                    quote = self.provider.quote(code)
+                    bars = self.provider.history(code)
+                    context = sector_context(code, self.provider)
+                    result = evaluate(quote, bars, context)
+                    type(self).evaluation_cache[code] = (time.time(), quote, bars, result)
+                funds, funds_error = None, None
+                try:
+                    funds = type(self)._cached_fund_flow(code)
+                except (MarketDataError, ValueError) as exc:
+                    funds_error = str(exc)
+                return self._json(200, {
+                    "code": code, "funds": funds, "funds_error": funds_error,
+                    "outlook": infer_next_day_outlook(quote, bars, result, funds),
+                })
+            except ValueError as exc:
+                return self._json(400, {"error": str(exc)})
+            except (MarketDataError, KeyError, TypeError) as exc:
                 return self._json(502, {"error": str(exc)})
         if parsed.path == "/api/sector-peers":
             code = parse_qs(parsed.query).get("code", ["600519"])[0]
@@ -241,7 +278,6 @@ class AppHandler(SimpleHTTPRequestHandler):
             except (MarketDataError, ValueError) as exc:
                 return self._json(502, {"error": str(exc)})
         if parsed.path == "/api/sector-funds":
-            import time
             cached = type(self).sector_cache
             if cached and time.time() - cached[0] < 120:
                 return self._json(200, cached[1])
@@ -252,7 +288,6 @@ class AppHandler(SimpleHTTPRequestHandler):
             except MarketDataError as exc:
                 return self._json(502, {"error": str(exc)})
         if parsed.path == "/api/screen":
-            import time
             cached = type(self).screen_cache
             if cached and time.time() - cached[0] < 20:
                 _record_safely("main_board", cached[1])
@@ -262,7 +297,6 @@ class AppHandler(SimpleHTTPRequestHandler):
             _record_safely("main_board", payload)
             return self._json(200, payload)
         if parsed.path == "/api/auction-screen":
-            import time
             cached = type(self).auction_cache
             if cached and time.time() - cached[0] < 60:
                 return self._json(200, cached[1])
@@ -270,7 +304,6 @@ class AppHandler(SimpleHTTPRequestHandler):
             type(self).auction_cache = (time.time(), payload)
             return self._json(200, payload)
         if parsed.path == "/api/board-plan":
-            import time
             params = parse_qs(parsed.query)
             selected = params.get("date", [""])[0].strip()
             replay = params.get("mode", [""])[0].strip() == "replay"
@@ -335,12 +368,38 @@ class AppHandler(SimpleHTTPRequestHandler):
                 if recovered and recovered.get("candidates"):
                     displayed = recovered
                     if displayed.get("strategy_version") != BOARD_STRATEGY_VERSION:
-                        displayed = dict(displayed)
-                        displayed.update({
-                            "snapshot_label": "当日09:25原始冻结名单 · 新规则下一交易日生效",
-                            "strategy_update_pending": True,
-                            "next_strategy_version": BOARD_STRATEGY_VERSION,
+                        cached = type(self).board_plan_cache
+                        if (
+                            cached and time.time() - cached[0] < 60
+                            and cached[1].get("snapshot_kind") == "latest_strategy_recheck"
+                            and cached[1].get("strategy_version") == BOARD_STRATEGY_VERSION
+                        ):
+                            return self._json(200, cached[1])
+                        try:
+                            payload = type(self)._build_board_plan_singleflight(force=True, cache_seconds=60)
+                        except (MarketDataError, ValueError) as exc:
+                            displayed = dict(displayed)
+                            displayed.update({
+                                "snapshot_label": "当日09:25原始冻结名单 · 最新策略复核失败",
+                                "strategy_update_pending": True,
+                                "next_strategy_version": BOARD_STRATEGY_VERSION,
+                            })
+                            displayed.setdefault("screening", {})["replay_warning"] = f"保留原始名单；新版复核失败：{exc}"
+                            return self._json(200, displayed)
+                        payload.update({
+                            "snapshot_kind": "latest_strategy_recheck",
+                            "snapshot_label": "09:25原始留痕保留 · 最新策略复核榜单",
+                            "frozen": False,
+                            "original_snapshot_generated_at": recovered.get("generated_at"),
+                            "original_strategy_version": recovered.get("strategy_version"),
                         })
+                        type(self).board_plan_cache = (time.time(), payload)
+                        if payload.get("candidates"):
+                            try:
+                                save_board_plan_snapshot(payload, "replay")
+                            except OSError:
+                                pass
+                        return self._json(200, payload)
                     return self._json(200, displayed)
                 if frozen:
                     cached = type(self).board_plan_cache
@@ -418,7 +477,6 @@ class AppHandler(SimpleHTTPRequestHandler):
             except MarketDataError as exc:
                 return self._json(502, {"error": str(exc)})
         if parsed.path == "/api/board-open-guard":
-            import time
             now = datetime.now()
             frozen_only = (parse_qs(parsed.query).get("scope") or [""])[0] == "frozen"
             guard_scope = "frozen_candidates" if frozen_only else "full_market"
@@ -444,7 +502,6 @@ class AppHandler(SimpleHTTPRequestHandler):
             type(self).board_open_cache = (time.time(), payload)
             return self._json(200, payload)
         if parsed.path == "/api/next-day-strategy":
-            import time
             now = datetime.now()
             if (now.hour, now.minute) < (14, 50):
                 return self._json(409, {"error": "14:50后才根据当天交易生成次日持仓预案"})
@@ -462,7 +519,6 @@ class AppHandler(SimpleHTTPRequestHandler):
             type(self).next_day_cache = (time.time(), payload)
             return self._json(200, payload)
         if parsed.path == "/api/intraday-plan":
-            import time
             cached = type(self).intraday_plan_cache
             if cached and time.time() - cached[0] < 30:
                 return self._json(200, cached[1])
@@ -481,7 +537,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             quote = self.provider.quote(code)
             bars = self.provider.history(code)
             context = sector_context(code, self.provider)
-            self._json(200, evaluate(quote, bars, context))
+            result = evaluate(quote, bars, context)
+            type(self).evaluation_cache[code] = (time.time(), quote, bars, result)
+            self._json(200, result)
         except ValueError as exc:
             self._json(400, {"error": str(exc)})
         except (MarketDataError, KeyError, TypeError) as exc:
