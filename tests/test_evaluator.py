@@ -30,7 +30,7 @@ from src.stock_evaluator.intraday import (
 from src.stock_evaluator.simple_plan import _position_action, build_position_summary
 from src.stock_evaluator import history as candidate_history
 from src.stock_evaluator.history import (
-    _review_candidate, load_board_plan_snapshot, record_candidates,
+    _board_review_view, _review_candidate, load_board_plan_snapshot, record_candidates,
     save_board_plan_snapshot,
 )
 from src.stock_evaluator.premarket import _premarket_candidate
@@ -1008,6 +1008,41 @@ class EvaluatorTests(unittest.TestCase):
                 self.assertEqual([item["code"] for item in saved], ["600001"])
             finally:
                 candidate_history.DATA_FILE = original
+
+    def test_board_history_excludes_retired_daily_recommendations(self):
+        daily = {
+            "generated_at": "2026-08-13T10:00:00+08:00",
+            "candidates": [{"code": "600001", "name": "旧每日推荐", "price": 10, "score": 70, "qualified": True}],
+        }
+        board = {
+            "generated_at": "2026-08-14T09:25:00+08:00",
+            "candidates": [{"code": "600002", "name": "打板候选", "auction_price": 12, "score": 80, "actionable": True}],
+        }
+        original = candidate_history.DATA_FILE
+        with TemporaryDirectory() as directory:
+            candidate_history.DATA_FILE = Path(directory) / "history.json"
+            try:
+                record_candidates("main_board", daily)
+                record_candidates("board", board)
+                result = candidate_history.list_board_history()
+                self.assertEqual([day["date"] for day in result["days"]], ["2026-08-14"])
+                self.assertEqual(set(result["days"][0]["sources"]), {"board"})
+            finally:
+                candidate_history.DATA_FILE = original
+
+    def test_board_review_summary_ignores_daily_recommendation_samples(self):
+        review = {
+            "counted": 3, "successes": 2, "accuracy_percent": 66.7,
+            "sources": {
+                "board": {"candidates": [{"counted": True, "success": False, "attribution": "规则问题", "rule_suggestion": "复核竞价"}]},
+                "main_board": {"candidates": [{"counted": True, "success": True}, {"counted": True, "success": True}]},
+            },
+        }
+        result = _board_review_view(review)
+        self.assertEqual(set(result["sources"]), {"board"})
+        self.assertEqual(result["counted"], 1)
+        self.assertEqual(result["successes"], 0)
+        self.assertEqual(result["accuracy_percent"], 0.0)
 
     def test_full_board_snapshots_keep_observation_and_final_separate(self):
         indicative = {

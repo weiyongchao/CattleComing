@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>量价罗盘 · A股评测</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/strategy-execution.css?v=20260814-01"><link rel="stylesheet" href="/history-review.css?v=20260814-01"><style>.metrics{grid-template-columns:repeat(5,1fr)}.metrics article{padding:20px 18px}.metrics strong{font-size:23px}.operation-card{margin-top:14px;padding:24px}.operation-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0}.action-box{background:#17231f;border:1px solid #2b3c36;border-radius:10px;padding:18px}.action-box span{display:block;color:var(--green);font-size:12px;margin-bottom:8px}.action-box strong{font-size:16px;line-height:1.6}.conditions{display:grid;grid-template-columns:1fr 1fr;gap:12px;color:var(--muted);font-size:13px}.conditions p{margin:0;padding:12px;background:#0c1512;border-radius:8px}.risk-title{color:var(--red);margin-top:20px;font-size:13px}@media(max-width:960px){.metrics{grid-template-columns:repeat(2,1fr)}}@media(max-width:720px){.metrics,.operation-grid,.conditions{grid-template-columns:1fr}}</style>
-  <style>.top-tabs{display:flex;gap:8px;margin:34px 0 24px;border-bottom:1px solid var(--line);padding-bottom:10px}.top-tab{border:0;background:transparent;color:var(--muted);padding:11px 18px;border-radius:8px;font-weight:700;cursor:pointer}.top-tab.active{background:#183126;color:var(--green)}.history-wrap{margin:12px 0 26px}.history-wrap span{color:var(--muted);font-size:12px}.history-list{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}.history-entry{display:flex;align-items:center;background:#17231f;border:1px solid var(--line);border-radius:18px;overflow:hidden}.history-item,.history-delete{background:transparent;border:0;color:#bfd0ca;cursor:pointer}.history-item{padding:7px 5px 7px 12px}.history-count{color:var(--muted);font-size:10px;margin-left:4px}.history-delete{padding:7px 10px 7px 6px;color:var(--muted)}.history-entry:hover{border-color:var(--green)}.history-item:hover{color:var(--green)}.history-delete:hover{color:var(--red)}</style>
+  <style>.top-tabs{display:flex;gap:8px;margin:34px 0 24px;border-bottom:1px solid var(--line);padding-bottom:10px}.top-tab{border:0;background:transparent;color:var(--muted);padding:11px 18px;border-radius:8px;font-weight:700;cursor:pointer}.top-tab.active{background:#183126;color:var(--green)}</style>
   <style>@media(max-width:720px){#simpleForm{grid-template-columns:1fr!important}.top-tabs{overflow-x:auto}.top-tab{white-space:nowrap}}</style>
 </head>
 <body>
@@ -71,7 +71,6 @@
     </section>
     <section id="stockTab" class="tab-page" hidden>
     <form id="search"><label for="code">股票代码或名称</label><div class="searchbox"><input id="code" maxlength="20" autocomplete="off" list="stockSuggestions" placeholder="例如 贵州茅台 或 600519"><datalist id="stockSuggestions"></datalist><button>开始评测 <span>→</span></button></div><p>支持输入股票完整名称、名称关键词或6位代码；多个匹配结果请从联想候选中选择</p></form>
-    <div class="history-wrap"><span>最近搜索</span><div id="historyList" class="history-list"><small style="color:var(--muted)">暂无记录</small></div></div>
     <section id="loading" class="state" hidden>正在读取市场数据…</section>
     <section id="error" class="state error" hidden></section>
     <section id="dashboard" hidden>
@@ -90,7 +89,6 @@
       <p class="disclaimer" id="disclaimer"></p>
     </section>
     </section>
-    <section id="screenTab" class="tab-page" hidden><div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px"><button id="screenButton" style="background:transparent;color:var(--green);border:1px solid var(--green);border-radius:8px;padding:11px 18px;font-weight:700;cursor:pointer">刷新每日推荐</button><button id="auctionButton" style="background:transparent;color:var(--amber);border:1px solid var(--amber);border-radius:8px;padding:11px 18px;font-weight:700;cursor:pointer">09:25 竞价 Top3</button></div><section id="screening" class="state" hidden>正在扫描全部非ST沪深主板及120日历史走势，首次约需1–3分钟…</section><section id="screenError" class="state error" hidden></section><section id="auctionResults" class="card" style="padding:24px;margin-bottom:24px" hidden><div class="section-title"><div><span>CALL AUCTION RADAR</span><h2>09:25 竞价打板观察</h2></div><small id="auctionTime" style="color:var(--muted)"></small></div><div id="auctionList" style="display:grid;gap:12px;margin-top:20px"></div><p id="auctionNote" class="disclaimer"></p></section><section id="screenResults" class="card" style="padding:24px;margin-bottom:24px" hidden><div class="section-title"><div><span>DAILY SELECTED OPPORTUNITIES</span><h2>每日精选机会</h2></div><small id="screenTime" style="color:var(--muted)"></small></div><div id="externalMarketContext" class="action-box" style="margin-top:18px"></div><div id="candidateList" style="display:grid;gap:12px;margin-top:20px"></div><p id="screenNote" class="disclaimer"></p></section></section>
     <section id="boardTab" class="tab-page" hidden>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -111,5 +109,5 @@
       <section id="historyReviewError" class="state error" hidden></section>
       <section id="historyReviewContent" hidden><div id="historyReviewSummary" class="review-summary"></div><div id="historyReviewDateTabs" class="review-date-tabs"></div><div id="historyReviewDays"></div><p class="disclaimer">“规则问题”仅在非系统性弱市中对有效候选判定；单日不自动改参数，同类失败达到复核线后才建议调整。市场问题不追责个股规则。</p></section>
     </section>
-  </main><script src="/app.js?v=20260825-02"></script><script src="/board-auction-only.js?v=20260825-03"></script><script src="/strategy-execution.js?v=20260825-02"></script><script src="/history-review.js?v=20260821-01"></script>
+  </main><script src="/app.js?v=20260825-03"></script><script src="/board-auction-only.js?v=20260825-03"></script><script src="/strategy-execution.js?v=20260825-02"></script><script src="/history-review.js?v=20260825-02"></script>
 </body></html>

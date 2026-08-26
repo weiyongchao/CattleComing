@@ -12,7 +12,6 @@ from urllib.parse import parse_qs, urlparse
 from .evaluator import evaluate
 from .market import EastmoneyProvider, MarketDataError
 from .screener import is_main_board, sector_context
-from .daily_recommend import screen_daily_recommendations
 from .funds import individual_fund_flow, sector_fund_leaders
 from .auction import screen_auction_candidates
 from .auction_trajectory import attach_trajectory, capture_watchlist, record_payload_sample
@@ -21,7 +20,7 @@ from .board_plan import BOARD_STRATEGY_VERSION, _auction_phase, build_board_plan
 from .intraday import build_intraday_plan
 from .simple_plan import build_simple_plan
 from .history import (
-    list_history, load_board_plan_snapshot, load_recorded_board_plan, record_candidates, review_day,
+    list_board_history, list_history, load_board_plan_snapshot, load_recorded_board_plan, record_candidates, review_day,
     save_board_plan_snapshot,
 )
 from .open_guard import build_open_guard
@@ -70,7 +69,6 @@ def _local_trading_dates(today_value: date | None = None) -> list[str]:
 
 class AppHandler(SimpleHTTPRequestHandler):
     provider = EastmoneyProvider()
-    screen_cache: tuple[float, dict] | None = None
     sector_cache: tuple[float, dict] | None = None
     auction_cache: tuple[float, dict] | None = None
     board_plan_cache: tuple[float, dict] | None = None
@@ -187,7 +185,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     })
                 return self._json(502, {"error": str(exc)})
         if parsed.path == "/api/history":
-            return self._json(200, list_history())
+            return self._json(200, list_board_history())
         if parsed.path == "/api/stock-search":
             query = parse_qs(parsed.query).get("q", [""])[0].strip()
             if not query:
@@ -287,15 +285,6 @@ class AppHandler(SimpleHTTPRequestHandler):
                 return self._json(200, payload)
             except MarketDataError as exc:
                 return self._json(502, {"error": str(exc)})
-        if parsed.path == "/api/screen":
-            cached = type(self).screen_cache
-            if cached and time.time() - cached[0] < 20:
-                _record_safely("main_board", cached[1])
-                return self._json(200, cached[1])
-            payload = screen_daily_recommendations(limit=5)
-            type(self).screen_cache = (time.time(), payload)
-            _record_safely("main_board", payload)
-            return self._json(200, payload)
         if parsed.path == "/api/auction-screen":
             cached = type(self).auction_cache
             if cached and time.time() - cached[0] < 60:
