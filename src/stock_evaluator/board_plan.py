@@ -8,10 +8,12 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from .auction import screen_auction_candidates, screen_historical_auction_candidates
+from .corporate_events import attach_corporate_event_risks
 from .market import EastmoneyProvider, MarketDataError
+from .trade_advice import auction_entry_plan
 
 
-BOARD_STRATEGY_VERSION = "2026.08.25.4"
+BOARD_STRATEGY_VERSION = "2026.08.26.7"
 from .screener import LEADER_POOL, is_main_board, is_risk_stock_name
 
 
@@ -139,11 +141,93 @@ def _auction_gate(candidates: list[dict], context: dict | None = None) -> dict:
     }
 
 
+def _generalization_evidence(candidate: dict) -> dict:
+    """用同一组独立证据约束所有形态，避免单个补漏通道直接产生推荐。"""
+    liquidity_tier = str(candidate.get("auction_liquidity_tier") or "A")
+    minimum_amount = 15_000_000 if liquidity_tier == "C" else 30_000_000 if liquidity_tier == "B" else 50_000_000
+    previous_close_position = _safe_float(candidate.get("previous_close_position_percent"), 100)
+    previous_upper_shadow = _safe_float(candidate.get("previous_upper_shadow_ratio"), 0)
+    previous_volume_ratio = _safe_float(candidate.get("previous_volume_ratio"), 1)
+    recent_activity = max(
+        int(candidate.get("recent_10_limit_up_count") or 0),
+        int(candidate.get("consecutive_limit_up_days") or 0),
+    )
+    gap = _safe_float(candidate.get("auction_gap_percent"))
+    volume_percent = _safe_float(candidate.get("auction_volume_percent"))
+    history_signal = bool(
+        candidate.get("previous_day_limit_up")
+        or recent_activity >= 1
+        or candidate.get("strong_characteristics")
+        or (gap >= 3 and volume_percent >= 1)
+    )
+    history_structure = bool(
+        history_signal
+        and previous_close_position >= 70
+        and previous_upper_shadow <= 0.35
+        and 0.3 <= previous_volume_ratio <= 4.5
+    )
+    special_reversal = bool(
+        candidate.get("nuclear_button_matched")
+        or candidate.get("priority_tier") == "跌停反核观察"
+    )
+    auction_reality = bool(
+        _safe_float(candidate.get("auction_amount")) >= minimum_amount
+        and volume_percent >= (5 if special_reversal else 1)
+        and ((-10.2 <= gap <= -9.5) if special_reversal else (-3 <= gap <= 10.2))
+    )
+    float_market_cap = _safe_float(
+        candidate.get("float_market_cap") if "float_market_cap" in candidate else 10_000_000_000
+    )
+    listed_sessions = int(candidate.get("listed_sessions") if "listed_sessions" in candidate else 80)
+    liquidity = bool(
+        0 < float_market_cap < 50_000_000_000
+        and listed_sessions >= 60
+    )
+    continuation_score = _safe_float(
+        candidate.get("continuation_score"),
+        _safe_float(candidate.get("continuation_base_score"), _safe_float(candidate.get("score"))),
+    )
+    continuation = continuation_score >= 55
+    regulation_level = str((candidate.get("regulatory_risk") or {}).get("level") or "normal")
+    support_status = str((candidate.get("big_order_support") or {}).get("status") or "unknown")
+    risk_control = bool(
+        not candidate.get("risk_veto", False)
+        and regulation_level != "high"
+        and support_status != "weak"
+    )
+    groups = {
+        "history_structure": history_structure,
+        "auction_reality": auction_reality,
+        "liquidity": liquidity,
+        "continuation": continuation,
+        "risk_control": risk_control,
+    }
+    passed = sum(groups.values())
+    score = (
+        (25 if history_structure else 0)
+        + (25 if auction_reality else 0)
+        + (15 if liquidity else 0)
+        + (25 if continuation else 0)
+        + (10 if risk_control else 0)
+    )
+    # 风险控制必须通过，其余四组至少三组成立。形态命中本身不计作独立证据。
+    gate = risk_control and sum((history_structure, auction_reality, liquidity, continuation)) >= 3
+    return {
+        "score": score,
+        "passed": passed,
+        "total": len(groups),
+        "gate": gate,
+        "groups": groups,
+        "rule": "风险控制必过；历史结构、竞价真实性、流动性、T+1延续性至少通过三组",
+    }
+
+
 def _auction_decision(candidate: dict) -> dict:
     mode = candidate.get("strategy_mode") or ""
     priority_tier = candidate.get("priority_tier") or ""
     liquidity_b_watch = candidate.get("auction_liquidity_tier") == "B"
     liquidity_c_watch = candidate.get("auction_liquidity_tier") == "C"
+    generalization = _generalization_evidence(candidate)
     amount_check = {
         "name": "竞价成交额≥1500万（三板以上一字C级）" if liquidity_c_watch else "竞价成交额≥3000万（一进二B级）" if liquidity_b_watch and candidate.get("one_to_two_matched") else "竞价成交额≥3000万（龙头修复B级）" if mode == "龙头断板修复" else "竞价成交额≥3000万（成熟连板B级）" if liquidity_b_watch else "竞价成交额>5000万",
         "passed": candidate["auction_amount"] >= 15_000_000 if liquidity_c_watch else candidate["auction_amount"] >= 30_000_000 if liquidity_b_watch else candidate["auction_amount"] > 50_000_000,
@@ -178,7 +262,7 @@ def _auction_decision(candidate: dict) -> dict:
             {"name": "同主题竞价共振", "passed": (candidate.get("theme_context") or {}).get("score", 0) > 0},
             fund_check,
         ]
-    elif mode == "一进二竞价接力":
+    elif mode in {"一进二竞价接力", "强竞价一进二一字板豁免"}:
         checks = [
             {"name": "昨日首板", "passed": candidate.get("consecutive_limit_up_days", 0) == 1},
             {"name": "竞价高开3%–10.2%", "passed": 3 <= candidate.get("auction_gap_percent", 0) <= 10.2},
@@ -189,6 +273,12 @@ def _auction_decision(candidate: dict) -> dict:
             {"name": "首板量比不过度爆量", "passed": 0.4 <= candidate.get("previous_volume_ratio", 0) <= 4},
             fund_check,
         ]
+        if mode == "强竞价一进二一字板豁免":
+            checks.insert(5, {
+                "name": "MA5偏离20%–25%仅按强竞价豁免",
+                "passed": 20 < candidate.get("price_vs_ma5_percent", 0) <= 25,
+                "note": "只适用于09:25接近涨停、竞价额≥5000万、竞价量占比≥10%、前日强收短上影的一进二",
+            })
     elif mode == "高辨识度容量接力":
         checks = [
             {"name": "昨日仍有涨停连续性", "passed": candidate.get("previous_day_limit_up", False)},
@@ -276,6 +366,12 @@ def _auction_decision(candidate: dict) -> dict:
             {"name": "流通市值<200亿", "passed": 0 < candidate.get("float_market_cap", 0) < 20_000_000_000},
             fund_check,
         ]
+        if candidate.get("high_board_turnover_relay"):
+            checks.insert(5, {
+                "name": "高位换手接力仅作B级观察",
+                "passed": True,
+                "note": "三板以上由一字加速转为-3%至+5%竞价；低开采用更高量额门槛，盘中必须收复昨收、竞价价并快速回封。",
+            })
     elif mode == "龙头断板修复":
         checks = [
             {"name": "近5日至少3次涨停", "passed": candidate.get("recent_5_limit_up_count", 0) >= 3},
@@ -349,25 +445,38 @@ def _auction_decision(candidate: dict) -> dict:
         else candidate.get("decision_main_ratio") is not None and candidate["decision_main_ratio"] >= 0
     )
     regulation_high = bool(regulation and regulation.get("level") == "high")
-    formal_modes = {"连板接力", "强势加速", "分歧转强", "一进二竞价接力", "首板预期", "隔日启动"}
+    formal_modes = {"连板接力", "强势加速", "分歧转强", "一进二竞价接力", "强竞价一进二一字板豁免", "首板预期", "隔日启动"}
     decision_score = candidate.get("continuation_score", candidate.get("selection_score", candidate["score"]))
     strong_core_auction_confirmation = (
         core_mode and candidate.get("auction_liquidity_tier") == "A"
         and candidate.get("consecutive_limit_up_days", 0) >= 3
         and candidate.get("score", 0) >= 95 and decision_score >= 55
     )
-    board_entry_allowed = bool(
+    strong_one_price_queue = bool(
+        mode == "强竞价一进二一字板豁免"
+        and candidate.get("strong_one_price_one_to_two")
+        and candidate.get("auction_liquidity_tier") == "A"
+        and not candidate.get("tradable", True)
+        and candidate.get("eligible", True)
+        and not candidate.get("risk_veto", False)
+        and not regulation_high
+    )
+    board_entry_allowed = generalization["gate"] and (bool(
         liquidity_c_watch
         and not candidate.get("tradable", True)
         and candidate.get("eligible", True)
         and not candidate.get("risk_veto", False)
-    )
-    if mode == "龙头分歧反包" and not candidate.get("tradable", True):
+    ) or strong_one_price_queue)
+    if candidate.get("risk_veto", False):
+        action = "高位兑现风险 · 取消候选"
+    elif mode == "龙头分歧反包" and not candidate.get("tradable", True):
         action = "龙头反包一字观察 · 排队难成交"
     elif mode == "高辨识度容量接力" and not candidate.get("tradable", True):
         action = "容量龙头一字观察 · 排队难成交"
     elif mode == "竞价抢筹首板" and not candidate.get("tradable", True):
         action = "抢筹首板一字观察 · 排队难成交"
+    elif strong_one_price_queue:
+        action = "强竞价1进2一字板豁免 · 可挂单打板"
     elif not candidate.get("tradable", True):
         action = "高辨识度一字板C级推荐 · 可挂单打板" if board_entry_allowed else "一字板打板观察 · 挂单未必成交"
     elif mode == "反核按钮竞价抄底":
@@ -382,8 +491,10 @@ def _auction_decision(candidate: dict) -> dict:
         action = "竞价抢筹首板 · 高风险观察"
     elif priority_tier == "跌停反核观察":
         action = "跌停竞价反核观察 · 仅低优先级"
-    elif candidate.get("risk_veto", False):
-        action = "高位透支 · 取消候选"
+    elif candidate.get("high_board_turnover_relay"):
+        action = "高位换手接力B级观察"
+    elif not generalization["gate"]:
+        action = "多因子证据不足 · 仅观察"
     elif not liquidity_b_watch and decision_score >= (65 if core_mode or mode in formal_modes else 60) and passed >= 7 and (fund_confirmed or strong_core_auction_confirmation) and not regulation_high:
         action = "一进二A级观察" if priority_tier == "一进二观察" else "首板A级观察" if priority_tier == "首板观察" else "连板核心A级预选" if core_mode else "弱转强A级预选" if mode == "分歧转强" else "连板接力A级预选" if mode in {"连板接力", "强势加速"} else "隔日启动A级观察" if mode in {"首板预期", "隔日启动"} else "竞价A级观察"
     elif candidate["score"] >= 68 and passed >= 6:
@@ -391,17 +502,44 @@ def _auction_decision(candidate: dict) -> dict:
     else:
         action = "取消候选"
     return {
-        **candidate, "checks": checks,
+        **candidate, "checks": checks, "generalization_evidence": generalization,
         "guard_passed": passed, "guard_total": known_total, "check_total": len(checks), "action": action,
         "recommended": board_entry_allowed,
         "board_entry_allowed": board_entry_allowed,
-        "recommendation_badge": "推荐 · 可挂单打板" if board_entry_allowed else None,
-        "actionable": action in {"隔日启动A级观察", "一进二A级观察", "首板A级观察"},
-        "execution_ready": action in {"隔日启动A级观察", "一进二A级观察", "首板A级观察"},
+        "recommendation_badge": "豁免观察 · 可挂单打板" if strong_one_price_queue else "推荐 · 可挂单打板" if board_entry_allowed else None,
+        "actionable": generalization["gate"] and action in {"隔日启动A级观察", "一进二A级观察", "首板A级观察"},
+        "execution_ready": generalization["gate"] and action in {"隔日启动A级观察", "一进二A级观察", "首板A级观察"},
         # 兼容旧页面首帧，字段值仍完全来自竞价或历史行情；新页面模块会替换为准确标签。
         "current_change_percent": candidate["auction_gap_percent"],
         "sector": {"average_change": candidate["three_day_change_percent"]},
     }
+
+
+def _exclude_high_corporate_event_candidates(candidates: list[dict]) -> tuple[list[dict], list[dict]]:
+    """并购重组、重组终止等高风险事件只进入剔除留痕，不再混入主候选榜。"""
+    safe, excluded = [], []
+    for candidate in candidates:
+        event = candidate.get("corporate_event_risk") or {}
+        if event.get("level") != "high":
+            safe.append(candidate)
+            continue
+        candidate.update({
+            "eligible": False,
+            "risk_veto": True,
+            "event_risk_veto": True,
+            "priority_tier": "重大事项风险剔除",
+            "action": "重大事项高风险 · 取消候选",
+            "recommended": False,
+            "board_entry_allowed": False,
+            "recommendation_badge": None,
+            "actionable": False,
+            "execution_ready": False,
+        })
+        candidate.setdefault("risks", []).append(
+            f"{event.get('label', '重大事项高风险')}：仅保留风险留痕，不进入打板推荐"
+        )
+        excluded.append(candidate)
+    return safe, excluded
 
 
 def _auction_phase(now: datetime) -> str:
@@ -463,6 +601,21 @@ def build_board_plan(
                 "disclaimer": "09:17–09:20挂单仍可撤销，预选排名可能大幅变化，只用于提前关注，不构成下单依据。",
             })
     candidates = [_auction_decision(candidate) for candidate in auction["candidates"]]
+    risk_exclusions = [_auction_decision(candidate) for candidate in auction.get("risk_exclusions", [])]
+    event_exclusions: list[dict] = []
+    event_exclusion_codes: set[str] = set()
+    if (candidates or risk_exclusions) and not historical:
+        attach_corporate_event_risks(candidates + risk_exclusions)
+        candidates, event_exclusions = _exclude_high_corporate_event_candidates(candidates)
+        structural_exclusions, nested_event_exclusions = _exclude_high_corporate_event_candidates(risk_exclusions)
+        event_exclusion_codes = {
+            str(item.get("code") or "") for item in event_exclusions + nested_event_exclusions
+        }
+        excluded_by_code = {
+            item.get("code"): item
+            for item in structural_exclusions + event_exclusions + nested_event_exclusions
+        }
+        risk_exclusions = list(excluded_by_code.values())
     if auction_phase in {"cancelable", "indicative"}:
         for candidate in candidates:
             phase_label = "09:17预选" if auction_phase == "cancelable" else "09:20观察"
@@ -477,7 +630,15 @@ def build_board_plan(
         item.get("continuation_score", 0), item["score"], item["auction_amount"],
     ), reverse=True)
     gate = _auction_gate(candidates, auction)
-    actionable_total = sum(item["actionable"] for item in candidates)
+    for candidate in candidates:
+        candidate["entry_plan"] = auction_entry_plan(candidate, auction_phase, gate["state"])
+        candidate["execution_ready"] = (
+            candidate["entry_plan"]["action"] == "开盘确认后买入"
+            and candidate.get("actionable", False)
+        )
+    for candidate in risk_exclusions:
+        candidate["entry_plan"] = auction_entry_plan(candidate, auction_phase, gate["state"])
+    actionable_total = sum(item["execution_ready"] for item in candidates)
     if historical or actionable_total == 0:
         max_positions, per_position = 0, 0
     elif gate["state"] == "可观察":
@@ -486,14 +647,15 @@ def build_board_plan(
         max_positions, per_position = 1, min(10_000, capital * 0.10)
     else:
         max_positions, per_position = 0, 0
-    actionable = [item for item in candidates if item["actionable"]][:max_positions]
+    actionable = [item for item in candidates if item["execution_ready"]][:max_positions]
     return {
         "capital": capital,
         "strategy_version": BOARD_STRATEGY_VERSION,
         "stage": f"历史回放 · {target_date.isoformat()}" if historical else _session_stage(now),
         "selected_date": target_date.isoformat() if target_date else date.today().isoformat(),
         "historical": historical, "auction_phase": auction_phase, "market": gate,
-        "candidates": candidates, "actionable_count": len(actionable),
+        "candidates": candidates, "risk_exclusions": risk_exclusions,
+        "actionable_count": len(actionable),
         "screening": {
             "scanned": auction.get("scanned", 0), "prefiltered": auction.get("prefiltered", 0),
             "deep_scanned": auction.get("deep_scanned", 0), "qualified_count": auction.get("qualified_count", 0),
@@ -506,8 +668,11 @@ def build_board_plan(
             "continuation_primary_count": auction.get("continuation_primary_count", 0),
             "one_price_c_count": auction.get("one_price_c_count", 0),
             "untradable_count": auction.get("untradable_count", 0),
-            "risk_veto_count": auction.get("risk_veto_count", 0),
+            "risk_veto_count": auction.get("risk_veto_count", 0) + len(event_exclusions),
+            "event_risk_excluded_count": len(event_exclusion_codes),
             "one_to_two_count": auction.get("one_to_two_count", 0),
+            "strong_one_price_one_to_two_count": auction.get("strong_one_price_one_to_two_count", 0),
+            "high_board_turnover_relay_count": auction.get("high_board_turnover_relay_count", 0),
             "first_board_watch_count": auction.get("first_board_watch_count", 0),
             "leader_repair_count": auction.get("leader_repair_count", 0),
             "nuclear_button_count": auction.get("nuclear_button_count", 0),
@@ -532,14 +697,22 @@ def build_board_plan(
         "strategy_profile": {
             "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
             "core_rule": "最近交易日完整涨停池强制深扫；昨日连续涨停≥2天、竞价涨幅与量能确认。竞价额>5000万为A级；3000万–5000万不再一票否决，成熟连板和亮眼一进二进入B级风险观察。",
-            "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；只保留流通市值低于200亿的主板股。",
+            "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；三板以上核心由一字加速转为-3%至+5%竞价时，量额、换手和前日结构达标可进入高位换手B级观察，低开不直接视为买点。",
             "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
-            "first_board_rule": "一进二使用独立模型：首板后允许MA5和短期涨幅适度过热，3000万–5000万竞价额可进入B级；200亿–500亿容量股允许涨停竞价，并在同主题至少两只量价走强时进入容量核心观察。普通首板仍使用严格趋势门槛。",
+            "first_board_rule": "一进二使用独立模型：普通通道MA5偏离≤20%；实时09:25若竞价接近涨停、竞价额≥5000万、竞价量占比≥10%、前日强收短上影，可将MA5偏离放宽到25%并标记为强竞价一字板豁免。3000万–5000万竞价额可进入B级；200亿–500亿容量股需板块共振。",
             "nuclear_button_rule": "仅用当日09:25最终竞价：昨日成交额≥5亿且成交量低于前日、竞价额≥5000万、高开≥7%、竞价换手≥3%；市场冰点与强势股性保留人工确认，命中后仍属于高风险观察。",
             "recognition_rule": "新增三条动态观察通道：200亿–350亿但近10日涨停活性很高的容量接力；高辨识度龙头前日分歧后竞价反包；近期有股性且竞价接近涨停、量额换手显著的抢筹首板。均不直接获得可执行仓位。",
-            "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；一进二和首板降级观察，题材孤立且资金量价不够强、极端竞价爆量、大单偏弱或大市值则剔除。",
+            "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；前日缩量连板后，一字竞价量超过近5日均量50%、MA5偏离超过20%的集中兑现结构硬否决；并购、收购、重大重组及重组终止等事件一律移出主榜。",
+            "generalization_rule": "所有形态统一经过五组独立证据复核：风险控制必须通过，历史结构、竞价真实性、流动性、T+1延续性至少通过三组；命中某个形态或漏选过某只历史强股都不能单独产生推荐。",
         },
-        "data_scope": ["全部非ST沪深主板批量快照", "前序80个交易日K线与昨日成交额", "近5/10日涨停活性与连续涨停", "T+1连板预期分", "连板优先与隔日启动双层", "反核按钮09:25五项硬条件", "近3/5/10/30日走势", "前日收盘位置与上影线", "竞价量额、竞价换手、大单/五档支撑", "题材板块共振", "T日盘中封板/回封执行门槛", "T+1开盘与收盘复盘"],
+        "strategy_governance": {
+            "objective": "在可成交前提下提高T+1收益质量，并控制炸板、次日低开和重大事项尾部风险",
+            "universe_policy": "全部非ST沪深主板使用同一套特征和阈值，不按股票名称、代码或博主名单加分",
+            "change_policy": "单日漏选或单只成功案例只用于提出假设；至少经过分离日期的正反样本验证后，才允许提升为可执行推荐",
+            "validation_policy": "按时间顺序进行样本外/滚动验证，同时统计候选命中率、次日收益、最大不利波动、炸板率与候选数量；不以命中已知名单为唯一指标",
+            "current_status": "通用五组证据门槛已启用；新增形态默认先进入观察层",
+        },
+        "data_scope": ["全部非ST沪深主板批量快照", "前序80个交易日K线与昨日成交额", "近5/10日涨停活性与连续涨停", "T+1连板预期分", "连板优先与隔日启动双层", "反核按钮09:25五项硬条件", "近3/5/10/30日走势", "前日收盘位置与上影线", "竞价量额、竞价换手、大单/五档支撑", "题材板块共振", "近60日重组/停复牌/关联交易公告风险", "未持有者操作时机与失效条件", "T日盘中封板/回封执行门槛", "T+1开盘与收盘复盘"],
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "disclaimer": (
             auction.get("disclaimer", "历史回放只用于比较规则，不构成当前交易信号。")

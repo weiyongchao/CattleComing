@@ -4,9 +4,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime
 
 from .auction import _auction_candidate, _live_history, _theme_bucket
+from .corporate_events import attach_corporate_event_risks
 from .evaluator import evaluate
 from .funds import individual_fund_flow
 from .market import EastmoneyProvider, MarketDataError, Quote
+from .trade_advice import live_entry_plan
 from .universe import main_board_snapshots, previous_limit_up_pool
 
 
@@ -259,11 +261,16 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
         "深回踩未止跌" if opening_dip else
         "常规开盘结构"
     )
-    return {
+    payload = {
         "code": candidate.get("code"), "name": candidate.get("name"),
         "priority_tier": candidate.get("priority_tier"),
         "strategy_mode": candidate.get("strategy_mode"),
         "board_stage_label": candidate.get("board_stage_label"),
+        "corporate_event_risk": candidate.get("corporate_event_risk"),
+        "continuation_score": candidate.get("continuation_score"),
+        "three_day_change_percent": candidate.get("three_day_change_percent"),
+        "five_day_change_percent": candidate.get("five_day_change_percent"),
+        "ten_day_change_percent": candidate.get("ten_day_change_percent"),
         "auction_action": candidate.get("action"),
         "board_entry_allowed": board_entry_allowed,
         "recommendation_badge": candidate.get("recommendation_badge"),
@@ -292,6 +299,8 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
             "label": "当日资金" if main_ratio is not None else "资金待确认",
         },
     }
+    payload["entry_plan"] = live_entry_plan(payload)
+    return payload
 
 
 def _check_one(candidate: dict, provider: EastmoneyProvider, live_snapshot: dict | None = None) -> dict:
@@ -339,6 +348,8 @@ def build_open_guard(
             ))
         except Exception as exc:
             discovery_errors.append({"code": "", "name": "盘中一进二扫描", "error": str(exc)})
+    if candidates:
+        attach_corporate_event_risks(candidates)
     rows, errors = [], []
     with ThreadPoolExecutor(max_workers=min(6, max(1, len(candidates)))) as executor:
         futures = {
@@ -352,13 +363,14 @@ def build_open_guard(
             except Exception as exc:
                 errors.append({"code": candidate.get("code"), "name": candidate.get("name"), "error": str(exc)})
     def live_rank(item: dict) -> tuple:
+        event_clear = (item.get("corporate_event_risk") or {}).get("level") != "high"
         state_rank = (
             5 if item.get("sealed") and item.get("tone") == "confirm" else
             4 if item.get("tone") == "confirm" else
             3 if item.get("sealed") else
             2 if item.get("tone") == "watch" else 0
         )
-        return state_rank, item.get("open_score", 0), item.get("change_percent", 0), -item.get("auction_rank", 999)
+        return event_clear, state_rank, item.get("open_score", 0), item.get("change_percent", 0), -item.get("auction_rank", 999)
     rows.sort(key=live_rank, reverse=True)
     for index, item in enumerate(rows, start=1):
         item["live_rank"] = index

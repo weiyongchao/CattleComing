@@ -76,7 +76,7 @@
       return `<button class="strategy-candidate ${item.code === state.selectedCode ? "selected" : ""}" data-code="${escapeHtml(item.code)}" type="button">
         <b class="strategy-candidate-rank">${index + 1}</b>
         <span class="strategy-candidate-main"><strong>${escapeHtml(item.name)} <small>${escapeHtml(item.code)} · ${escapeHtml(item.industry)}</small></strong><small>竞价 ${signed(item.auction_gap_percent)} · 竞价额 ${formatMoney(item.auction_amount)} · ${live ? `盘中${signed(live.change_percent)}` : "未进入盘中前排"}</small></span>
-        <span class="strategy-candidate-score"><b class="${item.actionable || item.board_entry_allowed ? "positive" : item.action === "取消候选" ? "negative" : "neutral"}">${escapeHtml(item.action)}</b>${item.recommendation_badge ? `<small class="positive">✓ ${escapeHtml(item.recommendation_badge)}</small>` : ""}<small>${item.score}分 · ${item.guard_passed}/${item.guard_total}项</small></span>
+        <span class="strategy-candidate-score"><b class="${item.actionable || item.board_entry_allowed ? "positive" : item.action === "取消候选" ? "negative" : "neutral"}">${escapeHtml(item.action)}</b>${item.recommendation_badge ? `<small class="positive">✓ ${escapeHtml(item.recommendation_badge)}</small>` : ""}<small class="${item.entry_plan?.tone || "neutral"}">未持有：${escapeHtml(item.entry_plan?.action || "观望")}</small><small>${item.score}分 · ${item.guard_passed}/${item.guard_total}项</small></span>
       </button>`;
     }).join("");
     byId("strategyCandidates").querySelectorAll("button[data-code]").forEach((button) => {
@@ -87,13 +87,15 @@
   const checksFor = (candidate) => {
     const live = getIntradayCandidate(candidate.code);
     const manual = state.manual[candidate.code] || {};
+    const eventRisk = candidate.corporate_event_risk || {};
+    const reorganizationHigh = eventRisk.level === "high";
     return [
       { key: "mainboard", label: "沪深主板且非ST", passed: !candidate.name.toUpperCase().includes("ST"), auto: true },
       { key: "auction", label: candidate.board_entry_allowed ? "C级一字板可挂单打板" : "09:25竞价A级候选", passed: Boolean(candidate.actionable || candidate.board_entry_allowed), auto: true },
       { key: "sector", label: "盘中量价承接未转弱", passed: Boolean(live && live.tone !== "reject"), auto: true },
       { key: "support", label: "开盘价与竞价价承接有效", passed: Boolean(manual.support), auto: false },
       { key: "initiative", label: "冲板主动、卖压被消化", passed: Boolean(manual.initiative), auto: false },
-      { key: "announcement", label: "已核验公告、减持与解禁风险", passed: Boolean(manual.announcement), auto: false },
+      { key: "announcement", label: reorganizationHigh ? `重大事项：${eventRisk.label}` : "已核验公告、减持与解禁风险", passed: reorganizationHigh ? false : Boolean(manual.announcement), auto: reorganizationHigh },
     ];
   };
 
@@ -101,6 +103,8 @@
     const candidate = getSelected();
     if (!candidate) return;
     const live = getIntradayCandidate(candidate.code);
+    const entryPlan = live?.entry_plan || candidate.entry_plan;
+    const eventRisk = live?.corporate_event_risk || candidate.corporate_event_risk;
     byId("strategyFocus").className = "";
     byId("strategyFocus").innerHTML = `<div class="strategy-focus-head"><div><h3>${escapeHtml(candidate.name)} <small>${escapeHtml(candidate.code)}</small></h3><p>${escapeHtml(candidate.category)} / ${escapeHtml(candidate.industry)} · 09:25排名候选</p></div><b class="${live?.tone === "confirm" ? "positive" : live?.tone === "reject" ? "negative" : "neutral"}">${live ? escapeHtml(live.decision || "盘中观察") : "等待盘中确认"}</b></div>
       <div class="strategy-focus-stats">
@@ -108,7 +112,9 @@
         <div><span>竞价成交额</span><strong>${formatMoney(candidate.auction_amount)}</strong></div>
         <div><span>竞价 / MA5</span><strong>${signed(candidate.price_vs_ma5_percent)}</strong></div>
         <div><span>盘中验证</span><strong>${live ? `${live.passed}/${live.known_total}项` : "尚未读取"}</strong></div>
-      </div>`;
+      </div>
+      ${eventRisk ? `<div class="strategy-decision-reason" style="border-color:${eventRisk.level === "high" ? "#7a3338" : "#2b3c36"}"><b class="${eventRisk.level === "high" ? "negative" : eventRisk.level === "normal" ? "positive" : "neutral"}">重大事项风险：${escapeHtml(eventRisk.label)}</b><small style="display:block;margin-top:5px">${escapeHtml(eventRisk.summary || "")}</small></div>` : ""}
+      ${entryPlan ? `<div class="strategy-decision-reason"><b class="${entryPlan.tone || "neutral"}">未持有：${escapeHtml(entryPlan.action)}</b><p>${escapeHtml(entryPlan.timing)}</p><small>${escapeHtml(entryPlan.reference_text || "")}</small></div>` : ""}`;
     const checks = checksFor(candidate);
     byId("strategyChecklist").innerHTML = checks.map((check) => `<button type="button" class="strategy-check ${check.passed ? "active" : ""} ${check.auto ? "auto" : ""}" data-key="${check.key}" ${check.auto ? "disabled" : ""}><span>${check.label}</span><i>${check.passed ? "✓" : "○"}</i></button>`).join("");
     byId("strategyChecklist").querySelectorAll("button:not([disabled])").forEach((button) => {

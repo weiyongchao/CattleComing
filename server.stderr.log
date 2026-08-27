@@ -1,2 +1,59 @@
-127.0.0.1 - - [25/Aug/2026 17:11:42] "GET /api/history HTTP/1.1" 200 -
-127.0.0.1 - - [25/Aug/2026 17:11:43] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 11:53:15] "GET /api/intraday-plan HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:02:11] "GET /?page=20260818-02 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:02:11] "GET /app.js?v=20260827-01 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:02:11] "GET /intraday-leadership.js?v=20260827-01 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:02:11] "GET /board-auction-only.js?v=20260826-05 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:02:11] "GET /strategy-execution.js?v=20260826-01 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:02:11] "GET /history-review.js?v=20260825-02 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:02:11] "GET /history-review.css?v=20260814-01 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:02:11] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:02:11] "GET /strategy-execution.css?v=20260814-01 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:02:11] code 404, message File not found
+127.0.0.1 - - [27/Aug/2026 12:02:11] "GET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1" 404 -
+127.0.0.1 - - [27/Aug/2026 12:02:11] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:02:11] code 404, message File not found
+127.0.0.1 - - [27/Aug/2026 12:02:11] "GET /content.css.map HTTP/1.1" 404 -
+127.0.0.1 - - [27/Aug/2026 12:02:11] code 404, message File not found
+127.0.0.1 - - [27/Aug/2026 12:02:11] "GET /sidebar.css.map HTTP/1.1" 404 -
+127.0.0.1 - - [27/Aug/2026 12:02:19] "GET /api/board-open-guard?scope=frozen HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:03:06] "GET /api/trading-dates HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:03:06] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:03:07] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:03:23] "GET /api/board-open-guard HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:10:29] "GET /?page=20260818-02 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:10:29] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:10:29] "GET /strategy-execution.css?v=20260814-01 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:10:29] "GET /history-review.css?v=20260814-01 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:10:29] "GET /app.js?v=20260827-01 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:10:29] "GET /intraday-leadership.js?v=20260827-01 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:10:29] "GET /board-auction-only.js?v=20260826-05 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:10:29] "GET /strategy-execution.js?v=20260826-01 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:10:29] "GET /history-review.js?v=20260825-02 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:10:29] code 404, message File not found
+127.0.0.1 - - [27/Aug/2026 12:10:29] "GET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1" 404 -
+127.0.0.1 - - [27/Aug/2026 12:10:29] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:10:29] code 404, message File not found
+127.0.0.1 - - [27/Aug/2026 12:10:29] "GET /content.css.map HTTP/1.1" 404 -
+127.0.0.1 - - [27/Aug/2026 12:10:29] code 404, message File not found
+127.0.0.1 - - [27/Aug/2026 12:10:29] "GET /sidebar.css.map HTTP/1.1" 404 -
+127.0.0.1 - - [27/Aug/2026 12:10:36] "GET /api/board-open-guard?scope=frozen HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:21:38] "GET /?page=20260818-02 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:21:38] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:21:38] "GET /strategy-execution.css?v=20260814-01 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:21:38] "GET /history-review.css?v=20260814-01 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:21:38] "GET /app.js?v=20260827-01 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:21:38] "GET /intraday-leadership.js?v=20260827-01 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:21:38] "GET /board-auction-only.js?v=20260826-05 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:21:38] "GET /strategy-execution.js?v=20260826-01 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:21:38] "GET /history-review.js?v=20260825-02 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:21:38] code 404, message File not found
+127.0.0.1 - - [27/Aug/2026 12:21:38] "GET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1" 404 -
+127.0.0.1 - - [27/Aug/2026 12:21:38] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:21:38] code 404, message File not found
+127.0.0.1 - - [27/Aug/2026 12:21:38] "GET /content.css.map HTTP/1.1" 404 -
+127.0.0.1 - - [27/Aug/2026 12:21:38] code 404, message File not found
+127.0.0.1 - - [27/Aug/2026 12:21:38] "GET /sidebar.css.map HTTP/1.1" 404 -
+127.0.0.1 - - [27/Aug/2026 12:21:41] "GET /api/trading-dates HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:21:41] "GET /api/board-plan HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:21:46] "GET /api/board-open-guard?scope=frozen HTTP/1.1" 200 -
+127.0.0.1 - - [27/Aug/2026 12:21:57] "GET /api/board-open-guard HTTP/1.1" 200 -

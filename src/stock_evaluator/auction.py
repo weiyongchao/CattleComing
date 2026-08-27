@@ -128,13 +128,15 @@ def _auction_amount_qualification(
     auction_amount: float, continuation_primary: bool, consecutive_limit_ups: int,
     relay_score: float, support_status: str, leader_repair: bool = False,
     one_to_two: bool = False, one_price_core: bool = False,
+    high_board_turnover_relay: bool = False,
 ) -> tuple[bool, str]:
     """5000万为A级；3000万为B级；高辨识度三板以上一字核心可进C级风险观察。"""
     if auction_amount > 50_000_000:
         return True, "A"
     mature_chain_watch = (
         auction_amount >= 30_000_000 and continuation_primary
-        and consecutive_limit_ups >= 2 and relay_score >= 90
+        and consecutive_limit_ups >= 2
+        and (relay_score >= 90 or high_board_turnover_relay)
         and support_status != "weak"
     )
     leader_repair_watch = auction_amount >= 30_000_000 and leader_repair
@@ -414,6 +416,30 @@ def _first_board_score(
     ], risks
 
 
+def _strong_one_price_one_to_two_override(
+    gap_percent: float, auction_volume_percent: float, auction_amount: float,
+    float_market_cap: float, listed_sessions: int, price_vs_ma5: float,
+    three_day_change: float, ten_day_change: float, previous_volume_ratio: float,
+    previous_close_position: float, previous_upper_shadow: float,
+    historical_proxy: bool = False,
+) -> bool:
+    """只在实时09:25对强竞价一字板放宽MA5偏离，避免普通高位首板普遍获豁免。"""
+    return (
+        not historical_proxy
+        and 9.5 <= gap_percent <= 10.2
+        and auction_volume_percent >= 10
+        and auction_amount >= 50_000_000
+        and 3_000_000_000 <= float_market_cap < 20_000_000_000
+        and listed_sessions >= 60
+        and 20 < price_vs_ma5 <= 25
+        and -3 <= three_day_change <= 25
+        and -10 <= ten_day_change <= 50
+        and 0.4 <= previous_volume_ratio <= 4
+        and previous_close_position >= 95
+        and previous_upper_shadow <= 0.10
+    )
+
+
 def _one_to_two_score(
     gap_percent: float, auction_volume_percent: float, auction_amount: float,
     float_market_cap: float, listed_sessions: int, price_vs_ma5: float,
@@ -423,7 +449,7 @@ def _one_to_two_score(
 ) -> tuple[int, bool, list[str], list[str]]:
     """一进二独立模型：允许首板后的短期过热，但要求竞价量价和前日封板结构。"""
     minimum_volume = 25 if historical_proxy else 1
-    matched = (
+    standard_matched = (
         3 <= gap_percent <= 10.2
         and auction_volume_percent >= minimum_volume
         and auction_amount >= 30_000_000
@@ -436,6 +462,13 @@ def _one_to_two_score(
         and previous_close_position >= 85
         and previous_upper_shadow <= 0.30
     )
+    strong_one_price_override = _strong_one_price_one_to_two_override(
+        gap_percent, auction_volume_percent, auction_amount,
+        float_market_cap, listed_sessions, price_vs_ma5,
+        three_day_change, ten_day_change, previous_volume_ratio,
+        previous_close_position, previous_upper_shadow, historical_proxy,
+    )
+    matched = standard_matched or strong_one_price_override
     if not matched:
         return 0, False, [], []
     score = 70
@@ -453,10 +486,18 @@ def _one_to_two_score(
         risks.append("首板后偏离MA5较大，只进入低优先级观察")
     if previous_volume_ratio > 2.8:
         risks.append("首板放量较大，二板分歧风险偏高")
-    return min(100, score), True, [
+    if strong_one_price_override:
+        risks.extend([
+            "强竞价一字板仅豁免MA5偏离20%–25%，不代表高位风险消失",
+            "一字板通常难成交；若开板后成交，需先视为封单松动并等待快速回封",
+        ])
+    reasons = [
         "昨日首板结构完整", "竞价量额达到一进二观察线",
         "前日强收且上影压力较小", "流通市值具备二板弹性",
-    ], risks
+    ]
+    if strong_one_price_override:
+        reasons.append("竞价接近涨停、竞价额与竞价量显著放大，命中强竞价一字板豁免")
+    return min(100, score), True, reasons, list(dict.fromkeys(risks))
 
 
 def _capacity_one_to_two_score(
@@ -551,7 +592,8 @@ def _board_stage(consecutive_limit_ups: int) -> dict:
 def _execution_risk_profile(
     consecutive_limit_ups: int, gap_percent: float, price_vs_ma5: float,
     previous_volume_ratio: float, previous_open_gap_percent: float,
-    regulation_level: str, fund_status: str,
+    regulation_level: str, fund_status: str, auction_volume_percent: float = 0.0,
+    high_board_turnover_relay: bool = False,
 ) -> dict:
     """把形态强度与可成交性、次日生存风险分开，避免高位一字板获得可执行高分。"""
     reasons: list[str] = []
@@ -569,14 +611,32 @@ def _execution_risk_profile(
     shrinking_acceleration = consecutive_limit_ups >= 2 and previous_volume_ratio < 0.85
     if shrinking_acceleration:
         reasons.append("连续板后前日缩量加速，次日一旦分歧可能缺少退出流动性")
+    distribution_one_price_risk = (
+        consecutive_limit_ups >= 2
+        and 9.5 <= gap_percent <= 10.2
+        and auction_volume_percent >= 50
+        and previous_volume_ratio < 0.6
+        and price_vs_ma5 >= 20
+    )
+    if distribution_one_price_risk:
+        reasons.append(
+            "前日缩量连板后，今日一字竞价量超过近5日均量50%且偏离MA5超过20%，"
+            "属于高位集中兑现结构"
+        )
     expectation_break = (
         consecutive_limit_ups >= 3
         and previous_open_gap_percent >= 8.5
         and gap_percent < 5
+        and not high_board_turnover_relay
     )
     if expectation_break:
         reasons.append(
             f"前日开盘强度{previous_open_gap_percent:+.1f}%，今日竞价降至{gap_percent:+.1f}%，高位连板预期明显衰减"
+        )
+    if high_board_turnover_relay:
+        reasons.append(
+            "高位连板由一字加速转为低开/温和高开换手，竞价量额真实；只进入B级观察，"
+            "等待盘中收复与回封"
         )
     regulatory_veto = consecutive_limit_ups >= 2 and regulation_level == "high"
     if regulatory_veto:
@@ -585,7 +645,9 @@ def _execution_risk_profile(
     downside += 35 if limit_down_auction else 0
     downside += 30 if high_exhaustion else 0
     downside += 15 if shrinking_acceleration else 0
+    downside += 40 if distribution_one_price_risk else 0
     downside += 25 if expectation_break else 0
+    downside += 12 if high_board_turnover_relay else 0
     downside += 18 if regulatory_veto else 8 if regulation_level == "watch" else 0
     downside += 10 if fund_status == "unknown" and consecutive_limit_ups >= 2 else 15 if fund_status == "weak" else 0
     return {
@@ -598,13 +660,37 @@ def _execution_risk_profile(
         ),
         "high_exhaustion": high_exhaustion,
         "shrinking_acceleration": shrinking_acceleration,
-        # 四板及以上偏离MA5只做风险降级；只有严重监管风险或明显的竞价预期破坏才硬否决。
-        "risk_veto": regulatory_veto or expectation_break,
+        "distribution_one_price_risk": distribution_one_price_risk,
+        "high_board_turnover_relay": high_board_turnover_relay,
+        # 普通高位偏离只降级；监管、预期破坏或缩量连板后的极端竞价兑现结构才硬否决。
+        "risk_veto": regulatory_veto or expectation_break or distribution_one_price_risk,
         "expectation_break": expectation_break,
         "limit_down_auction": limit_down_auction,
         "t1_downside_risk_score": min(100, downside),
         "risk_reasons": reasons,
     }
+
+
+def _high_board_turnover_relay(
+    *, consecutive_limit_ups: int, gap_percent: float, auction_amount: float,
+    auction_volume_percent: float, auction_turnover_percent: float,
+    previous_volume_ratio: float, price_vs_ma5: float,
+    previous_close_position: float, previous_upper_shadow: float,
+    exact_auction: bool,
+) -> bool:
+    """识别三板以上由一字加速转为真实换手的竞价，只生成B级观察而非直接买点。"""
+    if not exact_auction or consecutive_limit_ups < 3 or not -3 <= gap_percent < 5:
+        return False
+    low_open = gap_percent < 0
+    return (
+        auction_amount >= (50_000_000 if low_open else 30_000_000)
+        and auction_volume_percent >= (15 if low_open else 10)
+        and auction_turnover_percent >= (0.8 if low_open else 0.6)
+        and 1.2 <= previous_volume_ratio <= 4.5
+        and price_vs_ma5 <= 25
+        and previous_close_position >= 95
+        and previous_upper_shadow <= 0.10
+    )
 
 
 def _big_order_support(
@@ -1162,6 +1248,14 @@ def _auction_candidate(
         price_vs_ma5, three_day_change, ten_day_change, previous_volume_ratio,
         previous_close_position, previous_upper_shadow, historical_proxy=bool(target_date),
     )
+    strong_one_price_one_to_two = (
+        consecutive_limit_up_days == 1
+        and _strong_one_price_one_to_two_override(
+            gap, auction_volume_percent, auction_amount, float_market_cap, listed_sessions,
+            price_vs_ma5, three_day_change, ten_day_change, previous_volume_ratio,
+            previous_close_position, previous_upper_shadow, historical_proxy=bool(target_date),
+        )
+    )
     one_to_two_score, one_to_two_matched, one_to_two_reasons, one_to_two_risks = _one_to_two_score(
         gap, auction_volume_percent, auction_amount, float_market_cap, listed_sessions,
         price_vs_ma5, three_day_change, ten_day_change, previous_volume_ratio,
@@ -1206,10 +1300,23 @@ def _auction_candidate(
         decision_main_ratio,
         quote.order_imbalance if live_book_valid and (quote.bid_volume5 + quote.ask_volume5) > 0 else None,
     )
+    high_board_turnover_relay = _high_board_turnover_relay(
+        consecutive_limit_ups=consecutive_limit_up_days,
+        gap_percent=gap,
+        auction_amount=auction_amount,
+        auction_volume_percent=auction_volume_percent,
+        auction_turnover_percent=auction_turnover_percent,
+        previous_volume_ratio=previous_volume_ratio,
+        price_vs_ma5=price_vs_ma5,
+        previous_close_position=previous_close_position,
+        previous_upper_shadow=previous_upper_shadow,
+        exact_auction=not target_date and not preliminary,
+    )
     execution_risk = _execution_risk_profile(
         consecutive_limit_up_days, gap, price_vs_ma5, previous_volume_ratio,
         previous_open_gap_percent, str(regulation.get("level") or "normal"),
-        str(support.get("status") or "unknown"),
+        str(support.get("status") or "unknown"), auction_volume_percent,
+        high_board_turnover_relay,
     )
     acceleration = (
         recent_limit_up_count >= 1 and previous_close_position >= 90
@@ -1219,6 +1326,7 @@ def _auction_candidate(
         "分歧转强" if reversal_matched and reversal_score >= max(core_chain_score, relay_score)
         else "连板核心（历史代理）" if core_chain_matched and target_date
         else "连板核心" if core_chain_matched
+        else "强竞价一进二一字板豁免" if strong_one_price_one_to_two
         else "容量一进二" if capacity_one_to_two_matched
         else "一进二竞价接力" if one_to_two_matched
         else "强势加速" if relay_matched and acceleration
@@ -1234,7 +1342,7 @@ def _auction_candidate(
         risks = relay_risks
     elif strategy_mode == "容量一进二":
         score, reasons, risks = capacity_one_to_two_score, capacity_one_to_two_reasons, capacity_one_to_two_risks
-    elif strategy_mode == "一进二竞价接力":
+    elif strategy_mode in {"一进二竞价接力", "强竞价一进二一字板豁免"}:
         score, reasons, risks = one_to_two_score, one_to_two_reasons, one_to_two_risks
         if decision_main_ratio is None:
             risks.append("前序交易日主力资金暂不可用，按B级观察等待盘中确认")
@@ -1259,6 +1367,15 @@ def _auction_candidate(
         reasons = list(dict.fromkeys(nuclear_button["reasons"] + reasons))
         risks = list(dict.fromkeys(nuclear_button["risks"] + risks))
     risks.extend(execution_risk["risk_reasons"])
+    if high_board_turnover_relay:
+        continuation_base_score = max(continuation_base_score, 72)
+        reasons = list(dict.fromkeys(reasons + [
+            "三板以上高辨识度核心由一字加速转为真实换手竞价",
+            "竞价量额、换手和前日收盘结构达到高位换手接力观察线",
+        ]))
+        risks = list(dict.fromkeys(risks + [
+            "高位换手只进入B级观察；低开不等于买点，必须等待收复昨收、竞价价与快速回封",
+        ]))
     fresh_relay_activity = recent_5_limit_up_count >= 1 or recent_10_limit_up_count >= 2
     within_board_scale = 0 < float_market_cap < 20_000_000_000
     explicit_order_weakness = support.get("status") == "weak"
@@ -1399,8 +1516,11 @@ def _auction_candidate(
         relay_score, str(support.get("status") or "unknown"), leader_repair_secondary,
         one_to_two=one_to_two_secondary or capacity_one_to_two_secondary,
         one_price_core=one_price_core_watch,
+        high_board_turnover_relay=high_board_turnover_relay,
     )
-    if nuclear_button["matched"]:
+    if high_board_turnover_relay:
+        auction_amount_gate, auction_liquidity_tier = True, "B"
+    elif nuclear_button["matched"]:
         auction_amount_gate, auction_liquidity_tier = True, "A"
     eligible = (
         continuation_primary or overnight_secondary or limit_down_reversal_secondary or leader_repair_secondary
@@ -1474,6 +1594,7 @@ def _auction_candidate(
         "reversal_matched": reversal_matched, "first_board_score": first_board_score,
         "first_board_matched": first_board_matched,
         "one_to_two_score": one_to_two_score, "one_to_two_matched": one_to_two_matched,
+        "strong_one_price_one_to_two": strong_one_price_one_to_two,
         "capacity_one_to_two_score": capacity_one_to_two_score,
         "capacity_one_to_two_matched": capacity_one_to_two_matched,
         "continuation_base_score": continuation_base_score,
@@ -1645,9 +1766,17 @@ def screen_auction_candidates(
     candidates.sort(key=lambda item: (item["eligible"], item.get("selection_score", item["score"]), item["score"], item["auction_amount"]), reverse=True)
     eligible_candidates = [item for item in candidates if item["eligible"]]
     selected = _select_high_confidence_candidates(candidates, min(limit, MAX_RECOMMENDATIONS))
+    risk_exclusions = sorted(
+        (item for item in candidates if item.get("risk_veto")),
+        key=lambda item: (
+            item.get("t1_downside_risk_score", 0), item.get("score", 0), item.get("auction_amount", 0),
+        ),
+        reverse=True,
+    )[:limit]
     relay_qualified_count = sum(item.get("relay_matched") and item.get("relay_score", 0) >= 78 for item in candidates)
     return {
-        "candidates": selected, "ranked_count": len(candidates), "qualified_count": len(eligible_candidates),
+        "candidates": selected, "risk_exclusions": risk_exclusions,
+        "ranked_count": len(candidates), "qualified_count": len(eligible_candidates),
         "scanned": len(snapshots), "prefiltered": len(prefiltered), "deep_scanned": len(futures), "failed": failed,
         "universe_source": (
             f"{universe_source} + 09:20不可撤单阶段参考撮合"
@@ -1664,6 +1793,12 @@ def screen_auction_candidates(
         "untradable_count": sum(not item.get("tradable", True) for item in candidates),
         "risk_veto_count": sum(item.get("risk_veto", False) for item in candidates),
         "one_to_two_count": sum(item.get("eligible") and item.get("priority_tier") in {"一进二观察", "容量一进二观察"} for item in candidates),
+        "strong_one_price_one_to_two_count": sum(
+            item.get("eligible") and item.get("strong_one_price_one_to_two") for item in candidates
+        ),
+        "high_board_turnover_relay_count": sum(
+            item.get("eligible") and item.get("high_board_turnover_relay") for item in candidates
+        ),
         "first_board_watch_count": sum(item.get("eligible") and item.get("priority_tier") == "首板观察" for item in candidates),
         "leader_repair_count": sum(item.get("eligible") and item.get("leader_repair_matched") for item in candidates),
         "nuclear_button_count": sum(item.get("eligible") and item.get("nuclear_button_matched") for item in candidates),
@@ -1732,8 +1867,16 @@ def screen_historical_auction_candidates(
     candidates.sort(key=lambda item: (item["eligible"], item.get("selection_score", item["score"]), item["score"], item["auction_amount"]), reverse=True)
     eligible = [item for item in candidates if item["eligible"]]
     selected = _select_high_confidence_candidates(candidates, min(limit, MAX_RECOMMENDATIONS))
+    risk_exclusions = sorted(
+        (item for item in candidates if item.get("risk_veto")),
+        key=lambda item: (
+            item.get("t1_downside_risk_score", 0), item.get("score", 0), item.get("auction_amount", 0),
+        ),
+        reverse=True,
+    )[:limit]
     return {
-        "candidates": selected, "ranked_count": len(candidates),
+        "candidates": selected, "risk_exclusions": risk_exclusions,
+        "ranked_count": len(candidates),
         "qualified_count": len(eligible), "relay_qualified_count": sum(
             item.get("relay_matched") and item.get("relay_score", 0) >= 78 for item in candidates
         ),
@@ -1745,6 +1888,12 @@ def screen_historical_auction_candidates(
         "untradable_count": sum(not item.get("tradable", True) for item in candidates),
         "risk_veto_count": sum(item.get("risk_veto", False) for item in candidates),
         "one_to_two_count": sum(item.get("eligible") and item.get("priority_tier") in {"一进二观察", "容量一进二观察"} for item in candidates),
+        "strong_one_price_one_to_two_count": sum(
+            item.get("eligible") and item.get("strong_one_price_one_to_two") for item in candidates
+        ),
+        "high_board_turnover_relay_count": sum(
+            item.get("eligible") and item.get("high_board_turnover_relay") for item in candidates
+        ),
         "first_board_watch_count": sum(item.get("eligible") and item.get("priority_tier") == "首板观察" for item in candidates),
         "leader_repair_count": sum(item.get("eligible") and item.get("leader_repair_matched") for item in candidates),
         "nuclear_button_count": sum(item.get("eligible") and item.get("nuclear_button_matched") for item in candidates),

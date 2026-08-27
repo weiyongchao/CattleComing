@@ -56,10 +56,13 @@ def secid_for(code: str) -> str:
 class EastmoneyProvider:
     quote_url = "https://push2.eastmoney.com/api/qt/stock/get"
     fallback_quote_url = "https://qt.gtimg.cn/q="
-    history_url = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+    history_url = "https://web.ifzq.gtimg.cn/appstock/app/newfqkline/get"
+    sina_history_url = "https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData"
 
     def __init__(self, timeout: float = 10.0) -> None:
         self.timeout = timeout
+        self._history_eastmoney_disabled_until = 0.0
+        self._history_tencent_disabled_until = 0.0
 
     def _get(self, url: str) -> dict[str, Any]:
         request = Request(url, headers={
@@ -154,10 +157,29 @@ class EastmoneyProvider:
 
     def history(self, code: str, limit: int = 30) -> list[DailyBar]:
         secid = secid_for(code)
+        errors: list[str] = []
+        now = time.monotonic()
+        if now >= self._history_eastmoney_disabled_until:
+            try:
+                return self._history_eastmoney(secid, limit)
+            except MarketDataError as exc:
+                errors.append(f"东方财富：{exc}")
+                self._history_eastmoney_disabled_until = time.monotonic() + 60
+        else:
+            errors.append("东方财富：短时熔断")
+        if now >= self._history_tencent_disabled_until:
+            try:
+                return self._history_tencent(secid, limit)
+            except MarketDataError as exc:
+                errors.append(f"腾讯：{exc}")
+                self._history_tencent_disabled_until = time.monotonic() + 60
+        else:
+            errors.append("腾讯：短时熔断")
         try:
-            return self._history_eastmoney(secid, limit)
-        except MarketDataError:
-            return self._history_tencent(secid, limit)
+            return self._history_sina(secid, limit)
+        except MarketDataError as exc:
+            errors.append(f"新浪：{exc}")
+        raise MarketDataError("历史行情三级数据源均失败：" + "；".join(errors))
 
     def _history_eastmoney(self, secid: str, limit: int) -> list[DailyBar]:
         """优先读取带成交额的日K；失败时由 ``history`` 自动回退腾讯。"""
@@ -200,14 +222,64 @@ class EastmoneyProvider:
                     raise MarketDataError(f"历史行情服务连接失败：{exc}") from exc
                 time.sleep(0.15 * (attempt + 1))
         stock_data = payload.get("data", {}).get(symbol, {})
+        bars = self._parse_tencent_history(stock_data, limit)
+        if len(bars) < 5:
+            raise MarketDataError("腾讯历史交易数据不足 5 日")
+        return bars
+
+    @staticmethod
+    def _parse_tencent_history(stock_data: dict[str, Any], limit: int) -> list[DailyBar]:
         rows = stock_data.get("qfqday") or stock_data.get("day") or []
         bars: list[DailyBar] = []
-        for values in rows:
-            bars.append(DailyBar(
-                trade_date=date.fromisoformat(values[0]), open=float(values[1]),
-                close=float(values[2]), high=float(values[3]), low=float(values[4]),
-                volume=int(float(values[5])), amount=0.0,
-            ))
-        if len(bars) < 5:
-            raise MarketDataError("历史交易数据不足 5 日，暂时无法计算五日均线")
+        try:
+            for values in rows[-limit:]:
+                # 新版腾讯接口成交量单位为手，成交额单位为万元。
+                amount = float(values[8]) * 10_000 if len(values) > 8 and values[8] not in (None, "", "-") else 0.0
+                bars.append(DailyBar(
+                    trade_date=date.fromisoformat(values[0]), open=float(values[1]),
+                    close=float(values[2]), high=float(values[3]), low=float(values[4]),
+                    volume=int(float(values[5])), amount=amount,
+                ))
+        except (IndexError, TypeError, ValueError) as exc:
+            raise MarketDataError("腾讯历史行情返回格式无法识别") from exc
+        return bars
+
+    def _history_sina(self, secid: str, limit: int) -> list[DailyBar]:
+        market, normalized = secid.split(".")
+        symbol = ("sh" if market == "1" else "sz") + normalized
+        request = Request(
+            f"{self.sina_history_url}?symbol={symbol}&scale=240&ma=no&datalen={limit}",
+            headers={"User-Agent": "Mozilla/5.0", "Referer": "https://finance.sina.com.cn/"},
+        )
+        last_error: Exception | None = None
+        for attempt in range(2):
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    rows = json.loads(response.read().decode("gbk", errors="replace"))
+                bars = self._parse_sina_history(rows, limit)
+                if len(bars) < 5:
+                    raise MarketDataError("新浪历史交易数据不足 5 日")
+                return bars
+            except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError, MarketDataError) as exc:
+                last_error = exc
+                if attempt == 0:
+                    time.sleep(0.2)
+        raise MarketDataError(f"新浪历史行情连接失败：{last_error}") from last_error
+
+    @staticmethod
+    def _parse_sina_history(rows: object, limit: int) -> list[DailyBar]:
+        if not isinstance(rows, list):
+            raise MarketDataError("新浪历史行情返回格式无法识别")
+        bars: list[DailyBar] = []
+        try:
+            for values in rows[-limit:]:
+                # 新浪日K成交量为股，统一换算为手；该接口没有可靠成交额，保持0防止策略误加分。
+                bars.append(DailyBar(
+                    trade_date=date.fromisoformat(str(values["day"])),
+                    open=float(values["open"]), close=float(values["close"]),
+                    high=float(values["high"]), low=float(values["low"]),
+                    volume=int(float(values["volume"]) / 100), amount=0.0,
+                ))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MarketDataError("新浪历史行情返回格式无法识别") from exc
         return bars

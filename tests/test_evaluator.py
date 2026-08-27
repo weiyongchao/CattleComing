@@ -1,10 +1,10 @@
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from src.stock_evaluator.evaluator import evaluate
-from src.stock_evaluator.market import DailyBar, EastmoneyProvider, Quote, secid_for
+from src.stock_evaluator.market import DailyBar, EastmoneyProvider, MarketDataError, Quote, secid_for
 from src.stock_evaluator.screener import LEADER_POOL, is_main_board, is_risk_stock_name, screen_leaders
 from src.stock_evaluator.funds import _aggregate_tencent_trades, _combined_fund_signal, _fund_period, _select_top_sectors
 from src.stock_evaluator.auction import (
@@ -15,6 +15,7 @@ from src.stock_evaluator.auction import (
     _first_board_score, _one_to_two_score, _capacity_one_to_two_score,
     _next_day_continuation_score, _board_stage,
     _big_order_support, _apply_dynamic_context, _execution_risk_profile,
+    _high_board_turnover_relay,
     _expand_with_previous_limit_ups, _auction_amount_qualification,
     _nuclear_button_profile,
     _recognition_channel_profile,
@@ -23,11 +24,16 @@ from src.stock_evaluator.auction import (
 from src.stock_evaluator.auction_trajectory import _profile
 from src.stock_evaluator.next_day import _holding_strategy
 from src.stock_evaluator.peers import _primary_board
-from src.stock_evaluator.board_plan import _auction_decision, _auction_gate, _auction_phase, _market_gate
+from src.stock_evaluator.board_plan import (
+    _auction_decision, _auction_gate, _auction_phase, _market_gate,
+    _exclude_high_corporate_event_candidates, _generalization_evidence,
+)
 from src.stock_evaluator.intraday import (
-    _intraday_score, _leadership_profile, _limit_down_reversal_profile, _prefilter_snapshots,
+    _card_anomaly_late_profile, _intraday_score, _leadership_profile,
+    _limit_down_reversal_profile, _prefilter_snapshots,
 )
 from src.stock_evaluator.simple_plan import _position_action, build_position_summary
+from src.stock_evaluator.server import _is_actual_final_snapshot
 from src.stock_evaluator import history as candidate_history
 from src.stock_evaluator.history import (
     _board_review_view, _review_candidate, load_board_plan_snapshot, record_candidates,
@@ -144,6 +150,59 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(quote.open_price, 1355.00)
         self.assertEqual(quote.high_price, 1359.00)
         self.assertEqual(quote.low_price, 1350.03)
+
+    def test_tencent_new_history_parser_preserves_amount_units(self):
+        rows = {"qfqday": [
+            ["2026-08-20", "10.00", "10.50", "10.60", "9.90", "12345", {}, "3.2", "12800.5", ""],
+        ]}
+        bars = EastmoneyProvider._parse_tencent_history(rows, 30)
+        self.assertEqual(len(bars), 1)
+        self.assertEqual(bars[0].volume, 12345)
+        self.assertEqual(bars[0].amount, 128_005_000)
+
+    def test_sina_history_parser_converts_shares_to_lots_without_fake_amount(self):
+        rows = [{
+            "day": "2026-08-20", "open": "10.00", "close": "10.50",
+            "high": "10.60", "low": "9.90", "volume": "1234500",
+        }]
+        bars = EastmoneyProvider._parse_sina_history(rows, 30)
+        self.assertEqual(bars[0].volume, 12345)
+        self.assertEqual(bars[0].amount, 0)
+
+    def test_history_falls_through_to_new_tencent_source(self):
+        expected = self.bars([10, 10.1, 10.2, 10.3, 10.4])
+
+        class FallbackProvider(EastmoneyProvider):
+            def _history_eastmoney(self, secid, limit):
+                raise MarketDataError("主源失败")
+
+            def _history_tencent(self, secid, limit):
+                return expected
+
+            def _history_sina(self, secid, limit):
+                raise AssertionError("腾讯成功后不应继续调用新浪")
+
+        self.assertEqual(FallbackProvider().history("600519"), expected)
+
+    def test_history_temporarily_circuits_failed_primary_source(self):
+        expected = self.bars([10, 10.1, 10.2, 10.3, 10.4])
+
+        class CircuitProvider(EastmoneyProvider):
+            def __init__(self):
+                super().__init__()
+                self.primary_calls = 0
+
+            def _history_eastmoney(self, secid, limit):
+                self.primary_calls += 1
+                raise MarketDataError("主源失败")
+
+            def _history_tencent(self, secid, limit):
+                return expected
+
+        provider = CircuitProvider()
+        provider.history("600519")
+        provider.history("000001")
+        self.assertEqual(provider.primary_calls, 1)
 
     def test_yesterday_change_uses_completed_bars(self):
         bars = self.bars([10, 10, 11, 12, 12])
@@ -573,6 +632,24 @@ class EvaluatorTests(unittest.TestCase):
             12.39, 7.47, 4.01, 3.35, 100, 0,
         )[1])
 
+    def test_one_to_two_strong_one_price_override_accepts_kangsheng_boundary(self):
+        score, matched, reasons, risks = _one_to_two_score(
+            10.12, 25.85, 73_672_064, 5_068_344_000, 80,
+            20.22, 13.76, 5.47, 1.37, 100, 0,
+        )
+        self.assertTrue(matched)
+        self.assertGreaterEqual(score, 95)
+        self.assertTrue(any("豁免" in reason for reason in reasons))
+        self.assertTrue(any("20%–25%" in risk for risk in risks))
+        self.assertFalse(_one_to_two_score(
+            10.12, 25.85, 73_672_064, 5_068_344_000, 80,
+            25.01, 13.76, 5.47, 1.37, 100, 0,
+        )[1])
+        self.assertFalse(_one_to_two_score(
+            10.12, 25.85, 73_672_064, 5_068_344_000, 80,
+            20.22, 13.76, 5.47, 1.37, 100, 0, historical_proxy=True,
+        )[1])
+
     def test_capacity_one_to_two_requires_large_auction_and_strong_previous_close(self):
         score, matched, _, _ = _capacity_one_to_two_score(
             1, 1, 5.95, 5.98, 159_086_400, 26_615_571_224, 100, 0, 14.63,
@@ -906,6 +983,30 @@ class EvaluatorTests(unittest.TestCase):
         amount_check = next(check for check in result["checks"] if "竞价成交额" in check["name"])
         self.assertTrue(amount_check["passed"])
 
+    def test_board_decision_marks_strong_one_to_two_one_price_override_for_queue(self):
+        candidate = {
+            "score": 99, "continuation_score": 70,
+            "strategy_mode": "强竞价一进二一字板豁免",
+            "strong_one_price_one_to_two": True,
+            "priority_tier": "一进二观察", "auction_liquidity_tier": "A",
+            "previous_day_limit_up": True, "consecutive_limit_up_days": 1,
+            "auction_gap_percent": 10.12, "auction_volume_percent": 25.85,
+            "auction_amount": 73_672_064, "auction_turnover_percent": 1.32,
+            "float_market_cap": 5_068_344_000, "listed_sessions": 80,
+            "price_vs_ma5_percent": 20.22, "previous_volume_ratio": 1.37,
+            "previous_close_position_percent": 100, "previous_upper_shadow_ratio": 0,
+            "decision_main_ratio": None, "three_day_change_percent": 13.76,
+            "tradable": False, "tradability_label": "一字板/近涨停",
+            "eligible": True, "risk_veto": False,
+            "regulatory_risk": {"level": "watch", "label": "普通异动观察", "summary": "3日累计偏高"},
+        }
+        result = _auction_decision(candidate)
+        self.assertEqual(result["action"], "强竞价1进2一字板豁免 · 可挂单打板")
+        self.assertTrue(result["board_entry_allowed"])
+        self.assertEqual(result["recommendation_badge"], "豁免观察 · 可挂单打板")
+        heat_check = next(check for check in result["checks"] if "MA5偏离" in check["name"])
+        self.assertTrue(heat_check["passed"])
+
     def test_simple_plan_allows_build_only_with_confirmed_funds(self):
         result = {
             "quote": {"price": 12}, "score": 75,
@@ -974,6 +1075,39 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(profile["label"], "跌停反核确认")
         self.assertTrue(any("T+1" in risk for risk in profile["risks"]))
 
+    def test_card_anomaly_waits_until_late_session(self):
+        row = self._card_anomaly_row()
+        profile = _card_anomaly_late_profile(row, datetime(2026, 8, 27, 11, 30))
+        self.assertTrue(profile["matched"])
+        self.assertFalse(profile["buy_ready"])
+        self.assertEqual(profile["action"], "等待14:45尾盘确认")
+
+    def test_card_anomaly_recommends_small_late_buy_when_tradable(self):
+        row = self._card_anomaly_row()
+        profile = _card_anomaly_late_profile(row, datetime(2026, 8, 27, 14, 50))
+        self.assertTrue(profile["matched"])
+        self.assertTrue(profile["buy_ready"])
+        self.assertEqual(profile["action"], "尾盘小仓买入")
+        self.assertEqual(profile["position_cap_percent"], 5)
+
+    def test_card_anomaly_high_event_risk_is_vetoed(self):
+        row = {**self._card_anomaly_row(), "corporate_event_risk": {"level": "high"}}
+        profile = _card_anomaly_late_profile(row, datetime(2026, 8, 27, 14, 50))
+        self.assertFalse(profile["matched"])
+        self.assertFalse(profile["checks"][-1]["passed"])
+
+    @staticmethod
+    def _card_anomaly_row():
+        return {
+            "regulatory_risk": {"ten_day_change": 99.14, "serious_trigger": False},
+            "recent_10_limit_up_count": 6, "consecutive_limit_up_days": 0,
+            "change_percent": 10.05, "intraday_position_percent": 100,
+            "amount": 655_730_000, "turnover_rate": 11.79,
+            "previous_close_position_percent": 99.65,
+            "previous_upper_shadow_ratio": 0.015, "previous_volume_ratio": 0.805,
+            "order_imbalance": 1.0, "sealed": False,
+        }
+
     def test_leadership_profile_filters_immature_activity(self):
         mature = _leadership_profile({
             "f12": "600001", "f100": "通信设备", "f20": 80_000_000_000,
@@ -1019,8 +1153,10 @@ class EvaluatorTests(unittest.TestCase):
             "candidates": [{"code": "600002", "name": "打板候选", "auction_price": 12, "score": 80, "actionable": True}],
         }
         original = candidate_history.DATA_FILE
+        original_board = candidate_history.BOARD_PLAN_FILE
         with TemporaryDirectory() as directory:
             candidate_history.DATA_FILE = Path(directory) / "history.json"
+            candidate_history.BOARD_PLAN_FILE = Path(directory) / "board-plans.json"
             try:
                 record_candidates("main_board", daily)
                 record_candidates("board", board)
@@ -1029,6 +1165,37 @@ class EvaluatorTests(unittest.TestCase):
                 self.assertEqual(set(result["days"][0]["sources"]), {"board"})
             finally:
                 candidate_history.DATA_FILE = original
+                candidate_history.BOARD_PLAN_FILE = original_board
+
+    def test_board_history_uses_latest_replay_when_actual_final_was_empty(self):
+        replay = {
+            "selected_date": "2026-08-25", "generated_at": "2026-08-26T16:00:00+08:00",
+            "strategy_version": "latest", "historical": True,
+            "candidates": [{
+                "code": "600001", "name": "最新版候选", "auction_price": 12,
+                "score": 90, "eligible": True, "risk_veto": False,
+                "action": "连板接力B级预选",
+            }],
+            "screening": {"method": "最新版历史回放", "replay_warning": "09:31历史代理"},
+        }
+        original = candidate_history.DATA_FILE
+        original_board = candidate_history.BOARD_PLAN_FILE
+        with TemporaryDirectory() as directory:
+            candidate_history.DATA_FILE = Path(directory) / "history.json"
+            candidate_history.BOARD_PLAN_FILE = Path(directory) / "board-plans.json"
+            try:
+                save_board_plan_snapshot({**replay, "candidates": []}, "final")
+                save_board_plan_snapshot(replay, "replay")
+                result = candidate_history.list_board_history()
+                self.assertEqual([day["date"] for day in result["days"]], ["2026-08-25"])
+                source = result["days"][0]["sources"]["board"]
+                self.assertEqual(source["snapshot_kind"], "latest_strategy_replay")
+                self.assertTrue(source["historical_proxy"])
+                self.assertTrue(source["candidates"][0]["qualified"])
+                self.assertNotIn("review", result["days"][0])
+            finally:
+                candidate_history.DATA_FILE = original
+                candidate_history.BOARD_PLAN_FILE = original_board
 
     def test_board_review_summary_ignores_daily_recommendation_samples(self):
         review = {
@@ -1077,6 +1244,20 @@ class EvaluatorTests(unittest.TestCase):
                 self.assertEqual(still_frozen["candidates"][0]["code"], "600002")
             finally:
                 candidate_history.BOARD_PLAN_FILE = original
+
+    def test_final_snapshot_gate_rejects_replay_and_accepts_actual_final(self):
+        self.assertFalse(_is_actual_final_snapshot({
+            "snapshot_kind": "latest_strategy_replay", "auction_phase": "historical",
+            "candidates": [{"code": "600001"}],
+        }))
+        self.assertFalse(_is_actual_final_snapshot({
+            "snapshot_kind": "actual_indicative", "auction_phase": "indicative",
+            "candidates": [{"code": "600001"}],
+        }))
+        self.assertTrue(_is_actual_final_snapshot({
+            "snapshot_kind": "actual_final", "auction_phase": "final", "frozen": True,
+            "candidates": [{"code": "600001"}],
+        }))
 
     def test_open_confirmation_keeps_frozen_candidate_but_changes_buy_decision(self):
         candidate = {
@@ -1263,6 +1444,118 @@ class EvaluatorTests(unittest.TestCase):
         self.assertTrue(risk["expectation_break"])
         self.assertTrue(risk["risk_veto"])
         self.assertTrue(any("预期明显衰减" in reason for reason in risk["risk_reasons"]))
+
+    def test_high_board_turnover_relay_accepts_valid_divergence_structure(self):
+        matched = _high_board_turnover_relay(
+            consecutive_limit_ups=4, gap_percent=2.79,
+            auction_amount=45_565_780, auction_volume_percent=20.46,
+            auction_turnover_percent=1.06, previous_volume_ratio=3.94,
+            price_vs_ma5=23.26, previous_close_position=100,
+            previous_upper_shadow=0, exact_auction=True,
+        )
+        self.assertTrue(matched)
+        risk = _execution_risk_profile(
+            4, 2.79, 23.26, 3.94, 9.97, "watch", "unknown", 20.46, matched,
+        )
+        self.assertTrue(risk["high_board_turnover_relay"])
+        self.assertFalse(risk["expectation_break"])
+        self.assertFalse(risk["risk_veto"])
+        self.assertEqual(
+            _auction_amount_qualification(
+                45_565_780, True, 4, 88, "unknown",
+                high_board_turnover_relay=True,
+            ),
+            (True, "B"),
+        )
+
+    def test_generalization_evidence_is_stock_agnostic(self):
+        candidate = {
+            "code": "000001", "name": "样本甲", "score": 92,
+            "previous_day_limit_up": True, "consecutive_limit_up_days": 3,
+            "recent_10_limit_up_count": 3, "previous_close_position_percent": 98,
+            "previous_upper_shadow_ratio": 0.05, "previous_volume_ratio": 1.6,
+            "auction_gap_percent": 2.5, "auction_amount": 60_000_000,
+            "auction_volume_percent": 12, "auction_liquidity_tier": "A",
+            "float_market_cap": 8_000_000_000, "listed_sessions": 80,
+            "continuation_score": 68, "risk_veto": False,
+            "regulatory_risk": {"level": "normal"},
+            "big_order_support": {"status": "neutral"},
+        }
+        baseline = _generalization_evidence(candidate)
+        renamed = _generalization_evidence({**candidate, "code": "600999", "name": "样本乙"})
+        self.assertEqual(baseline, renamed)
+        self.assertTrue(baseline["gate"])
+        self.assertEqual(baseline["passed"], 5)
+
+    def test_special_pattern_cannot_bypass_generalization_risk_control(self):
+        candidate = {
+            "code": "600999", "name": "风险样本", "score": 100,
+            "strategy_mode": "连板核心", "priority_tier": "连板优先",
+            "high_board_turnover_relay": True, "eligible": True,
+            "previous_day_limit_up": True, "consecutive_limit_up_days": 4,
+            "recent_10_limit_up_count": 4, "previous_close_position_percent": 100,
+            "previous_upper_shadow_ratio": 0, "previous_volume_ratio": 2,
+            "auction_gap_percent": 2, "auction_amount": 80_000_000,
+            "auction_volume_percent": 20, "auction_liquidity_tier": "A",
+            "float_market_cap": 7_000_000_000, "listed_sessions": 80,
+            "continuation_score": 75, "risk_veto": True,
+            "regulatory_risk": {"level": "normal"}, "tradable": True,
+            "three_day_change_percent": 25,
+        }
+        evidence = _generalization_evidence(candidate)
+        decision = _auction_decision(candidate)
+        self.assertFalse(evidence["gate"])
+        self.assertEqual(decision["action"], "高位兑现风险 · 取消候选")
+        self.assertFalse(decision["recommended"])
+        self.assertFalse(decision["actionable"])
+
+    def test_low_open_turnover_relay_requires_stronger_auction_confirmation(self):
+        base = {
+            "consecutive_limit_ups": 4, "gap_percent": -1.5,
+            "auction_volume_percent": 16, "auction_turnover_percent": 0.9,
+            "previous_volume_ratio": 2.2, "price_vs_ma5": 18,
+            "previous_close_position": 100, "previous_upper_shadow": 0,
+            "exact_auction": True,
+        }
+        self.assertFalse(_high_board_turnover_relay(auction_amount=45_000_000, **base))
+        self.assertTrue(_high_board_turnover_relay(auction_amount=55_000_000, **base))
+
+    def test_board_decision_marks_high_board_turnover_as_b_watch(self):
+        result = _auction_decision({
+            "score": 100, "continuation_score": 61, "strategy_mode": "连板核心",
+            "priority_tier": "连板优先", "auction_liquidity_tier": "B",
+            "previous_day_limit_up": True, "consecutive_limit_up_days": 4,
+            "auction_gap_percent": 2.79, "auction_volume_percent": 20.46,
+            "auction_amount": 45_565_780, "float_market_cap": 4_170_175_656,
+            "listed_sessions": 80, "decision_main_ratio": None,
+            "three_day_change_percent": 33.13, "tradable": True,
+            "eligible": True, "risk_veto": False, "high_board_turnover_relay": True,
+        })
+        self.assertEqual(result["action"], "高位换手接力B级观察")
+        self.assertFalse(result["recommended"])
+        self.assertFalse(result["actionable"])
+
+    def test_execution_risk_vetoes_shrinking_board_with_extreme_one_price_distribution(self):
+        risk = _execution_risk_profile(
+            2, 9.92, 24.6, 0.37, 0.0, "watch", "unknown", 86.67,
+        )
+        self.assertTrue(risk["distribution_one_price_risk"])
+        self.assertTrue(risk["risk_veto"])
+        self.assertEqual(risk["t1_downside_risk_score"], 100)
+        self.assertTrue(any("集中兑现" in reason for reason in risk["risk_reasons"]))
+
+    def test_high_corporate_event_is_removed_from_main_candidates(self):
+        safe, excluded = _exclude_high_corporate_event_candidates([
+            {"code": "600984", "name": "建设机械", "risks": [], "corporate_event_risk": {
+                "level": "high", "label": "重大资产重组预案进行中",
+            }},
+            {"code": "002418", "name": "康盛股份", "risks": []},
+        ])
+        self.assertEqual([item["code"] for item in safe], ["002418"])
+        self.assertEqual([item["code"] for item in excluded], ["600984"])
+        self.assertTrue(excluded[0]["risk_veto"])
+        self.assertEqual(excluded[0]["action"], "重大事项高风险 · 取消候选")
+        self.assertFalse(excluded[0]["recommended"])
 
     def test_auction_trajectory_detects_late_price_and_bid_deterioration(self):
         profile = _profile([

@@ -53,6 +53,16 @@ def _best_saved_board_snapshot(day_key: str) -> dict | None:
     return max(snapshots, key=lambda item: len(item.get("candidates") or [])) if snapshots else None
 
 
+def _is_actual_final_snapshot(snapshot: dict | None) -> bool:
+    """09:25冻结分支只接受真实final留痕，禁止replay冒充当日最终名单。"""
+    if not snapshot:
+        return False
+    kind = str(snapshot.get("snapshot_kind") or "")
+    return kind in {"actual_final", "recorded_compact_final", "recovered_final"} or bool(
+        snapshot.get("frozen") and snapshot.get("auction_phase") == "final"
+    )
+
+
 def _local_trading_dates(today_value: date | None = None) -> list[str]:
     """行情日历暂不可用时，从已落盘候选和竞价快照恢复最近交易日。"""
     today_value = today_value or date.today()
@@ -354,7 +364,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not replay and current_phase == "final":
                 frozen = load_board_plan_snapshot(date.today().isoformat(), "final")
                 recovered = _best_saved_board_snapshot(date.today().isoformat())
-                if recovered and recovered.get("candidates"):
+                if recovered and recovered.get("candidates") and _is_actual_final_snapshot(recovered):
                     displayed = recovered
                     if displayed.get("strategy_version") != BOARD_STRATEGY_VERSION:
                         cached = type(self).board_plan_cache

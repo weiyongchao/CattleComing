@@ -207,6 +207,57 @@ def _compact_candidate(candidate: dict, source: str) -> dict:
     return common
 
 
+def _board_source_from_plan(payload: dict) -> dict | None:
+    """把完整 final/replay 快照转换成历史复盘使用的紧凑打板来源。"""
+    candidates = payload.get("candidates") or []
+    if not candidates:
+        return None
+    compacted = []
+    historical_replay = payload.get("snapshot_kind") in {"latest_strategy_replay", "strategy_replay"} or bool(payload.get("historical"))
+    for candidate in candidates:
+        item = _compact_candidate(candidate, "board")
+        if historical_replay:
+            item["qualified"] = bool(
+                candidate.get("eligible", True)
+                and not candidate.get("risk_veto", False)
+                and "取消候选" not in str(candidate.get("action") or "")
+            )
+        compacted.append(item)
+    return {
+        "source": "board",
+        "captured_at": payload.get("generated_at") or datetime.now().astimezone().isoformat(timespec="seconds"),
+        "rule_version": str(payload.get("strategy_version") or "--"),
+        "market": payload.get("market"),
+        "method": (payload.get("screening") or {}).get("method") or "",
+        "snapshot_kind": payload.get("snapshot_kind") or "actual_final",
+        "snapshot_label": payload.get("snapshot_label") or "打板快照",
+        "historical_proxy": historical_replay,
+        "replay_warning": (payload.get("screening") or {}).get("replay_warning"),
+        "candidates": compacted,
+    }
+
+
+def _latest_board_source(day_key: str, stored_day: dict | None = None) -> dict | None:
+    """最新版策略回放优先；缺失时回退当日精简记录和真实09:25快照。"""
+    plans = (_load_board_plans().get("days") or {}).get(day_key) or {}
+    replay = _board_source_from_plan(plans.get("replay") or {})
+    if replay:
+        return replay
+    stored = (((stored_day or {}).get("sources") or {}).get("board"))
+    if stored and stored.get("candidates"):
+        return stored
+    return _board_source_from_plan(plans.get("final") or {})
+
+
+def _review_matches_source(review: dict | None, board: dict) -> bool:
+    reviewed_board = ((review or {}).get("sources") or {}).get("board") or {}
+    return bool(
+        reviewed_board
+        and reviewed_board.get("rule_version") == board.get("rule_version")
+        and reviewed_board.get("snapshot_kind") == board.get("snapshot_kind")
+    )
+
+
 def record_candidates(source: str, payload: dict) -> dict:
     """冻结每天首次有效候选快照，避免收盘后刷新覆盖早盘选择。"""
     if source not in {"board", "main_board"}:
@@ -280,13 +331,16 @@ def _board_review_view(review: dict | None) -> dict | None:
 def list_board_history() -> dict:
     """历史复盘页面只返回打板候选，忽略已停用的每日推荐留痕。"""
     history = list_history()
+    stored_days = {str(day.get("date") or ""): day for day in history["days"]}
+    plan_days = (_load_board_plans().get("days") or {})
     days = []
-    for day in history["days"]:
-        board = (day.get("sources") or {}).get("board")
+    for day_key in sorted(set(stored_days) | set(plan_days), reverse=True):
+        day = stored_days.get(day_key) or {"date": day_key, "sources": {}}
+        board = _latest_board_source(day_key, day)
         if not board:
             continue
         item = {**day, "sources": {"board": board}}
-        review = _board_review_view(day.get("review"))
+        review = _board_review_view(day.get("review")) if _review_matches_source(day.get("review"), board) else None
         if review:
             item["review"] = review
         else:
@@ -382,10 +436,8 @@ def review_day(day_key: str, provider: EastmoneyProvider | None = None) -> dict:
     provider = provider or EastmoneyProvider(timeout=8)
     with _LOCK:
         database = _load()
-        day = database["days"].get(day_key)
-        if not day:
-            raise ValueError("该日期没有候选记录")
-        board = (day.get("sources") or {}).get("board")
+        day = database["days"].get(day_key) or {"date": day_key, "sources": {}}
+        board = _latest_board_source(day_key, day)
         if not board:
             raise ValueError("该日期没有打板候选记录")
         sources = {"board": board}
@@ -450,6 +502,8 @@ def review_day(day_key: str, provider: EastmoneyProvider | None = None) -> dict:
     }
     with _LOCK:
         database = _load()
-        database["days"][day_key]["review"] = review
+        day = database["days"].setdefault(day_key, {"date": day_key, "sources": {}})
+        day.setdefault("sources", {})["board"] = board
+        day["review"] = review
         _save(database)
     return {"date": day_key, **review}
