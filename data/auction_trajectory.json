@@ -106,6 +106,19 @@
             "order_imbalance": null,
             "bid_volume5": 0.0,
             "ask_volume5": 0.0
+          },
+          {
+            "code": "003040",
+            "name": "楚天龙",
+            "captured_at": "2026-08-27T15:37:22+08:00",
+            "phase": "final",
+            "price": 17.62,
+            "gap_percent": 3.46,
+            "volume": 49275.0,
+            "amount": 86822885.0,
+            "order_imbalance": null,
+            "bid_volume5": 0.0,
+            "ask_volume5": 0.0
           }
         ],
         "600479": [
@@ -126,6 +139,19 @@
             "code": "600479",
             "name": "千金药业",
             "captured_at": "2026-08-27T11:22:40+08:00",
+            "phase": "final",
+            "price": 12.0,
+            "gap_percent": 8.89,
+            "volume": 92358.0,
+            "amount": 110829600.0,
+            "order_imbalance": null,
+            "bid_volume5": 0.0,
+            "ask_volume5": 0.0
+          },
+          {
+            "code": "600479",
+            "name": "千金药业",
+            "captured_at": "2026-08-27T15:37:22+08:00",
             "phase": "final",
             "price": 12.0,
             "gap_percent": 8.89,
@@ -162,6 +188,19 @@
             "order_imbalance": null,
             "bid_volume5": 0.0,
             "ask_volume5": 0.0
+          },
+          {
+            "code": "600103",
+            "name": "青山纸业",
+            "captured_at": "2026-08-27T15:37:22+08:00",
+            "phase": "final",
+            "price": 3.71,
+            "gap_percent": 6.92,
+            "volume": 224558.0,
+            "amount": 83311018.0,
+            "order_imbalance": null,
+            "bid_volume5": 0.0,
+            "ask_volume5": 0.0
           }
         ],
         "002963": [
@@ -182,6 +221,19 @@
             "code": "002963",
             "name": "豪尔赛",
             "captured_at": "2026-08-27T11:22:40+08:00",
+            "phase": "final",
+            "price": 23.2,
+            "gap_percent": 3.8,
+            "volume": 19862.0,
+            "amount": 46079840.0,
+            "order_imbalance": null,
+            "bid_volume5": 0.0,
+            "ask_volume5": 0.0
+          },
+          {
+            "code": "002963",
+            "name": "豪尔赛",
+            "captured_at": "2026-08-27T15:37:22+08:00",
             "phase": "final",
             "price": 23.2,
             "gap_percent": 3.8,
@@ -215,6 +267,49 @@
             "gap_percent": 9.54,
             "volume": 40133.0,
             "amount": 41938985.0,
+            "order_imbalance": null,
+            "bid_volume5": 0.0,
+            "ask_volume5": 0.0
+          },
+          {
+            "code": "600371",
+            "name": "万向德农",
+            "captured_at": "2026-08-27T15:37:22+08:00",
+            "phase": "final",
+            "price": 10.45,
+            "gap_percent": 9.54,
+            "volume": 40133.0,
+            "amount": 41938985.0,
+            "order_imbalance": null,
+            "bid_volume5": 0.0,
+            "ask_volume5": 0.0
+          }
+        ],
+        "000017": [
+          {
+            "code": "000017",
+            "name": "深中华A",
+            "captured_at": "2026-08-27T15:37:22+08:00",
+            "phase": "final",
+            "price": 9.57,
+            "gap_percent": 1.16,
+            "volume": 63288.0,
+            "amount": 60566616.0,
+            "order_imbalance": null,
+            "bid_volume5": 0.0,
+            "ask_volume5": 0.0
+          }
+        ],
+        "002418": [
+          {
+            "code": "002418",
+            "name": "康盛股份",
+            "captured_at": "2026-08-27T15:37:22+08:00",
+            "phase": "final",
+            "price": 4.54,
+            "gap_percent": 1.79,
+            "volume": 186350.0,
+            "amount": 84602900.0,
             "order_imbalance": null,
             "bid_volume5": 0.0,
             "ask_volume5": 0.0

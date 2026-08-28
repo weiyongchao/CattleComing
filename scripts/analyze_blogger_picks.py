@@ -11,7 +11,7 @@ from src.stock_evaluator.auction import _auction_candidate
 from src.stock_evaluator.history import load_board_plan_snapshot
 from src.stock_evaluator.market import EastmoneyProvider
 from src.stock_evaluator.screener import is_main_board
-from src.stock_evaluator.universe import main_board_snapshots
+from src.stock_evaluator.universe import main_board_snapshots, previous_limit_up_pool
 
 
 PICKS = {
@@ -22,6 +22,12 @@ PICKS = {
     "2026-08-20": {"600613": "神奇制药", "300765": "石药创新"},
     "2026-08-21": {"002412": "汉森制药", "600613": "神奇制药"},
     "2026-08-24": {"002412": "汉森制药", "603958": "哈森股份"},
+    "2026-08-25": {"000017": "深中华A", "002412": "汉森制药", "003040": "楚天龙"},
+    "2026-08-26": {"002418": "康盛股份", "003040": "楚天龙"},
+    "2026-08-27": {
+        "002418": "康盛股份", "600103": "青山纸业", "003040": "楚天龙",
+        "000017": "深中华A", "600371": "万向德农",
+    },
 }
 
 
@@ -33,6 +39,9 @@ def main() -> None:
         target = date.fromisoformat(day_key)
         replay = load_board_plan_snapshot(day_key, "replay") or {}
         selected = {str(item.get("code") or "") for item in replay.get("candidates") or []}
+        previous_limit_ups = {
+            str(item.get("c") or ""): item for item in previous_limit_up_pool(target)
+        }
         for code, supplied_name in stocks.items():
             row = snapshots.get(code)
             if not is_main_board(code):
@@ -43,7 +52,16 @@ def main() -> None:
                 continue
             try:
                 history = provider.history(code, 160)
-                candidate = _auction_candidate(dict(row or {"f12": code, "f14": supplied_name}), provider, target, history)
+                source = dict(row or {"f12": code, "f14": supplied_name})
+                previous_limit_up = previous_limit_ups.get(code) or {}
+                source.update({
+                    "_previous_limit_up_streak": int(previous_limit_up.get("lbc") or 0),
+                    "_previous_limit_up_breaks": int(previous_limit_up.get("zbc") or 0),
+                    "_previous_first_seal_time": int(previous_limit_up.get("fbt") or 0),
+                    "_previous_final_seal_time": int(previous_limit_up.get("lbt") or 0),
+                    "_previous_float_market_cap": float(previous_limit_up.get("ltsz") or 0),
+                })
+                candidate = _auction_candidate(source, provider, target, history)
                 target_bar = next((bar for bar in history if bar.trade_date == target), None)
                 if not candidate:
                     raise RuntimeError("候选特征不足")

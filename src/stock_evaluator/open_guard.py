@@ -12,11 +12,19 @@ from .trade_advice import live_entry_plan
 from .universe import main_board_snapshots, previous_limit_up_pool
 
 
+_OPENING_DISCOVERY_CACHE: dict[str, list[dict]] = {}
+
+
 def _number(value: object, default: float = 0.0) -> float:
     try:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _opening_discovery_window(now: datetime) -> bool:
+    hhmm = now.hour * 100 + now.minute
+    return 930 <= hhmm <= 935
 
 
 def _quote_from_snapshot(snapshot: dict) -> Quote:
@@ -46,15 +54,50 @@ def _live_one_to_two_prefilter(snapshot: dict, previous_streak: int, theme_peer_
     price, open_price = _number(snapshot.get("f2")), _number(snapshot.get("f17"))
     low_price, high_price = _number(snapshot.get("f16")), _number(snapshot.get("f15"))
     price_vs_open = (price / open_price - 1) * 100 if price > 0 and open_price > 0 else -99
+    high_vs_open = (high_price / open_price - 1) * 100 if high_price > 0 and open_price > 0 else -99
     intraday_position = (price - low_price) / (high_price - low_price) * 100 if high_price > low_price else 100 if price > 0 else 0
     main_ratio = _number(snapshot.get("f184"))
     support_confirmed = theme_peer_count >= 1 or main_ratio > 0
     late_breakout_override = change >= 7 and price_vs_open >= 4 and amount >= 200_000_000
+    sealed_one_price = (
+        9.5 <= change <= 10.2 and abs(price_vs_open) <= 0.2
+        and amount >= 100_000_000 and volume_ratio >= 0.5
+        and intraday_position >= 95
+    )
     return (
-        3 <= change <= 10.2 and price_vs_open >= 2
+        sealed_one_price or (
+            3 <= change <= 10.2 and price_vs_open >= 2
+            and amount >= 100_000_000 and volume_ratio >= 0.5
+            and intraday_position >= 70
+            and (support_confirmed or late_breakout_override)
+        )
+    )
+
+
+def _live_multi_board_prefilter(snapshot: dict, previous_streak: int, max_streak: int) -> bool:
+    """用09:30后成交确认补回竞价偏弱、但开盘主动转强的二板及以上连板股。"""
+    if previous_streak < 2:
+        return False
+    change = _number(snapshot.get("f3"), -99)
+    amount = _number(snapshot.get("f6"))
+    volume_ratio = _number(snapshot.get("f10"))
+    price, open_price = _number(snapshot.get("f2")), _number(snapshot.get("f17"))
+    low_price, high_price = _number(snapshot.get("f16")), _number(snapshot.get("f15"))
+    price_vs_open = (price / open_price - 1) * 100 if price > 0 and open_price > 0 else -99
+    high_vs_open = (high_price / open_price - 1) * 100 if high_price > 0 and open_price > 0 else -99
+    intraday_position = (price - low_price) / (high_price - low_price) * 100 if high_price > low_price else 100 if price > 0 else 0
+    is_space_board = max_streak >= 3 and previous_streak == max_streak
+    if is_space_board:
+        return (
+            0 <= change <= 10.2 and price_vs_open >= 0
+            and amount >= 50_000_000 and volume_ratio >= 0.5
+            and intraday_position >= 65
+            and (price_vs_open >= 0.5 or high_vs_open >= 1.5)
+        )
+    return (
+        3 <= change <= 10.2 and price_vs_open >= 1.5
         and amount >= 100_000_000 and volume_ratio >= 0.5
         and intraday_position >= 70
-        and (support_confirmed or late_breakout_override)
     )
 
 
@@ -100,6 +143,51 @@ def _discover_live_one_to_two(
             "action": "盘中全主板新增 · 非09:25冻结候选",
             "continuation_score": max(58, _number(candidate.get("continuation_score"))),
             "discovery_source": "盘中全主板新增",
+            "live_entry_allowed": True,
+            "_auction_rank": 0,
+        })
+        discovered.append(candidate)
+    return discovered
+
+
+def _discover_live_multi_board(
+    provider: EastmoneyProvider, existing_codes: set[str], limit: int = 4,
+    snapshots: list[dict] | None = None,
+) -> list[dict]:
+    snapshots = snapshots or main_board_snapshots(cache_seconds=15)
+    previous = previous_limit_up_pool(date.today())
+    streak_by_code = {str(item.get("c") or ""): int(_number(item.get("lbc"))) for item in previous}
+    max_streak = max(streak_by_code.values(), default=0)
+    filtered = [
+        row for row in snapshots
+        if str(row.get("f12") or "") not in existing_codes
+        and _live_multi_board_prefilter(
+            row, streak_by_code.get(str(row.get("f12") or ""), 0), max_streak,
+        )
+    ]
+    filtered.sort(key=lambda row: (
+        streak_by_code.get(str(row.get("f12") or ""), 0) == max_streak,
+        streak_by_code.get(str(row.get("f12") or ""), 0),
+        _number(row.get("f3")), _number(row.get("f6")),
+    ), reverse=True)
+    targets = filtered[:limit]
+    discovered: list[dict] = []
+    with ThreadPoolExecutor(max_workers=min(4, max(1, len(targets)))) as executor:
+        evaluated = list(executor.map(lambda snapshot: _auction_candidate(snapshot, provider), targets))
+    for snapshot, candidate in zip(targets, evaluated):
+        if candidate is None:
+            continue
+        streak = streak_by_code.get(str(snapshot.get("f12") or ""), 0)
+        is_space_board = max_streak >= 3 and streak == max_streak
+        candidate.update({
+            "priority_tier": "盘中空间板观察" if is_space_board else "盘中连板补选",
+            "strategy_mode": "空间板开盘确认" if is_space_board else "盘中连板转强",
+            "board_stage_label": f"盘中{streak}进{streak + 1} · 开盘转强确认",
+            "action": "09:30开盘确认补选 · 非09:25主榜",
+            "continuation_score": max(60 if is_space_board else 58, _number(candidate.get("continuation_score"))),
+            "discovery_source": "09:30开盘补选",
+            "live_entry_allowed": True,
+            "space_board_watch": is_space_board,
             "_auction_rank": 0,
         })
         discovered.append(candidate)
@@ -132,8 +220,25 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
     touched_limit_up = bool(limit_up_price and high_price >= limit_up_price - 0.005)
     sealed = bool(limit_up_price and price >= limit_up_price - 0.005 and quote["change_percent"] >= 9.5)
     failed_board = touched_limit_up and not sealed
+    high_change_percent = (high_price / previous_close - 1) * 100 if previous_close > 0 else 0.0
+    near_limit_attempt = bool(limit_up_price and high_change_percent >= 9.8)
+    near_limit_failure = bool(
+        near_limit_attempt and not sealed
+        and high_price > 0 and price <= high_price * 0.995
+    )
+    seal_value = int(_number(candidate.get("previous_final_seal_time")))
+    late_final_seal_watch = bool(
+        candidate.get("late_final_seal_watch")
+        or (
+            candidate.get("consecutive_limit_up_days", 0) >= 2
+            and seal_value >= 113000
+        )
+    )
     auction_tradable = candidate.get("tradable", True)
     board_entry_allowed = bool(candidate.get("board_entry_allowed"))
+    event_high = (candidate.get("corporate_event_risk") or {}).get("level") == "high"
+    live_entry_allowed = bool(candidate.get("live_entry_allowed")) and not event_high
+    entry_authorized = board_entry_allowed or live_entry_allowed
     nuclear_mode = candidate.get("strategy_mode") == "反核按钮竞价抄底"
     fund_current = bool(funds and funds.get("is_today") and str(funds.get("date")) == date.today().isoformat())
     main_ratio = _number(funds.get("main_ratio")) if fund_current and funds else None
@@ -154,6 +259,8 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
          "value": "当日资金暂不可用" if main_ratio is None else f"主力占比{main_ratio:+.2f}%"},
         {"name": "未处于高异动风险", "passed": result["regulatory_risk"]["level"] != "high",
          "value": result["regulatory_risk"]["label"]},
+        {"name": "无并购重组高风险", "passed": not event_high,
+         "value": (candidate.get("corporate_event_risk") or {}).get("summary") or "未识别到并购重组高风险事件"},
     ]
     passed = sum(check["passed"] is True for check in checks)
     known = sum(check["passed"] is not None for check in checks)
@@ -163,6 +270,8 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
         score += 18
     elif failed_board:
         score -= 28
+    elif near_limit_failure:
+        score -= 24
     if price_vs_auction is not None:
         score += round(max(-12, min(12, price_vs_auction * 2)))
     score = max(0, min(100, score))
@@ -170,6 +279,7 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
         book["imbalance"] <= -0.35
         or (main_ratio is not None and main_ratio <= -5)
         or result["regulatory_risk"]["level"] == "high"
+        or event_high
     )
     hard_reject = structural_break or (
         not opening_dip and (
@@ -186,7 +296,13 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
         or (main_ratio is not None and main_ratio <= -4)
         or result["regulatory_risk"]["level"] == "high"
     )
-    if sealed and auction_tradable:
+    if event_high:
+        decision, tone = "并购重组风险剔除", "reject"
+        summary = "命中并购重组或重组终止等高风险事件；即使盘中走强也不进入打板推荐。"
+    elif sealed and live_entry_allowed:
+        decision, tone = "09:30补选封板 · 可排队打板", "confirm"
+        summary = "开盘主动转强并已封住涨停，完成盘中补选确认；只能按涨停价排队，开板成交需确认快速回封。"
+    elif sealed and auction_tradable:
         decision, tone = "封板确认 · 已持有可观察", "confirm"
         summary = "盘中已经封住涨停，实际走势确认竞价逻辑；未持仓不追高，仍需防后续炸板。"
     elif sealed and board_entry_allowed:
@@ -201,6 +317,9 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
     elif failed_board:
         decision, tone = "炸板转弱 · 放弃追入", "reject"
         summary = "盘中触及涨停后未能封住，封板稳定性已经破坏09:25接力预期。"
+    elif near_limit_failure:
+        decision, tone = "冲板未封 · 放弃追入", "reject"
+        summary = "盘中一度逼近涨停但始终未封住，随后已从高点明显回落；不把冲板动作误判为封板确认。"
     elif nuclear_reject:
         decision, tone = "反核承接失败 · 放弃追入", "reject"
         summary = "高开后的价格回落、盘口卖压或资金流已经破坏反核按钮条件，不能仅因公式曾命中而继续追入。"
@@ -210,6 +329,9 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
     elif nuclear_mode:
         decision, tone = "反核按钮观察 · 暂不追价", "watch"
         summary = "公式条件曾命中，但盘中主动买盘和承接确认不足，等待强势拉升或封板，不提前追高。"
+    elif late_final_seal_watch:
+        decision, tone = "晚封连板 · 等待实际封板", "watch"
+        summary = "昨日最终封板不早于11:30，只保留B级观察；今日未实际封住涨停前不得升级为买入信号。"
     elif opening_dip and rebound_confirmed and score >= 58 and passed >= 4 and not structural_break:
         decision, tone = "深回踩修复 · 小仓试错", "confirm"
         summary = "开盘曾深度回踩，但已从低点明显反弹并收复竞价支撑；只在回踩不再创新低时小仓试错，不在急拉段加仓。"
@@ -229,15 +351,21 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
         decision, tone = "继续观察 · 暂不追价", "watch"
         summary = "尚未出现明确破坏，但确认项不足，等待成交与买盘进一步稳定。"
 
-    if sealed and board_entry_allowed:
+    if event_high:
+        entry_advice = "未持有：并购重组风险硬剔除，不参与打板"
+        holding_advice = "已持有：按事件风险和既定止盈止损纪律处理，不据此加仓"
+    elif sealed and entry_authorized:
         entry_advice = "未持有：可按涨停价挂单排队打板；未成交不追改价，开板成交需确认快速回封"
         holding_advice = "已持有：继续观察封单；开板后不能快速回封则降低次日预期"
     elif sealed:
         entry_advice = "未持有：已经封板，不追价、不把排队视为成交"
         holding_advice = "已持有：继续观察封单；炸板后不能快速回封则降低次日预期"
-    elif failed_board:
+    elif failed_board or near_limit_failure:
         entry_advice = "未持有：当前不买，等待重新封板并确认承接"
         holding_advice = "已持有：停止加仓，观察能否快速回封"
+    elif late_final_seal_watch:
+        entry_advice = "未持有：只观察，未实际封板前不买入"
+        holding_advice = "已持有：不加仓；冲板不封或回落扩大时降低预期"
     elif tone == "confirm":
         size_text = "仅极小观察仓" if candidate.get("high_exhaustion") or result["regulatory_risk"]["level"] != "normal" else "小仓试错"
         entry_advice = f"未持有：{size_text}；回落再破昨收或日内低点则取消"
@@ -272,7 +400,7 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
         "five_day_change_percent": candidate.get("five_day_change_percent"),
         "ten_day_change_percent": candidate.get("ten_day_change_percent"),
         "auction_action": candidate.get("action"),
-        "board_entry_allowed": board_entry_allowed,
+        "board_entry_allowed": entry_authorized,
         "recommendation_badge": candidate.get("recommendation_badge"),
         "discovery_source": candidate.get("discovery_source") or "09:25冻结候选",
         "auction_rank": int(_number(candidate.get("_auction_rank"), 0)),
@@ -291,6 +419,8 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
         "volume_ratio": metrics["volume_ratio"], "turnover_rate": metrics["turnover_rate"],
         "limit_up_price": limit_up_price or None, "touched_limit_up": touched_limit_up,
         "sealed": sealed, "failed_board": failed_board,
+        "near_limit_attempt": near_limit_attempt, "near_limit_failure": near_limit_failure,
+        "late_final_seal_watch": late_final_seal_watch,
         "amount": current_amount, "order_imbalance": book["imbalance"], "order_signal": book["signal"],
         "funds": {
             "available": main_ratio is not None, "main_ratio": main_ratio,
@@ -325,8 +455,12 @@ def _check_one(candidate: dict, provider: EastmoneyProvider, live_snapshot: dict
 
 def build_open_guard(
     snapshot: dict, provider: EastmoneyProvider | None = None, *, discover_live: bool = True,
+    now: datetime | None = None,
 ) -> dict:
     provider = provider or EastmoneyProvider(timeout=8)
+    now = now or datetime.now().astimezone()
+    discovery_key = now.date().isoformat()
+    opening_window = _opening_discovery_window(now)
     live_snapshots: list[dict] = []
     live_snapshot_error = None
     if discover_live:
@@ -340,14 +474,45 @@ def build_open_guard(
         for index, candidate in enumerate(snapshot.get("candidates") or [], start=1)
     ]
     discovery_errors: list[dict] = []
-    if discover_live:
+    if discover_live and opening_window:
+        opening_cached = {
+            str(item.get("code") or ""): item
+            for item in _OPENING_DISCOVERY_CACHE.get(discovery_key, [])
+        }
+        newly_discovered: list[dict] = []
         try:
-            candidates.extend(_discover_live_one_to_two(
-                provider, {str(candidate.get("code") or "") for candidate in candidates},
+            newly_discovered.extend(_discover_live_one_to_two(
+                provider, {
+                    str(candidate.get("code") or "") for candidate in candidates
+                } | set(opening_cached),
                 snapshots=live_snapshots or None,
             ))
         except Exception as exc:
             discovery_errors.append({"code": "", "name": "盘中一进二扫描", "error": str(exc)})
+        try:
+            newly_discovered.extend(_discover_live_multi_board(
+                provider, {
+                    str(candidate.get("code") or "")
+                    for candidate in candidates + newly_discovered
+                } | set(opening_cached),
+                snapshots=live_snapshots or None,
+            ))
+        except Exception as exc:
+            discovery_errors.append({"code": "", "name": "盘中连板扫描", "error": str(exc)})
+        cached_by_code = dict(opening_cached)
+        for item in newly_discovered:
+            cached_by_code.setdefault(str(item.get("code") or ""), item)
+        _OPENING_DISCOVERY_CACHE[discovery_key] = list(cached_by_code.values())
+        frozen_codes = {str(candidate.get("code") or "") for candidate in candidates}
+        candidates.extend(
+            item for code, item in cached_by_code.items() if code not in frozen_codes
+        )
+    elif discover_live:
+        existing_codes = {str(candidate.get("code") or "") for candidate in candidates}
+        candidates.extend(
+            {**item} for item in _OPENING_DISCOVERY_CACHE.get(discovery_key, [])
+            if str(item.get("code") or "") not in existing_codes
+        )
     if candidates:
         attach_corporate_event_risks(candidates)
     rows, errors = [], []
@@ -384,13 +549,19 @@ def build_open_guard(
         "selected_date": snapshot.get("selected_date"),
         "snapshot_label": snapshot.get("snapshot_label"),
         "scope": "full_market" if discover_live else "frozen_candidates",
-        "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "generated_at": now.astimezone().isoformat(timespec="seconds"),
+        "opening_discovery_status": (
+            "09:30–09:35实时补选中" if discover_live and opening_window else
+            "使用09:30–09:35已冻结补选" if discover_live and _OPENING_DISCOVERY_CACHE.get(discovery_key) else
+            "开盘补选窗口已结束且无留存，仅复核09:25名单" if discover_live else
+            "仅复核09:25冻结名单"
+        ),
         "candidates": rows, "errors": errors,
         "confirmed_count": sum(item["tone"] == "confirm" for item in rows),
         "watch_count": sum(item["tone"] == "watch" for item in rows),
         "rejected_count": sum(item["tone"] == "reject" for item in rows),
         "method": (
-            "09:25原始名单固定不变；09:30后每20秒扫描全主板，并按深回踩、止跌、收复昨收、收复竞价价、封板/炸板逐级更新。未持有与已持有结论分开；同时补入昨日首板且盘中放量转强的一进二观察股。"
+            "09:25原始名单固定不变；仅在09:30–09:35开盘窗口扫描全主板并冻结补选，避免下午走势倒灌为开盘决策。盘中继续按深回踩、止跌、收复昨收、收复竞价价、封板/炸板更新已有候选；补选覆盖昨日首板的一进二、竞价偏弱但开盘主动转强的二板以上连板股和最高空间板。"
             if discover_live else
             "轻量模式只复核09:25冻结候选，不扫描全市场、不补入盘中一进二，用于策略执行页降低网络占用。"
         ),

@@ -414,13 +414,19 @@ def _review_candidate(candidate: dict, source: str, outcome: dict, market_weak: 
     else:
         return_percent = round((outcome["close"] / reference - 1) * 100, 2) if reference else None
     eligible = bool(candidate.get("qualified"))
-    success = bool(eligible and (
+    evaluation_ready = source != "board" or bool(
+        next_day and ("limit_up" in next_day or next_day.get("close_return_percent") is not None)
+    )
+    counted = eligible and evaluation_ready
+    success = bool(counted and (
         bool(next_day.get("limit_up"))
         if source == "board" else return_percent is not None and return_percent >= 1
     ))
-    result = {**candidate, "outcome": outcome, "return_percent": return_percent, "counted": eligible, "success": success}
+    result = {**candidate, "outcome": outcome, "return_percent": return_percent, "counted": counted, "success": success}
     if not eligible:
         result.update({"attribution": "未纳入准确率", "cause": "原规则已过滤", "rule_suggestion": "无需调整"})
+    elif not evaluation_ready:
+        result.update({"attribution": "待T+1复盘", "cause": "下一交易日行情尚未产生", "rule_suggestion": "等待T+1收盘后再统计"})
     elif success:
         result.update({"attribution": "规则有效", "cause": "T+1涨停" if source == "board" else "达到收盘验证标准", "rule_suggestion": "保持规则"})
     elif market_weak:

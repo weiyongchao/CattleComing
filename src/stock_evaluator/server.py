@@ -445,7 +445,9 @@ class AppHandler(SimpleHTTPRequestHandler):
             type(self).board_plan_cache = (time.time(), payload)
             _record_safely("board", payload)
             try:
-                if current_phase == "indicative":
+                if replay:
+                    save_board_plan_snapshot(payload, "replay")
+                elif current_phase == "indicative":
                     record_payload_sample(payload, "indicative")
                     save_board_plan_snapshot(payload, "indicative")
                 elif current_phase == "final":

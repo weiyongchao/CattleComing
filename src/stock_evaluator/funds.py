@@ -91,10 +91,17 @@ def historical_open_proxy(symbol: str, trade_date: date, timeout: float = 10) ->
             if not row:
                 raise MarketDataError(f"{target}分钟行情不可用")
             price = float(row["open"])
+            high = float(row.get("high") or price)
+            low = float(row.get("low") or price)
+            close = float(row.get("close") or price)
             volume_shares = int(float(row.get("volume") or 0))
             return {
                 "time": str(row["day"])[11:16],
                 "price": price,
+                "open": price,
+                "high": high,
+                "low": low,
+                "close": close,
                 "volume": volume_shares / 100,
                 "amount": price * volume_shares,
                 "source": "新浪目标日09:31首根一分钟线（竞价代理）",

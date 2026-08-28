@@ -11,11 +11,14 @@ from src.stock_evaluator.auction import (
     _auction_score, _multi_factor_score, _prefilter_auction_universe,
     _expand_live_prefilter_with_extremes, _relay_pattern_score,
     _history_prefilter_score, _select_high_confidence_candidates,
-    _consecutive_limit_up_days, _core_chain_score, _divergence_reversal_score,
+    _consecutive_limit_up_days, _core_chain_score, _early_final_seal_chain_score,
+    _high_turnover_auction_chain_score,
+    _divergence_reversal_score,
     _first_board_score, _one_to_two_score, _capacity_one_to_two_score,
     _next_day_continuation_score, _board_stage,
     _big_order_support, _apply_dynamic_context, _execution_risk_profile,
-    _high_board_turnover_relay,
+    _high_board_turnover_relay, _low_gap_turnover_relay,
+    _historical_opening_space_board_relay,
     _expand_with_previous_limit_ups, _auction_amount_qualification,
     _nuclear_button_profile,
     _recognition_channel_profile,
@@ -42,7 +45,10 @@ from src.stock_evaluator.history import (
 from src.stock_evaluator.premarket import _premarket_candidate
 from src.stock_evaluator.stock_search import _parse_suggestions
 from src.stock_evaluator.regulatory import regulatory_risk
-from src.stock_evaluator.open_guard import _live_one_to_two_prefilter, _open_confirmation
+from src.stock_evaluator.open_guard import (
+    _live_multi_board_prefilter, _live_one_to_two_prefilter, _open_confirmation,
+    _opening_discovery_window,
+)
 from src.stock_evaluator.outlook import infer_next_day_outlook
 from src.stock_evaluator.daily_recommend import _daily_candidate
 from src.stock_evaluator.external_context import (
@@ -497,6 +503,78 @@ class EvaluatorTests(unittest.TestCase):
         self.assertFalse(_core_chain_score(3, 2, 1.1, 12_000_000, 21_000_000_000, 80)[1])
         self.assertFalse(_core_chain_score(3, 2, 1.1, 12_000_000, 15_000_000_000, 59)[1])
 
+    def test_early_final_seal_chain_matches_dynamic_selection_conditions(self):
+        score, matched, reasons = _early_final_seal_chain_score(
+            consecutive_limit_ups=2, previous_final_seal_time=112959,
+            gap_percent=1.01, auction_volume_percent=1.01,
+            auction_amount=30_000_001, float_market_cap=19_999_999_999,
+            listed_sessions=60, previous_limit_up_breaks=2, exact_auction=True,
+        )
+        self.assertTrue(matched)
+        self.assertGreaterEqual(score, 90)
+        self.assertTrue(any("早于11:30" in reason for reason in reasons))
+
+    def test_early_final_seal_chain_enforces_strict_upper_and_amount_boundaries(self):
+        base = {
+            "consecutive_limit_ups": 2, "previous_final_seal_time": 112959,
+            "gap_percent": 1.01, "auction_volume_percent": 1.01,
+            "auction_amount": 30_000_001, "float_market_cap": 19_999_999_999,
+            "listed_sessions": 60, "exact_auction": True,
+        }
+        for change in (
+            {"previous_final_seal_time": 113000}, {"gap_percent": 9.8},
+            {"auction_volume_percent": 1}, {"auction_amount": 30_000_000},
+            {"float_market_cap": 20_000_000_000}, {"listed_sessions": 59},
+            {"consecutive_limit_ups": 1}, {"exact_auction": False},
+        ):
+            self.assertFalse(_early_final_seal_chain_score(**{**base, **change})[1])
+
+    def test_early_final_seal_chain_uses_separate_historical_proxy_volume_line(self):
+        base = {
+            "consecutive_limit_ups": 2, "previous_final_seal_time": 103000,
+            "gap_percent": 3, "auction_amount": 50_000_000,
+            "float_market_cap": 10_000_000_000, "listed_sessions": 80,
+            "exact_auction": False, "historical_proxy": True,
+        }
+        self.assertTrue(_early_final_seal_chain_score(auction_volume_percent=45, **base)[1])
+        self.assertFalse(_early_final_seal_chain_score(auction_volume_percent=44.99, **base)[1])
+
+    def test_high_turnover_auction_chain_requires_all_exact_thresholds(self):
+        base = {
+            "consecutive_limit_ups": 2, "gap_percent": 5,
+            "auction_turnover_percent": 1.21, "auction_amount": 50_000_001,
+            "float_market_cap": 19_999_999_999, "listed_sessions": 60,
+            "exact_auction": True,
+        }
+        score, matched, reasons = _high_turnover_auction_chain_score(**base)
+        self.assertTrue(matched)
+        self.assertGreaterEqual(score, 90)
+        self.assertTrue(any("大于1.2%" in reason for reason in reasons))
+        for change in (
+            {"consecutive_limit_ups": 1}, {"gap_percent": 4.99},
+            {"auction_turnover_percent": 1.2}, {"auction_amount": 50_000_000},
+            {"float_market_cap": 20_000_000_000}, {"listed_sessions": 59},
+            {"exact_auction": False},
+        ):
+            self.assertFalse(_high_turnover_auction_chain_score(**{**base, **change})[1])
+
+    def test_board_decision_labels_high_turnover_auction_chain(self):
+        candidate = {
+            "score": 95, "continuation_score": 76,
+            "strategy_mode": "高换手强竞价连板", "priority_tier": "高换手连板优先",
+            "auction_liquidity_tier": "A", "auction_time": "09:25:00",
+            "previous_day_limit_up": True, "consecutive_limit_up_days": 2,
+            "auction_gap_percent": 6, "auction_volume_percent": 8,
+            "auction_turnover_percent": 1.5, "auction_amount": 60_000_000,
+            "float_market_cap": 8_000_000_000, "listed_sessions": 80,
+            "decision_main_ratio": 1, "three_day_change_percent": 18,
+            "tradable": True, "eligible": True, "risk_veto": False,
+        }
+        result = _auction_decision(candidate)
+        self.assertEqual(result["action"], "高换手强竞价连板A级预选")
+        self.assertFalse(result["actionable"])
+        self.assertTrue(all(check["passed"] for check in result["checks"]))
+
     def test_relay_pattern_recognizes_near_limit_acceleration(self):
         score, matched, reasons, _ = _relay_pattern_score(
             9.1, 80_000_000, 8, 12, 15, 24, 1.4, 100, 0.05, 1,
@@ -582,6 +660,44 @@ class EvaluatorTests(unittest.TestCase):
         selected = _select_high_confidence_candidates([limit_down, one_price, ordinary], limit=6)
         self.assertEqual([item["code"] for item in selected], ["ordinary", "one-price", "limit-down"])
 
+    def test_dynamic_selection_reserves_highest_space_board_below_general_score_line(self):
+        common = {"eligible": True, "risk_veto": False, "auction_time": "09:25", "tradable": True}
+        ordinary = {
+            **common, "code": "ordinary", "priority_tier": "连板优先",
+            "consecutive_limit_up_days": 2, "auction_gap_percent": 5,
+            "score": 90, "continuation_score": 78, "auction_amount": 80_000_000,
+        }
+        space = {
+            **common, "code": "space", "priority_tier": "连板优先",
+            "consecutive_limit_up_days": 5, "auction_gap_percent": 1.16,
+            "score": 92, "continuation_score": 48, "auction_amount": 60_000_000,
+            "auction_volume_percent": 14,
+        }
+        selected = _select_high_confidence_candidates([ordinary, space], limit=6)
+        self.assertEqual([item["code"] for item in selected], ["ordinary", "space"])
+        self.assertTrue(selected[1]["space_board_watch"])
+
+    def test_dynamic_selection_reserves_strict_opening_space_relay_below_higher_board(self):
+        common = {
+            "eligible": True, "risk_veto": False, "auction_time": "09:31",
+            "tradable": True, "previous_close_position_percent": 100,
+            "previous_upper_shadow_ratio": 0, "previous_volume_ratio": 1.5,
+        }
+        higher = {
+            **common, "code": "higher", "priority_tier": "连板优先",
+            "consecutive_limit_up_days": 4, "auction_gap_percent": 5,
+            "score": 94, "continuation_score": 78, "auction_amount": 80_000_000,
+            "auction_volume_percent": 40,
+        }
+        opening_relay = {
+            **common, "code": "opening-relay", "priority_tier": "盘中空间板观察",
+            "consecutive_limit_up_days": 3, "auction_gap_percent": 0,
+            "score": 88, "continuation_score": 68, "auction_amount": 157_000_000,
+            "auction_volume_percent": 29.66, "historical_opening_space_relay": True,
+        }
+        selected = _select_high_confidence_candidates([higher, opening_relay], limit=6)
+        self.assertEqual({item["code"] for item in selected}, {"higher", "opening-relay"})
+
     def test_divergence_reversal_recognizes_high_volume_disagreement(self):
         score, matched, reasons, risks = _divergence_reversal_score(
             4, 0, 10.0, 35, 180_000_000, 4.8, 78, 0.30, 58,
@@ -647,6 +763,25 @@ class EvaluatorTests(unittest.TestCase):
         )[1])
         self.assertFalse(_one_to_two_score(
             10.12, 25.85, 73_672_064, 5_068_344_000, 80,
+            20.22, 13.76, 5.47, 1.37, 100, 0, historical_proxy=True,
+        )[1])
+
+    def test_one_to_two_historical_proxy_uses_stricter_one_price_confirmation(self):
+        base = (
+            10.12, 41.8, 119_119_000, 5_068_344_000, 80,
+            20.22, 13.76, 5.47, 1.37, 100, 0,
+        )
+        score, matched, reasons, risks = _one_to_two_score(*base, historical_proxy=True)
+        self.assertTrue(matched)
+        self.assertGreaterEqual(score, 90)
+        self.assertTrue(any("豁免" in reason for reason in reasons))
+        self.assertTrue(risks)
+        self.assertFalse(_one_to_two_score(
+            10.12, 34.99, 119_119_000, 5_068_344_000, 80,
+            20.22, 13.76, 5.47, 1.37, 100, 0, historical_proxy=True,
+        )[1])
+        self.assertFalse(_one_to_two_score(
+            10.12, 41.8, 99_999_999, 5_068_344_000, 80,
             20.22, 13.76, 5.47, 1.37, 100, 0, historical_proxy=True,
         )[1])
 
@@ -719,6 +854,63 @@ class EvaluatorTests(unittest.TestCase):
         self.assertTrue(_live_one_to_two_prefilter(row, 1, 0))
         self.assertFalse(_live_one_to_two_prefilter(row, 2, 0))
 
+    def test_live_one_to_two_prefilter_accepts_large_sealed_one_price_board(self):
+        row = {
+            "f2": 4.46, "f3": 10.12, "f6": 119_119_000, "f10": 1.0,
+            "f17": 4.46, "f16": 4.46, "f15": 4.46, "f184": -5,
+        }
+        self.assertTrue(_live_one_to_two_prefilter(row, 1, 0))
+        self.assertFalse(_live_one_to_two_prefilter({**row, "f6": 99_999_999}, 1, 0))
+
+    def test_live_multi_board_prefilter_requires_opening_strength(self):
+        row = {
+            "f2": 10.5, "f3": 5.0, "f6": 120_000_000, "f10": 1.2,
+            "f17": 10.0, "f16": 9.9, "f15": 10.6,
+        }
+        self.assertTrue(_live_multi_board_prefilter(row, 2, 5))
+        self.assertFalse(_live_multi_board_prefilter(row, 1, 5))
+        self.assertFalse(_live_multi_board_prefilter({**row, "f6": 80_000_000}, 2, 5))
+
+    def test_live_multi_board_prefilter_relaxes_only_for_highest_space_board(self):
+        row = {
+            "f2": 10.15, "f3": 1.5, "f6": 60_000_000, "f10": 0.8,
+            "f17": 10.0, "f16": 9.8, "f15": 10.2,
+        }
+        self.assertTrue(_live_multi_board_prefilter(row, 5, 5))
+        self.assertFalse(_live_multi_board_prefilter(row, 4, 5))
+
+    def test_live_multi_board_prefilter_accepts_flat_opening_space_board_probe(self):
+        row = {
+            "f2": 15.53, "f3": 0.32, "f6": 157_000_000, "f10": 1.0,
+            "f17": 15.48, "f16": 14.86, "f15": 15.78,
+        }
+        self.assertTrue(_live_multi_board_prefilter(row, 3, 3))
+        self.assertFalse(_live_multi_board_prefilter(row, 2, 3))
+
+    def test_historical_opening_space_board_relay_requires_first_minute_strength(self):
+        base = {
+            "consecutive_limit_ups": 3, "gap_percent": 0,
+            "auction_amount": 157_000_000, "auction_volume_percent": 29.66,
+            "auction_turnover_percent": 1.83, "previous_volume_ratio": 1.2,
+            "price_vs_ma5": 20, "previous_close_position": 100,
+            "previous_upper_shadow": 0, "opening_high": 15.78,
+            "opening_low": 14.86, "opening_close": 15.53,
+            "opening_price": 15.48, "historical_proxy": True,
+        }
+        self.assertTrue(_historical_opening_space_board_relay(**base))
+        self.assertFalse(_historical_opening_space_board_relay(
+            **{**base, "historical_proxy": False},
+        ))
+        self.assertFalse(_historical_opening_space_board_relay(
+            **{**base, "opening_high": 15.60},
+        ))
+
+    def test_opening_discovery_is_limited_to_first_five_minutes(self):
+        self.assertTrue(_opening_discovery_window(datetime(2026, 8, 27, 9, 30)))
+        self.assertTrue(_opening_discovery_window(datetime(2026, 8, 27, 9, 35)))
+        self.assertFalse(_opening_discovery_window(datetime(2026, 8, 27, 9, 36)))
+        self.assertFalse(_opening_discovery_window(datetime(2026, 8, 27, 14, 30)))
+
     def test_board_review_counts_only_executable_and_targets_next_day_limit(self):
         outcome = {
             "close": 10, "daily_change_percent": 10,
@@ -735,6 +927,16 @@ class EvaluatorTests(unittest.TestCase):
         self.assertTrue(executable["success"])
         self.assertEqual(executable["cause"], "T+1涨停")
         self.assertFalse(observation["counted"])
+
+    def test_board_review_waits_for_next_day_before_counting_failure(self):
+        pending = _review_candidate(
+            {"qualified": True, "decision": "早封连板A级预选", "reference_price": 10},
+            "board", {"close": 11, "daily_change_percent": 10, "next_day": None},
+            market_weak=False,
+        )
+        self.assertFalse(pending["counted"])
+        self.assertFalse(pending["success"])
+        self.assertEqual(pending["attribution"], "待T+1复盘")
 
     def test_big_order_support_distinguishes_confirmed_weak_and_unknown(self):
         self.assertEqual(_big_order_support(3, 0.2)["status"], "confirmed")
@@ -809,11 +1011,17 @@ class EvaluatorTests(unittest.TestCase):
 
     def test_previous_limit_up_pool_forces_hansen_into_deep_scan(self):
         snapshots = [{"f12": "002412", "f14": "汉森制药", "f20": 5_100_000_000, "f21": 5_000_000_000}]
-        pool = [{"c": "002412", "n": "汉森制药", "lbc": 3, "zbc": 0, "hybk": "中药Ⅱ"}]
+        pool = [{
+            "c": "002412", "n": "汉森制药", "lbc": 3, "zbc": 0,
+            "fbt": 92500, "lbt": 101503, "hybk": "中药Ⅱ",
+        }]
         expanded = _expand_with_previous_limit_ups([], snapshots, pool)
         self.assertEqual([item["f12"] for item in expanded], ["002412"])
         self.assertTrue(expanded[0]["_force_live_quote"])
         self.assertEqual(expanded[0]["_previous_limit_up_streak"], 3)
+        self.assertEqual(expanded[0]["_previous_first_seal_time"], 92500)
+        self.assertEqual(expanded[0]["_previous_final_seal_time"], 101503)
+        self.assertEqual(expanded[0]["_previous_float_market_cap"], 0)
 
     def test_mature_chain_can_enter_b_watch_but_not_a_liquidity_tier(self):
         hansen = _auction_amount_qualification(143_452_720, True, 3, 100, "unknown")
@@ -949,6 +1157,44 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(result["action"], "连板核心A级预选")
         self.assertFalse(result["actionable"])
         self.assertTrue(all(check["passed"] for check in result["checks"]))
+
+    def test_board_decision_labels_early_final_seal_chain_candidate(self):
+        candidate = {
+            "score": 96, "continuation_score": 75,
+            "strategy_mode": "早盘最终封板连板", "priority_tier": "早封连板优先",
+            "auction_liquidity_tier": "B", "previous_day_limit_up": True,
+            "consecutive_limit_up_days": 2, "previous_final_seal_time": 101503,
+            "auction_gap_percent": 1.8, "auction_volume_percent": 8,
+            "auction_amount": 40_000_000, "float_market_cap": 10_000_000_000,
+            "listed_sessions": 80, "decision_main_ratio": 1,
+            "three_day_change_percent": 15, "tradable": True,
+            "eligible": True, "risk_veto": False,
+        }
+        result = _auction_decision(candidate)
+        self.assertEqual(result["action"], "早封连板B级预选")
+        self.assertFalse(result["actionable"])
+        seal_check = next(check for check in result["checks"] if "最终封板" in check["name"])
+        self.assertTrue(seal_check["passed"])
+        self.assertIn("10:15:03", seal_check["note"])
+
+    def test_board_decision_downgrades_known_late_final_seal_chain(self):
+        candidate = {
+            "score": 95, "continuation_score": 75,
+            "strategy_mode": "连板核心", "priority_tier": "连板优先",
+            "auction_liquidity_tier": "A", "previous_day_limit_up": True,
+            "consecutive_limit_up_days": 2, "previous_final_seal_time": 130812,
+            "auction_gap_percent": 3.8, "auction_volume_percent": 27.09,
+            "auction_amount": 46_079_840, "float_market_cap": 8_000_000_000,
+            "listed_sessions": 80, "decision_main_ratio": 1,
+            "three_day_change_percent": 15, "tradable": True,
+            "eligible": True, "risk_veto": False,
+        }
+        result = _auction_decision(candidate)
+        self.assertEqual(result["action"], "晚封连板B级观察 · 等待实际封板")
+        self.assertTrue(result["late_final_seal_watch"])
+        self.assertEqual(result["candidate_scope_label"], "观察池 · 非买入推荐")
+        self.assertFalse(result["recommended"])
+        self.assertFalse(result["actionable"])
 
     def test_strong_three_board_a_liquidity_can_replace_unstable_fund_confirmation(self):
         candidate = {
@@ -1320,6 +1566,88 @@ class EvaluatorTests(unittest.TestCase):
         self.assertTrue(c_grade["board_entry_allowed"])
         self.assertIn("可按涨停价挂单排队打板", c_grade["entry_advice"])
 
+    def test_open_confirmation_rejects_near_limit_failure_after_late_seal(self):
+        candidate = {
+            "code": "002963", "name": "豪尔赛", "auction_price": 23.20,
+            "auction_amount": 46_079_840, "continuation_score": 65,
+            "priority_tier": "连板优先", "strategy_mode": "连板接力",
+            "consecutive_limit_up_days": 2, "previous_final_seal_time": 130812,
+            "late_final_seal_watch": True, "tradable": True,
+        }
+        result = {
+            "quote": {
+                "price": 21.28, "previous_close": 22.35, "open_price": 23.20,
+                "high_price": 24.58, "low_price": 20.79,
+                "change_percent": -4.79, "amount": 688_510_000,
+            },
+            "metrics": {
+                "price_vs_open_percent": -8.28, "price_vs_ma5_percent": -3,
+                "volume_ratio": 2, "turnover_rate": 20.39,
+            },
+            "order_book": {"imbalance": -0.6438, "signal": "卖盘占优"},
+            "regulatory_risk": {"level": "normal", "label": "常规"},
+        }
+        confirmed = _open_confirmation(candidate, result, None)
+        self.assertEqual(confirmed["decision"], "冲板未封 · 放弃追入")
+        self.assertTrue(confirmed["near_limit_attempt"])
+        self.assertTrue(confirmed["near_limit_failure"])
+        self.assertTrue(confirmed["late_final_seal_watch"])
+        self.assertEqual(confirmed["tone"], "reject")
+
+    def test_open_confirmation_never_upgrades_unsealed_late_seal_watch(self):
+        candidate = {
+            "code": "600001", "name": "晚封连板样本", "auction_price": 10.30,
+            "auction_amount": 60_000_000, "continuation_score": 85,
+            "priority_tier": "连板优先", "strategy_mode": "连板接力",
+            "consecutive_limit_up_days": 2, "previous_final_seal_time": 133000,
+            "tradable": True,
+        }
+        result = {
+            "quote": {
+                "price": 10.60, "previous_close": 10, "open_price": 10.30,
+                "high_price": 10.65, "low_price": 10.25,
+                "change_percent": 6, "amount": 180_000_000,
+            },
+            "metrics": {
+                "price_vs_open_percent": 2.91, "price_vs_ma5_percent": 8,
+                "volume_ratio": 2, "turnover_rate": 6,
+            },
+            "order_book": {"imbalance": 0.4, "signal": "买盘占优"},
+            "regulatory_risk": {"level": "normal", "label": "常规"},
+        }
+        funds = {"is_today": True, "date": date.today().isoformat(), "main_ratio": 2, "main_net": 8_000_000}
+        confirmed = _open_confirmation(candidate, result, funds)
+        self.assertEqual(confirmed["decision"], "晚封连板 · 等待实际封板")
+        self.assertEqual(confirmed["tone"], "watch")
+        self.assertIn("未实际封板前不买入", confirmed["entry_advice"])
+
+    def test_open_confirmation_never_upgrades_merger_restructuring_risk(self):
+        candidate = {
+            "code": "600001", "name": "重组风险样本", "auction_price": 10.5,
+            "auction_amount": 60_000_000, "continuation_score": 80,
+            "priority_tier": "盘中连板补选", "live_entry_allowed": True,
+            "corporate_event_risk": {
+                "level": "high", "label": "重大资产重组进行中", "summary": "命中并购重组关键词",
+            },
+        }
+        result = {
+            "quote": {
+                "price": 11, "previous_close": 10, "open_price": 10.5,
+                "high_price": 11, "change_percent": 10, "amount": 180_000_000,
+            },
+            "metrics": {
+                "price_vs_open_percent": 4.76, "price_vs_ma5_percent": 8,
+                "volume_ratio": 2, "turnover_rate": 6,
+            },
+            "order_book": {"imbalance": 0.5, "signal": "买盘占优"},
+            "regulatory_risk": {"level": "normal", "label": "常规"},
+        }
+        confirmed = _open_confirmation(candidate, result, None)
+        self.assertEqual(confirmed["decision"], "并购重组风险剔除")
+        self.assertEqual(confirmed["tone"], "reject")
+        self.assertFalse(confirmed["board_entry_allowed"])
+        self.assertIn("不参与打板", confirmed["entry_advice"])
+
     def test_open_confirmation_requires_nuclear_button_to_hold_auction_support(self):
         candidate = {
             "code": "600001", "name": "反核样本", "auction_price": 10.7,
@@ -1520,6 +1848,39 @@ class EvaluatorTests(unittest.TestCase):
         self.assertFalse(_high_board_turnover_relay(auction_amount=45_000_000, **base))
         self.assertTrue(_high_board_turnover_relay(auction_amount=55_000_000, **base))
 
+    def test_low_gap_turnover_relay_accepts_only_zero_break_two_to_three(self):
+        base = {
+            "consecutive_limit_ups": 2, "gap_percent": 1.79,
+            "auction_volume_percent": 25.85, "auction_turnover_percent": 1.49,
+            "previous_volume_ratio": 1.86, "price_vs_ma5": 16.77,
+            "previous_close_position": 100, "previous_upper_shadow": 0,
+            "previous_limit_up_breaks": 0, "ten_day_change": 14.95,
+            "exact_auction": True,
+        }
+        self.assertTrue(_low_gap_turnover_relay(auction_amount=84_602_900, **base))
+        self.assertFalse(_low_gap_turnover_relay(auction_amount=45_000_000, **base))
+        self.assertFalse(_low_gap_turnover_relay(
+            auction_amount=84_602_900, **{**base, "previous_limit_up_breaks": 1},
+        ))
+
+    def test_board_decision_defers_low_gap_two_to_three_until_open(self):
+        candidate = {
+            "score": 86, "continuation_score": 65, "strategy_mode": "低高开爆量二进三",
+            "priority_tier": "二进三开盘确认", "auction_liquidity_tier": "A",
+            "previous_day_limit_up": True, "consecutive_limit_up_days": 2,
+            "auction_gap_percent": 1.79, "auction_volume_percent": 25.85,
+            "auction_turnover_percent": 1.49, "auction_amount": 84_602_900,
+            "previous_limit_up_breaks": 0, "previous_close_position_percent": 100,
+            "previous_volume_ratio": 1.86, "float_market_cap": 5_580_000_000,
+            "listed_sessions": 80, "tradable": True, "eligible": True,
+            "risk_veto": False, "regulatory_risk": {"level": "normal"},
+            "recent_10_limit_up_count": 2, "previous_upper_shadow_ratio": 0,
+            "decision_main_ratio": 1, "three_day_change_percent": 12,
+        }
+        result = _auction_decision(candidate)
+        self.assertEqual(result["action"], "低高开爆量二进三 · 等待09:30确认")
+        self.assertFalse(result["actionable"])
+
     def test_board_decision_marks_high_board_turnover_as_b_watch(self):
         result = _auction_decision({
             "score": 100, "continuation_score": 61, "strategy_mode": "连板核心",
@@ -1543,6 +1904,18 @@ class EvaluatorTests(unittest.TestCase):
         self.assertTrue(risk["risk_veto"])
         self.assertEqual(risk["t1_downside_risk_score"], 100)
         self.assertTrue(any("集中兑现" in reason for reason in risk["risk_reasons"]))
+
+    def test_execution_risk_downgrades_orderly_early_seal_one_price_to_watch(self):
+        risk = _execution_risk_profile(
+            2, 10, 22, 0.14, 10, "normal", "unknown", 60,
+            auction_amount=156_000_000,
+            previous_final_seal_time=101503,
+            previous_limit_up_breaks=0,
+        )
+        self.assertTrue(risk["orderly_early_seal_one_price_watch"])
+        self.assertFalse(risk["distribution_one_price_risk"])
+        self.assertFalse(risk["risk_veto"])
+        self.assertTrue(any("高风险观察" in reason for reason in risk["risk_reasons"]))
 
     def test_high_corporate_event_is_removed_from_main_candidates(self):
         safe, excluded = _exclude_high_corporate_event_candidates([
