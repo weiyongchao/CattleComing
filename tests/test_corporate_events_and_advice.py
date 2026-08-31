@@ -108,11 +108,11 @@ class EntryAdviceTests(unittest.TestCase):
         self.assertEqual(plan["action"], "重组风险观望")
         self.assertEqual(plan["tone"], "negative")
 
-    def test_final_one_price_candidate_can_queue_at_limit(self):
+    def test_final_one_price_candidate_must_wait_for_live_selection(self):
         candidate = {**self.base_candidate(), "actionable": False, "board_entry_allowed": True}
         plan = auction_entry_plan(candidate, "final", "可观察")
-        self.assertEqual(plan["action"], "排队打板")
-        self.assertEqual(plan["reference_price"], 11.0)
+        self.assertEqual(plan["action"], "等待盘中封板确认")
+        self.assertEqual(plan["tone"], "neutral")
 
     def test_indicative_candidate_must_wait_for_final_match(self):
         plan = auction_entry_plan(self.base_candidate(), "indicative", "可观察")
@@ -137,11 +137,13 @@ class EntryAdviceTests(unittest.TestCase):
             "limit_up_price": 11,
             "sealed": True,
             "board_entry_allowed": True,
+            "recommended": True,
+            "recommendation_kind": "sealed",
             "tone": "confirm",
         })
         self.assertEqual(plan["action"], "排队打板")
 
-    def test_live_rebound_confirmation_can_be_small_buy(self):
+    def test_live_rebound_confirmation_is_observation_not_small_buy(self):
         plan = live_entry_plan({
             "price": 10.6,
             "auction_price": 10.5,
@@ -152,7 +154,18 @@ class EntryAdviceTests(unittest.TestCase):
             "rebound_confirmed": True,
             "tone": "confirm",
         })
-        self.assertEqual(plan["action"], "小仓买入")
+        self.assertEqual(plan["action"], "等待封板打板")
+        self.assertEqual(plan["tone"], "neutral")
+
+    def test_legacy_allowed_flag_does_not_authorize_live_entry(self):
+        plan = live_entry_plan({"sealed": True, "board_entry_allowed": True, "tone": "confirm"})
+        self.assertEqual(plan["action"], "观望（已封板）")
+
+    def test_strong_open_requires_formal_selection(self):
+        item = {"price": 10.6, "auction_price": 10.5, "change_percent": 6, "tone": "confirm"}
+        self.assertEqual(live_entry_plan(item)["tone"], "neutral")
+        item.update(recommended=True, recommendation_kind="strong_open")
+        self.assertEqual(live_entry_plan(item)["action"], "极强开盘小仓观察")
 
     def test_live_failed_board_waits_for_reseal(self):
         plan = live_entry_plan({

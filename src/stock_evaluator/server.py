@@ -16,7 +16,7 @@ from .funds import individual_fund_flow, sector_fund_leaders
 from .auction import screen_auction_candidates
 from .auction_trajectory import attach_trajectory, capture_watchlist, record_payload_sample
 from .peers import stock_sector_peers
-from .board_plan import BOARD_STRATEGY_VERSION, _auction_phase, build_board_plan
+from .board_plan import BOARD_STRATEGY_VERSION, _auction_phase, auction_observation_view, build_board_plan
 from .intraday import build_intraday_plan
 from .simple_plan import build_simple_plan
 from .history import (
@@ -24,6 +24,7 @@ from .history import (
     save_board_plan_snapshot,
 )
 from .open_guard import build_open_guard
+from .board_focus import DAILY_FOCUS_STORE, DailyFocusError
 from .next_day import build_next_day_strategy
 from .outlook import infer_next_day_outlook
 from .premarket import build_premarket_watchlist
@@ -92,6 +93,8 @@ class AppHandler(SimpleHTTPRequestHandler):
     evaluation_cache: dict[str, tuple[float, object, list, dict]] = {}
     fund_flow_cache: dict[str, tuple[float, dict]] = {}
     board_plan_scan_lock = threading.Lock()
+    board_focus_lock = threading.Lock()
+    board_focus_revision = 0
 
     @classmethod
     def _cached_fund_flow(cls, code: str, cache_seconds: int = 20) -> dict:
@@ -159,6 +162,10 @@ class AppHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
 
     def _json(self, status: int, payload: dict) -> None:
+        if (status == 200 and urlparse(self.path).path == "/api/board-plan"
+                and payload.get("selected_date") == date.today().isoformat()):
+            # 包含行情失败时旧快照降级路径，避免旧版买点重新出现在当前榜单。
+            payload = auction_observation_view(payload)
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -493,15 +500,20 @@ class AppHandler(SimpleHTTPRequestHandler):
             snapshot = latest_board or frozen_snapshot
             if not snapshot:
                 return self._json(409, {"error": "今日09:25最终候选尚未冻结"})
-            cached_open = type(self).board_open_cache
-            if cached_open and time.time() - cached_open[0] < 10 and cached_open[1].get("scope") == guard_scope:
-                return self._json(200, cached_open[1])
+            with type(self).board_focus_lock:
+                focus_revision = type(self).board_focus_revision
+                cached_open = type(self).board_open_cache
+                if cached_open and time.time() - cached_open[0] < 10 and cached_open[1].get("scope") == guard_scope:
+                    return self._json(200, cached_open[1])
             try:
                 payload = build_open_guard(snapshot, self.provider, discover_live=not frozen_only)
             except MarketDataError as exc:
                 return self._json(502, {"error": str(exc)})
-            type(self).board_open_cache = (time.time(), payload)
-            return self._json(200, payload)
+            with type(self).board_focus_lock:
+                if focus_revision != type(self).board_focus_revision:
+                    return self._json(409, {"error": "首选锁定状态已改变，请刷新；旧买点已作废"})
+                type(self).board_open_cache = (time.time(), payload)
+                return self._json(200, payload)
         if parsed.path == "/api/next-day-strategy":
             now = datetime.now()
             if (now.hour, now.minute) < (14, 50):
@@ -548,6 +560,26 @@ class AppHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
+        if parsed.path == "/api/board-focus/lock":
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                if not 0 < length <= 4096:
+                    return self._json(400, {"error": "请求大小不正确"})
+                body = json.loads(self.rfile.read(length))
+                if not isinstance(body, dict) or body.get("date") != date.today().isoformat() or "code" not in body:
+                    return self._json(400, {"error": "只能操作今日首选，跨日页面请先刷新"})
+                code = body.get("code")
+                if code is not None and (not isinstance(code, str) or not is_main_board(code)):
+                    return self._json(400, {"error": "股票代码不正确"})
+                with type(self).board_focus_lock:
+                    focus = DAILY_FOCUS_STORE.lock(code, datetime.now().astimezone())
+                    type(self).board_focus_revision += 1
+                    type(self).board_open_cache = None
+                return self._json(200, focus)
+            except (ValueError, json.JSONDecodeError) as exc:
+                return self._json(400, {"error": str(exc)})
+            except DailyFocusError as exc:
+                return self._json(503, {"error": str(exc)})
         if parsed.path != "/api/history/review":
             return self._json(404, {"error": "接口不存在"})
         try:

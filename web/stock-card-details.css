@@ -1,0 +1,26 @@
+.stock-disclosure{min-width:0;border:1px solid var(--line);border-radius:10px;background:#101d17;overflow-wrap:anywhere}
+.stock-disclosure-summary{display:grid;grid-template-columns:minmax(140px,1fr) minmax(0,1.5fr) auto;align-items:center;gap:16px;padding:16px 18px;cursor:pointer;list-style:none;border-radius:10px}
+.stock-disclosure-summary::-webkit-details-marker{display:none}
+.stock-disclosure-summary:hover{background:#172b20}
+.stock-disclosure-summary:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+.stock-disclosure-identity strong,.stock-disclosure-identity small,.stock-disclosure-values b,.stock-disclosure-values small{display:block;line-height:1.65}
+.stock-disclosure-identity strong{font-size:16px;color:var(--text)}
+.stock-disclosure-identity small,.stock-disclosure-values small{margin-top:4px;color:var(--muted);font-size:12px}
+.stock-disclosure-values b{font-size:13px}
+.stock-disclosure-values .stock-disclosure-risk{color:var(--red);font-weight:700}
+.stock-disclosure-toggle{color:var(--green);font-size:12px;white-space:nowrap}
+.stock-disclosure:not([open]) .stock-disclosure-collapse,.stock-disclosure[open] .stock-disclosure-expand{display:none}
+.stock-disclosure[open]>.stock-disclosure-summary{border-bottom:1px solid var(--line);border-radius:10px 10px 0 0}
+.stock-disclosure>.stock-disclosure-content{margin:0;padding:18px;border:0;border-radius:0 0 10px 10px;background:transparent;min-width:0}
+.strategy-focus-card>.stock-disclosure{margin-top:18px}
+.strategy-focus-card .stock-disclosure-summary{grid-template-columns:minmax(0,1fr) auto;gap:10px}
+.strategy-focus-card .stock-disclosure-values{grid-row:2;grid-column:1/-1}
+.strategy-focus-card .stock-disclosure-toggle{grid-column:2;grid-row:1}
+@media(max-width:720px){
+  .stock-disclosure-summary{grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:14px}
+  .stock-disclosure-values{grid-row:2;grid-column:1/-1}
+  .stock-disclosure-toggle{grid-column:2;grid-row:1}
+  .stock-disclosure>.stock-disclosure-content{padding:14px}
+  .stock-disclosure-content>div[style*="display:flex"]{flex-wrap:wrap}
+  .stock-disclosure-content>div>div{min-width:0;max-width:100%}
+}

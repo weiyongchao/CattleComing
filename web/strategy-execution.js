@@ -8,12 +8,13 @@
     [915, "T-1候选池", "主线、低位、公告风险"],
     [920, "09:15–09:20", "只观察，可撤单"],
     [925, "09:20–09:25", "不可撤单，判断真实竞价"],
-    [930, "09:25–09:30", "排序1–2只，不下单"],
+    [930, "09:25–09:30", "只建观察池，不下单"],
     [1500, "09:30以后", "承接、板块、封板确认"],
     [2400, "次日退出", "按预案处理，不临时改规则"],
   ];
   const state = { board: null, intraday: null, selectedCode: "", manual: {} };
   let loaded = false;
+  let refreshing = false;
 
   const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
@@ -23,6 +24,13 @@
   const currentHHMM = () => {
     const now = new Date();
     return now.getHours() * 100 + now.getMinutes();
+  };
+  const liveSnapshotFresh = () => {
+    const stamp = new Date(state.intraday?.generated_at).getTime();
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    return state.intraday?.selected_date === today && !state.intraday?.historical
+      && Number.isFinite(stamp) && Date.now() - stamp <= 60000 && stamp <= Date.now() + 5000;
   };
   const currentPhase = () => {
     const hhmm = currentHHMM();
@@ -44,11 +52,20 @@
       <div class="strategy-step ${index < phase.index ? "done" : index === phase.index ? "active" : ""}">
         <b>${item[1]}</b><span>${item[2]}</span>
       </div>`).join("");
-    if (state.selectedCode) renderDecision();
+    if (state.selectedCode && state.intraday?.selected_date && !liveSnapshotFresh()) {
+      state.selectedCode = "";
+      renderMarket();
+      renderCandidates();
+    } else if (state.selectedCode) renderDecision();
   };
 
   const getIntradayCandidate = (code) => state.intraday?.candidates?.find((item) => item.code === code);
-  const getSelected = () => state.board?.candidates?.find((item) => item.code === state.selectedCode);
+  const displayCandidates = () => {
+    if (!liveSnapshotFresh() || !state.intraday?.daily_focus?.available) return [];
+    const pool = [...(state.board?.candidates || []), ...(state.board?.watch_candidates || [])];
+    return (state.intraday.candidates || []).filter((item) => item.primary_pick === true && item.recommended === true && item.code === state.intraday.daily_focus.primary_code).slice(0, 1).map((item) => ({ ...pool.find((row) => row.code === item.code), ...item, action: item.decision }));
+  };
+  const getSelected = () => displayCandidates().find((item) => item.code === state.selectedCode);
 
   const renderMarket = () => {
     const market = state.board.market;
@@ -57,18 +74,29 @@
     gate.className = market.state === "可观察" ? "positive" : market.state === "空仓" ? "negative" : "neutral";
     byId("strategyMarketMetrics").innerHTML = [
       ["竞价合格", `${state.board.screening.qualified_count || 0}只`, "09:25最终结果"],
-      ["A级候选", `${state.board.candidates.filter((item) => item.actionable).length}只`, "只保留观察资格"],
-      ["可挂单C级", `${state.board.candidates.filter((item) => item.board_entry_allowed).length}只`, "高风险排队委托"],
-      ["竞价均值", signed(market.average_gap), "候选平均高开"],
+      ["当前首选", `${displayCandidates().length}/1只`, "有效时不频繁换股"],
+      ["今日已提示", `${state.intraday.daily_focus?.issued_count ?? "--"}/5只`, "全天不同代码累计"],
+      ["盘中监控", `${state.intraday.monitored_count || 0}只`, "观察池不是推荐名单"],
       ["主力确认", `${market.fund_confirmed_count || 0}只`, "最近可用资金数据"],
-      ["盘中确认", `${state.intraday.confirmed_count || 0}只`, "仅复核09:25候选"],
+      ["有效采样", "至少2次", "间隔≥20秒，非逐笔确认"],
     ].map(([label, value, note]) => `<div><span>${label}</span><strong>${value}</strong><small>${note}</small></div>`).join("");
   };
 
   const renderCandidates = () => {
-    const candidates = state.board.candidates || [];
+    const candidates = displayCandidates();
+    const focus = state.intraday?.daily_focus;
+    byId("strategyDailyFocus").textContent = focus?.message || "竞价仅建观察池，等待盘中唯一首选；未达标可以一只不选。";
+    byId("strategyFocusLock").hidden = Boolean(focus?.locked_code);
+    byId("strategyFocusLock").disabled = !candidates.length || !liveSnapshotFresh();
+    byId("strategyFocusUnlock").hidden = !focus?.locked_code;
     if (!candidates.length) {
-      byId("strategyCandidates").innerHTML = '<div class="state">今日没有竞价候选，保持空仓。</div>';
+      window.StockCardDetails.unwrap(byId("strategyFocusBody"));
+      byId("strategyCandidates").innerHTML = '<div class="state">当前没有可提示的首选。等待质量门槛与两次有效采样，不凑数。</div>';
+      byId("strategyFocus").textContent = "等待盘中精选，其他候选仅在打板页观察池监控。";
+      byId("strategyChecklist").innerHTML = "";
+      byId("strategyDecision").textContent = "等待封板确认";
+      byId("strategyDecision").className = "neutral";
+      byId("strategyDecisionReason").textContent = "当前无可执行精选。";
       return;
     }
     byId("strategyCandidates").innerHTML = candidates.map((item, index) => {
@@ -76,7 +104,7 @@
       return `<button class="strategy-candidate ${item.code === state.selectedCode ? "selected" : ""}" data-code="${escapeHtml(item.code)}" type="button">
         <b class="strategy-candidate-rank">${index + 1}</b>
         <span class="strategy-candidate-main"><strong>${escapeHtml(item.name)} <small>${escapeHtml(item.code)} · ${escapeHtml(item.industry)}</small></strong><small>竞价 ${signed(item.auction_gap_percent)} · 竞价额 ${formatMoney(item.auction_amount)} · ${live ? `盘中${signed(live.change_percent)}` : "未进入盘中前排"}</small></span>
-        <span class="strategy-candidate-score"><b class="${item.actionable || item.board_entry_allowed ? "positive" : item.action === "取消候选" ? "negative" : "neutral"}">${escapeHtml(item.action)}</b>${item.recommendation_badge ? `<small class="positive">✓ ${escapeHtml(item.recommendation_badge)}</small>` : ""}<small class="${item.entry_plan?.tone || "neutral"}">未持有：${escapeHtml(item.entry_plan?.action || "观望")}</small><small>${item.score}分 · ${item.guard_passed}/${item.guard_total}项</small></span>
+        <span class="strategy-candidate-score"><b class="${item.actionable || item.board_entry_allowed ? "positive" : item.action === "取消候选" ? "negative" : "neutral"}">${escapeHtml(item.action)}</b><small class="${item.entry_plan?.tone || "neutral"}">未持有：${escapeHtml(item.entry_plan?.action || "观望")}</small><small>潜力评分 ${item.potential_score ?? "--"} · ${live?.confirmation_samples || 0}/2次采样</small></span>
       </button>`;
     }).join("");
     byId("strategyCandidates").querySelectorAll("button[data-code]").forEach((button) => {
@@ -91,7 +119,7 @@
     const reorganizationHigh = eventRisk.level === "high";
     return [
       { key: "mainboard", label: "沪深主板且非ST", passed: !candidate.name.toUpperCase().includes("ST"), auto: true },
-      { key: "auction", label: candidate.board_entry_allowed ? "C级一字板可挂单打板" : "09:25竞价A级候选", passed: Boolean(candidate.actionable || candidate.board_entry_allowed), auto: true },
+      { key: "auction", label: "通过唯一首选门槛且未锁定提示", passed: live?.primary_pick === true && live?.recommended === true && !live?.focus_locked, auto: true },
       { key: "sector", label: "盘中量价承接未转弱", passed: Boolean(live && live.tone !== "reject"), auto: true },
       { key: "support", label: "开盘价与竞价价承接有效", passed: Boolean(manual.support), auto: false },
       { key: "initiative", label: "冲板主动、卖压被消化", passed: Boolean(manual.initiative), auto: false },
@@ -106,13 +134,14 @@
     const entryPlan = live?.entry_plan || candidate.entry_plan;
     const eventRisk = live?.corporate_event_risk || candidate.corporate_event_risk;
     byId("strategyFocus").className = "";
-    byId("strategyFocus").innerHTML = `<div class="strategy-focus-head"><div><h3>${escapeHtml(candidate.name)} <small>${escapeHtml(candidate.code)}</small></h3><p>${escapeHtml(candidate.category)} / ${escapeHtml(candidate.industry)} · 09:25排名候选</p></div><b class="${live?.tone === "confirm" ? "positive" : live?.tone === "reject" ? "negative" : "neutral"}">${live ? escapeHtml(live.decision || "盘中观察") : "等待盘中确认"}</b></div>
+    byId("strategyFocus").innerHTML = `<div class="strategy-focus-head"><div><h3>${escapeHtml(candidate.name)} <small>${escapeHtml(candidate.code)}</small></h3><p>${escapeHtml(candidate.industry || "行业待核验")} · ${escapeHtml(live?.discovery_source || "09:25竞价观察")}</p></div><b class="${live?.tone === "confirm" ? "positive" : live?.tone === "reject" ? "negative" : "neutral"}">${live ? escapeHtml(live.decision || "盘中观察") : "等待盘中确认"}</b></div>
       <div class="strategy-focus-stats">
         <div><span>竞价高开</span><strong>${signed(candidate.auction_gap_percent)}</strong></div>
         <div><span>竞价成交额</span><strong>${formatMoney(candidate.auction_amount)}</strong></div>
         <div><span>竞价 / MA5</span><strong>${signed(candidate.price_vs_ma5_percent)}</strong></div>
         <div><span>盘中验证</span><strong>${live ? `${live.passed}/${live.known_total}项` : "尚未读取"}</strong></div>
       </div>
+      <div class="strategy-decision-reason"><b>潜力评分 ${candidate.potential_score ?? "--"}/100</b><p>${escapeHtml((candidate.potential_basis || []).join("；"))}</p><small>只是相对筛选分数，不是收益概率；只关注一只也不代表满仓。</small></div>
       ${eventRisk ? `<div class="strategy-decision-reason" style="border-color:${eventRisk.level === "high" ? "#7a3338" : "#2b3c36"}"><b class="${eventRisk.level === "high" ? "negative" : eventRisk.level === "normal" ? "positive" : "neutral"}">重大事项风险：${escapeHtml(eventRisk.label)}</b><small style="display:block;margin-top:5px">${escapeHtml(eventRisk.summary || "")}</small></div>` : ""}
       ${entryPlan ? `<div class="strategy-decision-reason"><b class="${entryPlan.tone || "neutral"}">未持有：${escapeHtml(entryPlan.action)}</b><p>${escapeHtml(entryPlan.timing)}</p><small>${escapeHtml(entryPlan.reference_text || "")}</small></div>` : ""}`;
     const checks = checksFor(candidate);
@@ -128,6 +157,10 @@
     byId("strategyPrice").value = Number(live?.price || candidate.auction_price || 0).toFixed(2);
     renderSizing();
     renderDecision();
+    window.StockCardDetails.mount(byId("strategyFocusBody"), { item: candidate,
+      date: state.intraday.selected_date, scope: "strategy",
+      metrics: `现价 ${Number(live?.price || 0).toFixed(2)} · 涨幅 ${signed(live?.change_percent)} · 潜力 ${candidate.potential_score ?? "--"}分`,
+      decision: entryPlan?.action || live?.decision || "等待确认", tone: entryPlan?.tone || "neutral" });
   };
 
   const renderDecision = () => {
@@ -140,7 +173,11 @@
     let label = "取消交易";
     let tone = "negative";
     let reason = `仅通过${passed}/${checks.length}项，未满足完整守卫条件。`;
-    if (phase.index < 4) {
+    if (state.intraday?.daily_focus?.locked_code) {
+      label = "已选定，只看风险";
+      tone = "neutral";
+      reason = "今天不再提示新的买入对象；锁定只管理提醒，不代表已成交。";
+    } else if (phase.index < 4) {
       label = "只观察，不下单";
       tone = "neutral";
       reason = "当前仍处于竞价筛选阶段；9:25候选必须等待9:30后的真实成交验证。";
@@ -193,32 +230,41 @@
     byId("strategyJournal").innerHTML = entries.length ? entries.map((entry) => `<div class="strategy-journal-entry"><time>${escapeHtml(entry.time)}</time><div><b>${escapeHtml(entry.name || "未选候选")} ${escapeHtml(entry.code || "")}</b><p>${escapeHtml(entry.note)}</p></div><small>${escapeHtml(entry.decision)}</small></div>`).join("") : '<small style="color:var(--muted)">暂无执行记录。</small>';
   };
 
-  const load = async () => {
+  const load = async (automatic = false) => {
+    if (refreshing) return;
+    refreshing = true;
     const loading = byId("strategyLoading");
     const error = byId("strategyError");
     const results = byId("strategyResults");
-    loading.hidden = false;
+    loading.hidden = Boolean(automatic && loaded);
     error.hidden = true;
-    results.hidden = true;
+    if (!automatic || !loaded) results.hidden = true;
     byId("strategyRefresh").disabled = true;
     try {
       const boardResponse = await fetch("/api/board-plan");
       const board = await boardResponse.json();
       if (!boardResponse.ok) throw new Error(board.error || "竞价策略读取失败");
       let intraday = { candidates: [], confirmed_count: 0 };
-      if (currentHHMM() >= 930 && currentHHMM() < 1505 && board.candidates.length) {
+      if (currentHHMM() >= 930 && currentHHMM() < 1505) {
+        intraday.selected_date = board.selected_date;
         try {
-          const liveResponse = await fetch("/api/board-open-guard?scope=frozen");
+          const liveResponse = await fetch("/api/board-open-guard");
           const liveData = await liveResponse.json();
-          if (liveResponse.ok) intraday = liveData;
-        } catch (_) {
-          // 轻量盘中复核失败不阻断竞价候选与执行记录。
+          if (liveResponse.ok && liveData.daily_focus) {
+            intraday = liveData;
+            window.dispatchEvent(new CustomEvent("board:live-snapshot", { detail: liveData }));
+          } else throw new Error(liveData.error || "唯一首选数据未就绪，请重启服务加载新策略。");
+        } catch (err) {
+          error.textContent = `${err.message} 暂停首选展示，不沿用旧买点。`;
+          error.hidden = false;
+          window.dispatchEvent(new CustomEvent("board:live-unavailable"));
         }
       }
       state.board = board;
       state.intraday = intraday;
-      state.selectedCode = board.candidates.find((item) => item.actionable)?.code || board.candidates.find((item) => item.board_entry_allowed)?.code || board.candidates[0]?.code || "";
-      byId("strategyGeneratedAt").textContent = new Date(board.generated_at).toLocaleString("zh-CN", { hour12: false });
+      const displayed = displayCandidates();
+      state.selectedCode = displayed.some((item) => item.code === state.selectedCode) ? state.selectedCode : displayed[0]?.code || "";
+      byId("strategyGeneratedAt").textContent = new Date(intraday.generated_at || board.generated_at).toLocaleString("zh-CN", { hour12: false });
       renderMarket();
       renderCandidates();
       if (state.selectedCode) renderFocus();
@@ -226,15 +272,48 @@
       results.hidden = false;
       loaded = true;
     } catch (err) {
+      results.hidden = true;
       error.textContent = err.message;
       error.hidden = false;
+      window.dispatchEvent(new CustomEvent("board:live-unavailable"));
     } finally {
+      refreshing = false;
       loading.hidden = true;
       byId("strategyRefresh").disabled = false;
     }
   };
 
-  byId("strategyRefresh").addEventListener("click", load);
+  byId("strategyRefresh").addEventListener("click", () => load(false));
+  const setFocusLock = async (code) => {
+    byId("strategyFocusLock").disabled = true;
+    byId("strategyFocusUnlock").disabled = true;
+    try {
+      const response = await fetch("/api/board-focus/lock", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: state.intraday?.selected_date, code }),
+      });
+      const focus = await response.json();
+      if (!response.ok) throw new Error(focus.error || "提示锁定设置失败");
+      state.intraday.daily_focus = focus;
+      if (code) (state.intraday.candidates || []).forEach((item) => { item.focus_locked = true; item.actionable = false; item.board_entry_allowed = false; });
+      window.dispatchEvent(new CustomEvent("board:focus-policy", { detail: focus }));
+      renderCandidates();
+      renderDecision();
+      await load(true);
+    } catch (err) {
+      byId("strategyError").textContent = err.message;
+      byId("strategyError").hidden = false;
+    } finally {
+      byId("strategyFocusUnlock").disabled = false;
+      byId("strategyFocusLock").disabled = !displayCandidates().length;
+    }
+  };
+  byId("strategyFocusLock").addEventListener("click", () => { const candidate = getSelected(); if (candidate) setFocusLock(candidate.code); });
+  byId("strategyFocusUnlock").addEventListener("click", () => setFocusLock(null));
+  window.setInterval(() => {
+    const hhmm = currentHHMM();
+    if (!page.hidden && ((hhmm >= 930 && hhmm < 1130) || (hhmm >= 1300 && hhmm < 1457))) load(true);
+  }, 20000);
   ["strategyCapital", "strategyPercent", "strategyPrice"].forEach((id) => byId(id).addEventListener("input", renderSizing));
   byId("strategyJournalForm").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -256,7 +335,7 @@
     localStorage.removeItem(JOURNAL_KEY);
     renderJournal();
   });
-  document.querySelector('[data-tab="strategyTab"]')?.addEventListener("click", () => { if (!loaded) load(); });
+  document.querySelector('[data-tab="strategyTab"]')?.addEventListener("click", () => { if (!loaded || !liveSnapshotFresh()) load(); });
   renderClock();
   renderJournal();
   load();

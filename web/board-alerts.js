@@ -5,9 +5,9 @@
     sound: true,
     desktop: false,
     rules: Object.freeze({
-      auction: true,
-      highTurnover: true,
-      discovered: true,
+      auction: false,
+      highTurnover: false,
+      discovered: false,
       confirm: true,
       sealed: true,
       failed: true,
@@ -20,42 +20,41 @@
     autoOpen: value.autoOpen !== false,
     sound: value.sound !== false,
     desktop: value.desktop === true,
-    rules: { ...DEFAULT_SETTINGS.rules, ...(value.rules || {}) },
+    rules: { ...DEFAULT_SETTINGS.rules, ...(value.rules || {}), auction: false, highTurnover: false, discovered: false },
   });
 
   const eventKey = (tradeDate, code, rule) => `${tradeDate}|${code}|${rule}`;
-
-  const classifyAuctionCandidate = (candidate, rawSettings = DEFAULT_SETTINGS) => {
-    const settings = normalizeSettings(rawSettings);
-    const eventRisk = candidate?.corporate_event_risk?.level === "high";
-    if (eventRisk) {
-      return settings.rules.risk ? {
-        rule: "event-risk", label: "并购重组风险剔除", tone: "risk",
-        detail: candidate.corporate_event_risk?.label || "重大事项高风险",
-      } : null;
-    }
-    if (!candidate || candidate.risk_veto || candidate.eligible === false) return null;
-    if (candidate.high_turnover_chain_matched || candidate.strategy_mode === "高换手强竞价连板") {
-      return settings.rules.highTurnover ? {
-        rule: "high-turnover-auction", label: "高换手强竞价连板", tone: "confirm",
-        detail: "换手>1.2%、高开≥5%、竞价额>5000万",
-      } : null;
-    }
-    if (!settings.rules.auction) return null;
-    if (candidate.nuclear_button_matched || candidate.strategy_mode === "反核按钮竞价抄底") {
-      return { rule: "auction", label: "反核竞价观察", tone: "watch", detail: candidate.action || "等待开盘承接" };
-    }
-    if (candidate.strong_one_price_one_to_two) {
-      return { rule: "auction", label: "强竞价1进2", tone: "watch", detail: candidate.action || "一字板排队观察" };
-    }
-    const selected = Boolean(candidate.actionable || candidate.board_entry_allowed || candidate.recommendation_badge);
-    return {
-      rule: "auction",
-      label: selected ? "09:25竞价入选" : "09:25竞价观察",
-      tone: selected ? "confirm" : "watch",
-      detail: candidate.action || candidate.strategy_mode || "等待09:30确认",
-    };
+  const DAILY_LIMIT = 5;
+  const tradingDate = (value) => {
+    if (value == null || value === "") return null;
+    const parsed = new Date(value);
+    if (!Number.isFinite(parsed.getTime())) return null;
+    const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(parsed);
+    const field = (type) => parts.find((part) => part.type === type).value;
+    return `${field("year")}-${field("month")}-${field("day")}`;
   };
+  // 只有服务端当日正式提示记录可以授权预警；浏览器旧记录仅用于去重和保留名额。
+  const todayBoardCodes = (snapshot, today) => {
+    const focus = snapshot?.daily_focus;
+    if (snapshot?.selected_date !== today || snapshot?.historical || focus?.available !== true
+        || !Array.isArray(focus.issued) || focus.issued.length > DAILY_LIMIT) return new Set();
+    return new Set(focus.issued.filter((item) => /^\d{6}$/.test(String(item?.code)) && tradingDate(item?.first_at) === today).map((item) => String(item.code)));
+  };
+  const todayAlertEvents = (events, today, allowedCodes) => events.filter((item) => item
+    && allowedCodes.has(String(item.code)) && ["confirm", "risk"].includes(item.tone)
+    && (item.trade_date == null || item.trade_date === today)
+    && typeof item.id === "string" && item.id.startsWith(`${today}|${item.code}|`));
+  const notifiedCodes = (saved, today) => saved.date !== today ? [] : [...new Set([
+    ...(Array.isArray(saved.notified_codes) ? saved.notified_codes : []),
+    ...(Array.isArray(saved.events) ? saved.events : []).filter((item) => item?.tone === "confirm").map((item) => item.code),
+    ...Object.keys(saved.triggered || {}).filter((key) => key.startsWith(`${today}|`) && /\|(sealed|open-confirm)$/.test(key)).map((key) => key.split("|")[1]),
+  ].map(String).filter((code) => /^\d{6}$/.test(code)))];
+  // 按代码而非规则累计，开盘确认后再封板不能重复消耗或提醒。
+  const canPrompt = (codes, code, locked = false) => !locked && /^\d{6}$/.test(String(code))
+    && !codes.includes(String(code)) && codes.length < DAILY_LIMIT;
+
+  // 保留分类接口兼容性；竞价冻结结果不再产生任何条件预警。
+  const classifyAuctionCandidate = () => null;
 
   const classifyLiveCandidate = (candidate, rawSettings = DEFAULT_SETTINGS) => {
     const settings = normalizeSettings(rawSettings);
@@ -74,34 +73,40 @@
         tone: "risk", detail: candidate.decision || candidate.summary || "放弃追入",
       } : null;
     }
-    if (candidate.sealed) {
+    if (candidate.risk_veto || candidate.regulatory_risk?.level === "high") {
+      return settings.rules.risk ? { rule: "selection-risk", label: "首选风险失效", tone: "risk",
+        detail: candidate.selection_reason || candidate.decision || "风险门槛不再通过" } : null;
+    }
+    if (candidate.tone === "reject" || candidate.corporate_event_risk?.available === false) return null;
+    if (candidate.primary_pick === true && !candidate.focus_locked && candidate.recommended === true && candidate.recommendation_kind === "sealed" && candidate.sealed) {
       return settings.rules.sealed ? {
-        rule: "sealed", label: "涨停封板确认", tone: candidate.tone === "confirm" ? "confirm" : "watch",
+        rule: "sealed", label: "唯一首选·封板确认", tone: "confirm",
         detail: candidate.decision || candidate.summary || "观察封单稳定性",
+      } : null;
+    }
+    if (candidate.primary_pick === true && !candidate.focus_locked && candidate.recommended === true && candidate.recommendation_kind === "strong_open") {
+      return settings.rules.confirm ? {
+        rule: "open-confirm", label: "唯一首选·极强开盘", tone: "confirm",
+        detail: candidate.decision || candidate.selection_reason || "开盘例外通过两次采样",
       } : null;
     }
     const discovered = candidate.discovery_source && candidate.discovery_source !== "09:25冻结候选";
     if (discovered) {
       return settings.rules.discovered ? {
         rule: "live-discovered", label: candidate.discovery_source, tone: "watch",
-        detail: candidate.decision || candidate.summary || "09:30盘中新增",
-      } : null;
-    }
-    if (candidate.tone === "confirm") {
-      return settings.rules.confirm ? {
-        rule: "open-confirm", label: "开盘承接确认", tone: "confirm",
-        detail: candidate.decision || candidate.summary || "开盘条件确认",
+        detail: candidate.decision || candidate.summary || "盘中新增观察，不是买点",
       } : null;
     }
     return null;
   };
 
-  const api = { DEFAULT_SETTINGS, normalizeSettings, eventKey, classifyAuctionCandidate, classifyLiveCandidate };
+  const api = { DEFAULT_SETTINGS, normalizeSettings, eventKey, classifyAuctionCandidate, classifyLiveCandidate, notifiedCodes, canPrompt, tradingDate, todayBoardCodes, todayAlertEvents };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof window === "undefined" || typeof document === "undefined") return;
   window.BoardAlertEngine = api;
 
-  const STORAGE_KEY = "board-condition-alerts-v1";
+  // 延续v2历史及每日名额，升级/清空展示记录不能重置额度。
+  const STORAGE_KEY = "board-condition-alerts-v2";
   const MAX_EVENTS = 100;
   const panel = document.getElementById("boardAlertPanel");
   const rows = document.getElementById("boardAlertRows");
@@ -114,14 +119,11 @@
   const settingsForm = document.getElementById("boardAlertSettingsForm");
   if (!panel || !rows || !settingsDialog || !settingsForm) return;
 
-  const localDate = () => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  };
+  const localDate = () => tradingDate(new Date());
   const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
   })[char]);
-  const number = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
+  const number = (value) => value == null || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
   const fixed = (value, digits = 2) => number(value) == null ? "--" : number(value).toFixed(digits);
   const signed = (value) => number(value) == null ? "--" : `${number(value) >= 0 ? "+" : ""}${number(value).toFixed(2)}%`;
   const displayTime = (value) => {
@@ -131,19 +133,25 @@
 
   const loadState = () => {
     let saved = {};
-    try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch (_) { saved = {}; }
+    try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {}; } catch (_) { saved = {}; }
     const today = localDate();
     return {
       date: today,
-      events: saved.date === today && Array.isArray(saved.events) ? saved.events.slice(0, MAX_EVENTS) : [],
+      events: saved.date === today && Array.isArray(saved.events) ? saved.events.slice(0, MAX_EVENTS).map((item) => ({ ...item, active: false })) : [],
       triggered: saved.date === today && saved.triggered && typeof saved.triggered === "object" ? saved.triggered : {},
+      notified_codes: notifiedCodes(saved, today),
       settings: normalizeSettings(saved.settings),
     };
   };
 
   let state = loadState();
   let selectedEventId = state.events[0]?.id || null;
-  let monitoredCount = 0;
+  let selectedCount = 0;
+  let lastScanAt = 0;
+  let focusPolicyAt = 0;
+  let dailyFocus = null;
+  let allowedCodes = new Set();
+  const visibleEvents = () => todayAlertEvents(state.events, state.date, allowedCodes);
   let audioContext = null;
 
   const persist = () => {
@@ -153,28 +161,36 @@
   const ensureToday = () => {
     const today = localDate();
     if (state.date === today) return;
-    state = { date: today, events: [], triggered: {}, settings: state.settings };
+    state = { date: today, events: [], triggered: {}, notified_codes: [], settings: state.settings };
+    dailyFocus = null;
+    allowedCodes = new Set();
+    selectedCount = 0;
+    lastScanAt = 0;
+    focusPolicyAt = 0;
     selectedEventId = null;
     persist();
   };
 
   const render = () => {
     ensureToday();
-    const unread = state.events.filter((item) => item.unread).length;
+    const displayed = visibleEvents();
+    if (!displayed.some((item) => item.id === selectedEventId)) selectedEventId = displayed[0]?.id || null;
+    const unread = displayed.filter((item) => item.unread).length;
     if (runState) {
-      runState.textContent = state.settings.enabled ? "[运行中]" : "[已暂停]";
-      runState.style.color = state.settings.enabled ? "var(--green)" : "var(--amber)";
+      const fresh = Date.now() - lastScanAt <= 60000;
+      runState.textContent = !state.settings.enabled ? "[已暂停]" : fresh ? "[运行中]" : "[等待新数据]";
+      runState.style.color = state.settings.enabled && fresh ? "var(--green)" : "var(--amber)";
     }
-    if (stats) stats.textContent = `品种数:${monitoredCount} · 条数:${state.events.length}${unread ? ` · 未读:${unread}` : ""}`;
+    if (stats) stats.textContent = `首选:${selectedCount}/1 · 今日:${Math.max(state.notified_codes.length, dailyFocus?.issued_count || 0)}/5${dailyFocus?.locked_code ? " · 已锁定" : ""} · 今日记录:${displayed.length}${unread ? ` · 未读:${unread}` : ""}`;
     if (toggleButton) toggleButton.textContent = state.settings.enabled ? "关闭预警" : "启动预警";
     if (unreadBadge) unreadBadge.textContent = String(unread);
-    rows.innerHTML = state.events.length ? state.events.map((item) => `
-      <button class="board-alert-row${item.id === selectedEventId ? " is-selected" : ""}${item.unread ? " is-unread" : ""}" data-alert-id="${escapeHtml(item.id)}" data-tone="${escapeHtml(item.tone)}" role="option" aria-selected="${item.id === selectedEventId}">
+    rows.innerHTML = displayed.length ? displayed.map((item) => `
+      <button class="board-alert-row${item.id === selectedEventId ? " is-selected" : ""}${item.unread ? " is-unread" : ""}" data-alert-id="${escapeHtml(item.id)}" data-tone="${item.tone === "confirm" && !item.active ? "watch" : escapeHtml(item.tone)}" role="option" aria-selected="${item.id === selectedEventId}">
         <span class="board-alert-stock"><i>${item.tone === "risk" ? "◆" : "♟"}</i><span>${escapeHtml(item.name)} <small>${escapeHtml(item.code)}</small></span></span>
         <span>${escapeHtml(item.time)}</span><span>${fixed(item.price)}</span>
         <span class="board-alert-change ${number(item.change) != null && number(item.change) < 0 ? "is-negative" : "is-positive"}">${signed(item.change)}</span>
-        <span class="board-alert-rule" title="${escapeHtml(item.detail)}">${escapeHtml(item.label)}</span>
-      </button>`).join("") : `<div class="board-alert-empty">${state.settings.enabled ? "等待09:25竞价或09:30盘中条件首次命中…" : "条件预警已暂停，可点击“启动预警”恢复。"}</div>`;
+        <span class="board-alert-rule" title="${escapeHtml(item.detail)}">${escapeHtml(item.label)}${item.tone === "confirm" && !item.active ? " · 今日记录/非当前买点" : ""}</span>
+      </button>`).join("") : `<div class="board-alert-empty">${state.settings.enabled ? "等待今日正式打板名单确认；仅提示今日打板票，历史和观察池不显示、不提醒。" : "条件预警已暂停，可点击“启动预警”恢复。"}</div>`;
   };
 
   const playAlertSound = (tone = "confirm") => {
@@ -218,26 +234,31 @@
 
   const addEvents = (candidates, classifier, generatedAt, source) => {
     ensureToday();
-    monitoredCount = Array.isArray(candidates) ? candidates.length : 0;
     if (!state.settings.enabled || !Array.isArray(candidates)) { render(); return; }
     const newEvents = [];
     for (const candidate of candidates) {
       const classified = classifier(candidate, state.settings);
-      if (!classified || !candidate?.code) continue;
+      if (!classified || !candidate?.code || classified.tone === "watch") continue;
+      const code = String(candidate.code);
+      if (!allowedCodes.has(code)) continue;
+      if (classified.tone === "confirm" && !canPrompt(state.notified_codes, code, dailyFocus?.locked_code)) continue;
       const key = eventKey(state.date, candidate.code, classified.rule);
       if (state.triggered[key]) continue;
       const event = {
         id: key,
+        trade_date: state.date,
         code: String(candidate.code),
         name: String(candidate.name || candidate.code),
         time: source === "auction" ? "09:25:00" : displayTime(generatedAt),
-        price: number(candidate.price ?? candidate.auction_price ?? candidate.previous_close),
-        change: number(candidate.change_percent ?? candidate.auction_gap_percent),
+        price: number(source === "auction" ? candidate.auction_price ?? candidate.previous_close : candidate.price),
+        change: number(source === "auction" ? candidate.auction_gap_percent : candidate.change_percent),
         source,
+        active: classified.tone === "confirm",
         unread: true,
         ...classified,
       };
       state.triggered[key] = generatedAt || new Date().toISOString();
+      if (classified.tone === "confirm") state.notified_codes.push(code);
       newEvents.push(event);
     }
     if (!newEvents.length) { render(); return; }
@@ -250,16 +271,28 @@
     render();
   };
 
-  const processAuctionSnapshot = (data) => {
-    if (!data || data.selected_date !== localDate() || data.historical || data.auction_phase !== "final") return;
-    const candidates = [...(data.candidates || []), ...(data.risk_exclusions || []).filter((item) => item?.corporate_event_risk?.level === "high")];
-    addEvents(candidates, classifyAuctionCandidate, data.generated_at, "auction");
+  const processLiveSnapshot = (data) => {
+    ensureToday();
+    if (!data || data.selected_date !== localDate() || data.historical) return;
+    if (tradingDate(data.generated_at) !== state.date) return;
+    const generated = new Date(data.generated_at).getTime();
+    ensureToday();
+    if (!Number.isFinite(generated) || Date.now() - generated > 60000 || generated > Date.now() + 5000 || generated < Math.max(lastScanAt, focusPolicyAt)) return;
+    lastScanAt = generated;
+    dailyFocus = data.daily_focus || null;
+    allowedCodes = todayBoardCodes(data, state.date);
+    const picks = dailyFocus?.available ? (data.candidates || []).filter((item) => allowedCodes.has(String(item.code)) && item.primary_pick === true && item.recommended === true && item.code === dailyFocus.primary_code).slice(0, 1) : [];
+    selectedCount = picks.length;
+    const activeCodes = new Set(picks.map((item) => item.code));
+    state.events.forEach((item) => { if (item.tone === "confirm") item.active = state.settings.enabled && !dailyFocus?.locked_code && activeCodes.has(item.code); });
+    const watches = (data.watch_candidates || []).map((item) => ({ ...item, recommended: false }));
+    persist();
+    addEvents([...picks, ...watches], classifyLiveCandidate, data.generated_at, "live");
   };
 
-  const processLiveSnapshot = (data) => addEvents(data?.candidates || [], classifyLiveCandidate, data?.generated_at, "live");
-
   const selectEvent = (id) => {
-    const item = state.events.find((event) => event.id === id);
+    ensureToday();
+    const item = visibleEvents().find((event) => event.id === id);
     if (!item) return;
     selectedEventId = id;
     item.unread = false;
@@ -268,7 +301,9 @@
   };
 
   const openSelectedStock = () => {
-    const item = state.events.find((event) => event.id === selectedEventId) || state.events[0];
+    ensureToday();
+    const displayed = visibleEvents();
+    const item = displayed.find((event) => event.id === selectedEventId) || displayed[0];
     if (!item) return;
     const stockTab = document.querySelector('.top-tab[data-tab="stockTab"]');
     const input = document.getElementById("code");
@@ -287,8 +322,23 @@
 
   const closeOperations = () => document.getElementById("boardAlertOperations")?.removeAttribute("open");
 
-  window.addEventListener("board:auction-snapshot", (event) => processAuctionSnapshot(event.detail));
   window.addEventListener("board:live-snapshot", (event) => processLiveSnapshot(event.detail));
+  window.addEventListener("board:focus-policy", (event) => {
+    ensureToday();
+    dailyFocus = event.detail;
+    allowedCodes = todayBoardCodes({ selected_date: state.date, daily_focus: dailyFocus }, state.date);
+    focusPolicyAt = Date.now();
+    state.events.forEach((item) => { item.active = false; });
+    persist();
+    render();
+  });
+  window.addEventListener("board:live-unavailable", () => {
+    lastScanAt = 0;
+    selectedCount = 0;
+    state.events.forEach((item) => { item.active = false; });
+    persist();
+    render();
+  });
   rows.addEventListener("click", (event) => {
     const row = event.target.closest("[data-alert-id]");
     if (row) selectEvent(row.dataset.alertId);
@@ -299,6 +349,7 @@
   });
   toggleButton?.addEventListener("click", () => {
     state.settings.enabled = !state.settings.enabled;
+    if (!state.settings.enabled) state.events.forEach((item) => { item.active = false; });
     persist();
     render();
   });
@@ -311,10 +362,12 @@
   launcher?.addEventListener("click", openPanel);
   document.getElementById("boardAlertOpenStock")?.addEventListener("click", openSelectedStock);
   document.getElementById("boardAlertMarkRead")?.addEventListener("click", () => {
-    state.events.forEach((item) => { item.unread = false; });
+    ensureToday();
+    visibleEvents().forEach((item) => { item.unread = false; });
     persist(); closeOperations(); render();
   });
   document.getElementById("boardAlertClear")?.addEventListener("click", () => {
+    if (!window.confirm("清空今日预警记录？无法撤销；每日5只名额及已提示代码不会重置。")) return;
     state.events = [];
     selectedEventId = null;
     persist(); closeOperations(); render();
@@ -341,6 +394,7 @@
       try { next.desktop = (await Notification.requestPermission()) === "granted"; } catch (_) { next.desktop = false; }
     }
     state.settings = normalizeSettings(next);
+    if (!state.settings.enabled) state.events.forEach((item) => { item.active = false; });
     persist();
     settingsDialog.close();
     if (state.settings.sound) playAlertSound("test");
@@ -356,7 +410,7 @@
     panel.style.right = "auto";
     panel.style.bottom = "auto";
     const move = (moveEvent) => {
-      const left = Math.max(6, Math.min(window.innerWidth - panel.offsetWidth - 6, moveEvent.clientX - offsetX));
+      const left = Math.max(6, Math.min(document.documentElement.clientWidth - panel.offsetWidth - 6, moveEvent.clientX - offsetX));
       const top = Math.max(6, Math.min(window.innerHeight - panel.offsetHeight - 6, moveEvent.clientY - offsetY));
       panel.style.left = `${left}px`;
       panel.style.top = `${top}px`;
@@ -369,5 +423,15 @@
     window.addEventListener("pointerup", stop, { once: true });
   });
 
+  window.addEventListener("resize", () => {
+    for (const key of ["left", "top", "right", "bottom"]) panel.style.removeProperty(key);
+  });
+  window.setInterval(() => {
+    if (Date.now() - lastScanAt > 60000) {
+      selectedCount = 0;
+      state.events.forEach((item) => { item.active = false; });
+    }
+    render();
+  }, 10000);
   render();
 })();

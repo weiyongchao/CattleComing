@@ -2,9 +2,10 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>量价罗盘 · A股评测</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/strategy-execution.css?v=20260814-01"><link rel="stylesheet" href="/history-review.css?v=20260814-01"><link rel="stylesheet" href="/board-alerts.css?v=20260828-01"><style>.metrics{grid-template-columns:repeat(5,1fr)}.metrics article{padding:20px 18px}.metrics strong{font-size:23px}.operation-card{margin-top:14px;padding:24px}.operation-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0}.action-box{background:#17231f;border:1px solid #2b3c36;border-radius:10px;padding:18px}.action-box span{display:block;color:var(--green);font-size:12px;margin-bottom:8px}.action-box strong{font-size:16px;line-height:1.6}.conditions{display:grid;grid-template-columns:1fr 1fr;gap:12px;color:var(--muted);font-size:13px}.conditions p{margin:0;padding:12px;background:#0c1512;border-radius:8px}.risk-title{color:var(--red);margin-top:20px;font-size:13px}@media(max-width:960px){.metrics{grid-template-columns:repeat(2,1fr)}}@media(max-width:720px){.metrics,.operation-grid,.conditions{grid-template-columns:1fr}}</style>
+  <title>量价罗盘 · A股评测</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/strategy-execution.css?v=20260831-02"><link rel="stylesheet" href="/history-review.css?v=20260814-01"><link rel="stylesheet" href="/board-alerts.css?v=20260831-01"><style>.metrics{grid-template-columns:repeat(5,1fr)}.metrics article{padding:20px 18px}.metrics strong{font-size:23px}.operation-card{margin-top:14px;padding:24px}.operation-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0}.action-box{background:#17231f;border:1px solid #2b3c36;border-radius:10px;padding:18px}.action-box span{display:block;color:var(--green);font-size:12px;margin-bottom:8px}.action-box strong{font-size:16px;line-height:1.6}.conditions{display:grid;grid-template-columns:1fr 1fr;gap:12px;color:var(--muted);font-size:13px}.conditions p{margin:0;padding:12px;background:#0c1512;border-radius:8px}.risk-title{color:var(--red);margin-top:20px;font-size:13px}@media(max-width:960px){.metrics{grid-template-columns:repeat(2,1fr)}}@media(max-width:720px){.metrics,.operation-grid,.conditions{grid-template-columns:1fr}}</style>
   <style>.top-tabs{display:flex;gap:8px;margin:34px 0 24px;border-bottom:1px solid var(--line);padding-bottom:10px}.top-tab{border:0;background:transparent;color:var(--muted);padding:11px 18px;border-radius:8px;font-weight:700;cursor:pointer}.top-tab.active{background:#183126;color:var(--green)}</style>
   <style>@media(max-width:720px){#simpleForm{grid-template-columns:1fr!important}.top-tabs{overflow-x:auto}.top-tab{white-space:nowrap}}</style>
+  <link rel="stylesheet" href="/stock-card-details.css?v=20260831-01">
 </head>
 <body>
   <main class="shell">
@@ -29,15 +30,19 @@
         </article>
         <div class="strategy-workspace">
           <article class="card strategy-candidate-card">
-            <div class="section-title"><div><span>09:25 SHORTLIST</span><h2>竞价候选排序</h2></div><small id="strategyGeneratedAt"></small></div>
-            <p class="strategy-help">点击候选进入右侧验证。候选只是观察资格，不等于买点。</p>
+            <div class="section-title"><div><span>ONE DAILY FOCUS</span><h2>只看一只首选</h2></div><small id="strategyGeneratedAt"></small></div>
+            <p class="strategy-help">全天最多提示5个不同代码，不是每轮5只。首选有效就保留，未达标宁可不选。封板仍可能炸板，排队不保证成交。</p>
+            <p id="strategyDailyFocus" class="strategy-decision-reason"></p>
+            <div class="strategy-focus-actions"><button id="strategyFocusLock" type="button" disabled>今日只关注这只</button><button id="strategyFocusUnlock" type="button" hidden>取消锁定（不重置名额）</button><small>锁定后停止新买点，只保留风险提醒；不代表已买入。</small></div>
             <div id="strategyCandidates" class="strategy-candidates"></div>
           </article>
           <article class="card strategy-focus-card">
             <div class="section-title"><div><span>09:30+ VALIDATION</span><h2>开盘承接与封板确认</h2></div><b id="strategyDecision" class="neutral">等待候选</b></div>
-            <div id="strategyFocus" class="strategy-focus-empty">从左侧选择一只竞价候选。</div>
-            <div id="strategyChecklist" class="strategy-checklist"></div>
-            <p id="strategyDecisionReason" class="strategy-decision-reason"></p>
+            <div id="strategyFocusBody">
+              <div id="strategyFocus" class="strategy-focus-empty">等待盘中唯一首选。</div>
+              <div id="strategyChecklist" class="strategy-checklist"></div>
+              <p id="strategyDecisionReason" class="strategy-decision-reason"></p>
+            </div>
           </article>
         </div>
         <article class="card strategy-risk-card">
@@ -110,13 +115,13 @@
       <section id="historyReviewContent" hidden><div id="historyReviewSummary" class="review-summary"></div><div id="historyReviewDateTabs" class="review-date-tabs"></div><div id="historyReviewDays"></div><p class="disclaimer">“规则问题”仅在非系统性弱市中对有效候选判定；单日不自动改参数，同类失败达到复核线后才建议调整。市场问题不追责个股规则。</p></section>
     </section>
   </main>
-  <aside id="boardAlertPanel" class="board-alert-panel" aria-label="打板条件预警">
+  <aside id="boardAlertPanel" class="board-alert-panel" aria-label="今日打板条件预警">
     <header class="board-alert-header" data-alert-drag-handle>
-      <div><strong>条件预警 <span id="boardAlertRunState">[运行中]</span></strong><small id="boardAlertStats">品种数:0 · 条数:0</small></div>
+      <div><strong>今日预警 <span id="boardAlertRunState">[等待新数据]</span></strong><small id="boardAlertStats">首选:0/1 · 今日:0/5 · 今日记录:0</small></div>
       <div class="board-alert-window-actions"><button id="boardAlertMinimize" type="button" title="最小化" aria-label="最小化预警窗口">—</button><button id="boardAlertClose" type="button" title="隐藏" aria-label="隐藏预警窗口">×</button></div>
     </header>
     <div class="board-alert-columns" aria-hidden="true"><span>股票</span><span>时间</span><span>现价</span><span>涨幅</span><span>触发条件</span></div>
-    <div id="boardAlertRows" class="board-alert-rows" role="listbox" aria-label="预警记录"><div class="board-alert-empty">等待09:25竞价或09:30盘中条件首次命中…</div></div>
+    <div id="boardAlertRows" class="board-alert-rows" role="listbox" aria-label="今日打板预警记录"><div class="board-alert-empty">仅提示今日正式打板名单，历史股票与观察池不提醒。</div></div>
     <footer class="board-alert-footer">
       <button id="boardAlertToggle" type="button">关闭预警</button>
       <details id="boardAlertOperations" class="board-alert-operations"><summary>操作⌄</summary><div><button id="boardAlertMarkRead" type="button">全部已读</button><button id="boardAlertClear" type="button">清空今日记录</button><button id="boardAlertTestSound" type="button">测试提示音</button></div></details>
@@ -133,10 +138,11 @@
         <label><input name="sound" type="checkbox"> 播放提示音</label>
         <label><input name="desktop" type="checkbox"> 浏览器桌面通知</label>
       </div>
-      <fieldset><legend>触发类型</legend><label><input name="auction" type="checkbox"> 09:25竞价候选</label><label><input name="highTurnover" type="checkbox"> 高换手强竞价连板</label><label><input name="discovered" type="checkbox"> 09:30盘中新增</label><label><input name="confirm" type="checkbox"> 开盘承接确认</label><label><input name="sealed" type="checkbox"> 涨停封板确认</label><label><input name="failed" type="checkbox"> 炸板/冲板失败</label><label><input name="risk" type="checkbox"> 并购重组风险剔除</label></fieldset>
-      <p>每只股票每种条件每天只提醒一次；历史回放不会触发。预警只提示规则命中，不自动下单。</p>
+      <fieldset><legend>触发类型</legend><label><input name="auction" type="checkbox" disabled> 竞价观察（固定静默）</label><label><input name="highTurnover" type="checkbox" disabled> 高换手观察（固定静默）</label><label><input name="discovered" type="checkbox" disabled> 盘中备选（固定静默）</label><label><input name="confirm" type="checkbox"> 首选：极强开盘例外</label><label><input name="sealed" type="checkbox"> 首选：封板确认</label><label><input name="failed" type="checkbox"> 已提示股票：炸板/冲板失败</label><label><input name="risk" type="checkbox"> 已提示股票：并购重组风险</label></fieldset>
+      <p>范围固定为服务端今日正式打板名单（按北京时间），历史股票、竞价与普通观察池均不显示、不弹窗、不响铃。买点只提示唯一首选，每个代码每日一次，全天最多5个不同代码；刷新或清空展示记录不重置名额。锁定后停止新买点，仅保留今日名单股票的风险提醒。交易时段页面每20秒采样，关闭即停止；两次采样不代表持续封板。不自动下单。</p>
       <div class="board-alert-settings-actions"><button id="boardAlertSettingsCancel" type="button">取消</button><button type="submit">保存设置</button></div>
     </form>
   </dialog>
-  <script src="/app.js?v=20260827-01"></script><script src="/intraday-leadership.js?v=20260827-01"></script><script src="/board-auction-only.js?v=20260828-01"></script><script src="/board-alerts.js?v=20260828-01"></script><script src="/strategy-execution.js?v=20260826-01"></script><script src="/history-review.js?v=20260825-02"></script>
+  <script src="/stock-card-details.js?v=20260831-01"></script>
+  <script src="/app.js?v=20260827-01"></script><script src="/intraday-leadership.js?v=20260827-01"></script><script src="/board-auction-only.js?v=20260831-04"></script><script src="/board-alerts.js?v=20260831-03"></script><script src="/strategy-execution.js?v=20260831-03"></script><script src="/history-review.js?v=20260825-02"></script>
 </body></html>

@@ -8,16 +8,44 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from .auction import screen_auction_candidates, screen_historical_auction_candidates
+from .board_selection import MAX_BOARD_PICKS
 from .corporate_events import attach_corporate_event_risks
 from .market import EastmoneyProvider, MarketDataError
 from .trade_advice import auction_entry_plan
 
 
-BOARD_STRATEGY_VERSION = "2026.08.28.1"
+BOARD_STRATEGY_VERSION = "2026.08.31.2"
 from .screener import LEADER_POOL, is_main_board, is_risk_stock_name
 
 
 HEADERS = {"User-Agent": "Mozilla/5.0", "Referer": "https://quote.eastmoney.com/"}
+
+
+def auction_observation_view(snapshot: dict) -> dict:
+    """只转换展示副本；旧版冻结数据仍保留原始策略留痕。"""
+    view = dict(snapshot)
+    pool = []
+    phase = snapshot.get("auction_phase", "final")
+    market = (snapshot.get("market") or {}).get("state", "未知")
+    for original in (snapshot.get("candidates") or []) + (snapshot.get("watch_candidates") or []):
+        item = dict(original)
+        item.setdefault("auction_signal_action", item.get("action"))
+        item.update(
+            action="取消候选" if item.get("risk_veto") else f"{item.get('strategy_mode') or '竞价候选'} · 仅观察",
+            recommended=False, board_entry_allowed=False, actionable=False,
+            execution_ready=False, recommendation_badge=None,
+            candidate_scope_label="竞价观察池 · 非买入推荐",
+        )
+        item["entry_plan"] = auction_entry_plan(item, phase, market)
+        pool.append(item)
+    view.update(candidates=pool[:MAX_BOARD_PICKS], watch_candidates=pool[MAX_BOARD_PICKS:],
+                actionable_count=0, recommendation_limit=MAX_BOARD_PICKS)
+    view["position_plan"] = {
+        **(snapshot.get("position_plan") or {}), "max_positions": 0, "per_position": 0,
+        "max_new_exposure": 0, "cash_reserve": snapshot.get("capital", 100_000),
+        "rule": "竞价只建观察池、不分配执行仓位；盘中仅提示唯一首选，全天最多5个不同代码。",
+    }
+    return view
 
 
 def _safe_float(value: object, default: float = 0.0) -> float:
@@ -721,6 +749,13 @@ def build_board_plan(
     ), reverse=True)
     gate = _auction_gate(candidates, auction)
     for candidate in candidates:
+        candidate["auction_signal_action"] = candidate.get("action")
+        candidate.update(
+            action=f"{candidate.get('strategy_mode') or '竞价候选'} · 仅观察",
+            recommended=False, board_entry_allowed=False, actionable=False,
+            execution_ready=False, recommendation_badge=None,
+            candidate_scope_label="竞价观察池 · 非买入推荐",
+        )
         candidate["entry_plan"] = auction_entry_plan(candidate, auction_phase, gate["state"])
         candidate["execution_ready"] = (
             candidate["entry_plan"]["action"] == "开盘确认后买入"
@@ -744,7 +779,8 @@ def build_board_plan(
         "stage": f"历史回放 · {target_date.isoformat()}" if historical else _session_stage(now),
         "selected_date": target_date.isoformat() if target_date else date.today().isoformat(),
         "historical": historical, "auction_phase": auction_phase, "market": gate,
-        "candidates": candidates, "risk_exclusions": risk_exclusions,
+        "candidates": candidates[:MAX_BOARD_PICKS], "watch_candidates": candidates[MAX_BOARD_PICKS:],
+        "recommendation_limit": MAX_BOARD_PICKS, "risk_exclusions": risk_exclusions,
         "actionable_count": len(actionable),
         "screening": {
             "scanned": auction.get("scanned", 0), "prefiltered": auction.get("prefiltered", 0),
@@ -782,13 +818,14 @@ def build_board_plan(
             "rule": (
                 "历史回放不生成可执行仓位，只用于比较规则。"
                 if historical else
-                "09:17可撤单预选与09:20不可撤单观察都不分配仓位；09:25最终竞价复核通过后，A级候选才进入仓位计划。"
+                "09:17可撤单预选、09:20不可撤单观察与09:25最终竞价均不分配执行仓位，等待盘中精选。"
                 if auction_phase in {"cancelable", "indicative"} else
-                "A级候选进入常规仓位计划；高辨识度一字板C级可按涨停价排队，但不计作已成交仓位，未成交不追改价。"
+                "竞价阶段不分配执行仓位；盘中仅提示唯一首选，全天累计最多5只，不代表同时持有5只。"
             ),
         },
         "strategy_profile": {
-            "name": "T+1涨停分层：连板优先 + 一进二观察 + 首板观察",
+            "name": "封板确认优先 · 唯一首选 · 全天最多5只",
+            "selection_rule": "09:25只建观察池；盘中动态补选，实际封板、盘口、资金和风险需两次间隔20秒采样通过。普通开盘转强只观察，极强开盘采用严格例外。只提示唯一首选、有效时不换票，全天累计最多5个代码；可锁定一只仅看风险。",
             "core_rule": "最近交易日完整涨停池强制深扫；高换手强竞价连板通道仅使用真实09:25数据：至少2连板、竞价换手率>1.2%、高开≥5%、竞价额>5000万。早封连板通道要求昨日及2个交易日前均涨停、昨日最终封板早于11:30、竞价涨幅≥1%且<9.8%、竞价量比>1、竞价额>3000万、流通市值<200亿、上市≥60个交易日。",
             "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；三板以上核心由一字加速转为-3%至+5%竞价时，量额、换手和前日结构达标可进入高位换手B级观察，低开不直接视为买点。",
             "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",

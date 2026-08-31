@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime
+from math import isfinite
+from threading import RLock
 
 from .auction import _auction_candidate, _live_history, _theme_bucket
+from .board_selection import MAX_BOARD_PICKS, intraday_selection_window, select_live_recommendations
+from .board_focus import DAILY_FOCUS_STORE, DailyFocusError
 from .corporate_events import attach_corporate_event_risks
 from .evaluator import evaluate
 from .funds import individual_fund_flow
@@ -13,6 +17,8 @@ from .universe import main_board_snapshots, previous_limit_up_pool
 
 
 _OPENING_DISCOVERY_CACHE: dict[str, list[dict]] = {}
+_SELECTION_OBSERVATIONS: dict[str, dict] = {}
+_SELECTION_LOCK = RLock()
 
 
 def _number(value: object, default: float = 0.0) -> float:
@@ -241,7 +247,9 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
     entry_authorized = board_entry_allowed or live_entry_allowed
     nuclear_mode = candidate.get("strategy_mode") == "反核按钮竞价抄底"
     fund_current = bool(funds and funds.get("is_today") and str(funds.get("date")) == date.today().isoformat())
-    main_ratio = _number(funds.get("main_ratio")) if fund_current and funds else None
+    main_ratio = _number(funds.get("main_ratio"), float("nan")) if fund_current and funds else None
+    if main_ratio is not None and not isfinite(main_ratio):
+        main_ratio = None
     checks = [
         {"name": "未跌破竞价支撑", "passed": None if price_vs_auction is None else price_vs_auction >= -1.0,
          "value": "竞价价未留存" if price_vs_auction is None else f"较竞价价{price_vs_auction:+.2f}%"},
@@ -392,9 +400,20 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
     payload = {
         "code": candidate.get("code"), "name": candidate.get("name"),
         "priority_tier": candidate.get("priority_tier"),
+        "listed_sessions": candidate.get("listed_sessions"),
+        "float_market_cap": candidate.get("float_market_cap"),
+        "risk_veto": candidate.get("risk_veto", False),
+        "regulatory_risk": result.get("regulatory_risk"),
+        "high_turnover_chain_matched": candidate.get("high_turnover_chain_matched", False),
+        "auction_gap_percent": candidate.get("auction_gap_percent"),
+        "auction_amount": candidate.get("auction_amount"),
+        "auction_turnover_percent": candidate.get("auction_turnover_percent"),
+        "bid_volume5": book.get("bid_volume5", 0),
+        "ask_volume5": book.get("ask_volume5"),
         "strategy_mode": candidate.get("strategy_mode"),
         "board_stage_label": candidate.get("board_stage_label"),
         "corporate_event_risk": candidate.get("corporate_event_risk"),
+        "corporate_event_checked": candidate.get("corporate_event_checked", False),
         "continuation_score": candidate.get("continuation_score"),
         "three_day_change_percent": candidate.get("three_day_change_percent"),
         "five_day_change_percent": candidate.get("five_day_change_percent"),
@@ -403,6 +422,7 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
         "board_entry_allowed": entry_authorized,
         "recommendation_badge": candidate.get("recommendation_badge"),
         "discovery_source": candidate.get("discovery_source") or "09:25冻结候选",
+        "discovered_at": candidate.get("discovered_at"),
         "auction_rank": int(_number(candidate.get("_auction_rank"), 0)),
         "decision": decision, "tone": tone, "open_score": score,
         "passed": passed, "known_total": known, "checks": checks, "summary": summary,
@@ -460,7 +480,9 @@ def build_open_guard(
     provider = provider or EastmoneyProvider(timeout=8)
     now = now or datetime.now().astimezone()
     discovery_key = now.date().isoformat()
+    current_day_snapshot = snapshot.get("selected_date") == discovery_key and not snapshot.get("historical")
     opening_window = _opening_discovery_window(now)
+    discovery_window = intraday_selection_window(now)
     live_snapshots: list[dict] = []
     live_snapshot_error = None
     if discover_live:
@@ -471,22 +493,33 @@ def build_open_guard(
     live_by_code = {str(item.get("f12") or ""): item for item in live_snapshots}
     candidates = [
         {**candidate, "_auction_rank": index}
-        for index, candidate in enumerate(snapshot.get("candidates") or [], start=1)
+        for index, candidate in enumerate((snapshot.get("candidates") or []) + (snapshot.get("watch_candidates") or []), start=1)
     ]
+    focus_error = None
+    try:
+        existing_codes = {str(item.get("code")) for item in candidates}
+        candidates.extend(item for item in (DAILY_FOCUS_STORE.monitored_candidates(now) if current_day_snapshot else [])
+                          if str(item.get("code")) not in existing_codes)
+    except DailyFocusError as exc:
+        focus_error = str(exc)
     discovery_errors: list[dict] = []
-    if discover_live and opening_window:
+    if discover_live and discovery_window:
         opening_cached = {
             str(item.get("code") or ""): item
             for item in _OPENING_DISCOVERY_CACHE.get(discovery_key, [])
         }
         newly_discovered: list[dict] = []
+        discovery_snapshots = live_snapshots
+        if not opening_window:
+            # 9:35后只补入已逼近封板的标的，发现时间独立记录，不倒写竞价快照。
+            discovery_snapshots = [row for row in live_snapshots if _number(row.get("f3")) >= 9]
         try:
             newly_discovered.extend(_discover_live_one_to_two(
                 provider, {
                     str(candidate.get("code") or "") for candidate in candidates
                 } | set(opening_cached),
-                snapshots=live_snapshots or None,
-            ))
+                snapshots=discovery_snapshots,
+            ) if discovery_snapshots else [])
         except Exception as exc:
             discovery_errors.append({"code": "", "name": "盘中一进二扫描", "error": str(exc)})
         try:
@@ -495,17 +528,22 @@ def build_open_guard(
                     str(candidate.get("code") or "")
                     for candidate in candidates + newly_discovered
                 } | set(opening_cached),
-                snapshots=live_snapshots or None,
-            ))
+                snapshots=discovery_snapshots,
+            ) if discovery_snapshots else [])
         except Exception as exc:
             discovery_errors.append({"code": "", "name": "盘中连板扫描", "error": str(exc)})
         cached_by_code = dict(opening_cached)
         for item in newly_discovered:
+            item["discovered_at"] = now.isoformat(timespec="seconds")
+            if not opening_window:
+                item["discovery_source"] = "盘中封板补选"
+                item["action"] = "盘中新增观察 · 非09:25候选"
             cached_by_code.setdefault(str(item.get("code") or ""), item)
-        _OPENING_DISCOVERY_CACHE[discovery_key] = list(cached_by_code.values())
+        _OPENING_DISCOVERY_CACHE.clear()
+        _OPENING_DISCOVERY_CACHE[discovery_key] = list(cached_by_code.values())[-24:]
         frozen_codes = {str(candidate.get("code") or "") for candidate in candidates}
         candidates.extend(
-            item for code, item in cached_by_code.items() if code not in frozen_codes
+            item for item in _OPENING_DISCOVERY_CACHE[discovery_key] if str(item.get("code") or "") not in frozen_codes
         )
     elif discover_live:
         existing_codes = {str(candidate.get("code") or "") for candidate in candidates}
@@ -540,28 +578,63 @@ def build_open_guard(
     for index, item in enumerate(rows, start=1):
         item["live_rank"] = index
         item["rank_change"] = item.get("auction_rank", index) - index
+    with _SELECTION_LOCK:
+        selection_key = f"{discovery_key}:{discover_live}"
+        for old_key in list(_SELECTION_OBSERVATIONS):
+            if not old_key.startswith(discovery_key + ":"):
+                _SELECTION_OBSERVATIONS.pop(old_key, None)
+        recommendations = select_live_recommendations(
+            rows, now, (snapshot.get("market") or {}).get("state", "未知")
+            if snapshot.get("selected_date") == discovery_key and not snapshot.get("historical") else "未知",
+            _SELECTION_OBSERVATIONS.setdefault(selection_key, {}),
+        )
+        try:
+            if current_day_snapshot:
+                recommendations, daily_focus = DAILY_FOCUS_STORE.select(rows, now)
+            else:
+                recommendations = []
+                daily_focus = {"available": False, "status": "historical", "message": "历史快照不产生当日首选", "issued": []}
+        except DailyFocusError as exc:
+            recommendations = []
+            daily_focus = {"available": False, "status": "storage_error", "message": str(exc),
+                           "issued_count": None, "daily_limit": MAX_BOARD_PICKS, "issued": []}
+            for item in rows:
+                item.update(primary_pick=False, recommended=False, actionable=False, execution_ready=False,
+                            board_entry_allowed=False, recommendation_rank=None)
+                item["selection_reason"] = str(exc)
+                if item.get("tone") != "reject":
+                    item.update(tone="watch", decision="每日提示记录待恢复 · 暂停首选")
+    for item in rows:
+        item["entry_plan"] = live_entry_plan(item)
+        item["entry_advice"] = f"未持有：{item['entry_plan']['timing']}"
+        item["summary"] = item["selection_reason"]
     errors.extend(discovery_errors)
+    if focus_error:
+        errors.append({"code": "", "name": "每日首选记录", "error": focus_error})
     if live_snapshot_error:
         errors.append({"code": "", "name": "全市场批量行情", "error": live_snapshot_error})
     if not rows and errors:
         raise MarketDataError("冻结候选的实时行情暂不可用")
     return {
         "selected_date": snapshot.get("selected_date"),
+        "historical": bool(snapshot.get("historical") or snapshot.get("selected_date") != discovery_key),
         "snapshot_label": snapshot.get("snapshot_label"),
         "scope": "full_market" if discover_live else "frozen_candidates",
         "generated_at": now.astimezone().isoformat(timespec="seconds"),
         "opening_discovery_status": (
-            "09:30–09:35实时补选中" if discover_live and opening_window else
-            "使用09:30–09:35已冻结补选" if discover_live and _OPENING_DISCOVERY_CACHE.get(discovery_key) else
-            "开盘补选窗口已结束且无留存，仅复核09:25名单" if discover_live else
+            "盘中动态补选中；09:35后仅发现封板附近标的" if discover_live and discovery_window else
+            "非交易扫描时段；仅复核留存观察池" if discover_live else
             "仅复核09:25冻结名单"
         ),
-        "candidates": rows, "errors": errors,
-        "confirmed_count": sum(item["tone"] == "confirm" for item in rows),
+        "candidates": recommendations, "errors": errors,
+        "daily_focus": daily_focus,
+        "watch_candidates": [item for item in rows if not item.get("recommended")],
+        "monitored_count": len(rows), "recommendation_limit": MAX_BOARD_PICKS,
+        "confirmed_count": len(recommendations),
         "watch_count": sum(item["tone"] == "watch" for item in rows),
         "rejected_count": sum(item["tone"] == "reject" for item in rows),
         "method": (
-            "09:25原始名单固定不变；仅在09:30–09:35开盘窗口扫描全主板并冻结补选，避免下午走势倒灌为开盘决策。盘中继续按深回踩、止跌、收复昨收、收复竞价价、封板/炸板更新已有候选；补选覆盖昨日首板的一进二、竞价偏弱但开盘主动转强的二板以上连板股和最高空间板。"
+            "09:25只建观察池；盘中仅提示一个首选，条件有效时不换票，全天累计最多5只不同股票。历史延续45%、盘中确认30%、资金最多15分、盘口最多10分，风险扣分；首选潜力分≥80且历史延续≥75。封板优先，两次间隔20秒有效采样；锁定后只看风险，不再新增买点。"
             if discover_live else
             "轻量模式只复核09:25冻结候选，不扫描全市场、不补入盘中一进二，用于策略执行页降低网络占用。"
         ),

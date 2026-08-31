@@ -192,6 +192,7 @@ def attach_corporate_event_risks(candidates: list[dict], *, max_workers: int = 4
     with ThreadPoolExecutor(max_workers=min(max_workers, len(targets))) as executor:
         results = executor.map(lambda item: corporate_event_risk(str(item.get("code") or "")), targets)
         for candidate, event_risk in zip(targets, results):
+            candidate["corporate_event_checked"] = event_risk.get("available") is True
             if event_risk.get("level") != "normal":
                 candidate["corporate_event_risk"] = event_risk
     return candidates

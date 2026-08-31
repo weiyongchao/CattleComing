@@ -62,20 +62,20 @@ def auction_entry_plan(candidate: dict, auction_phase: str, market_state: str) -
         timing = "高位透支、异动监管或硬否决条件已触发"
         reference_text = "不因盘中急拉重新追入，等待下一交易日重评"
     elif candidate.get("board_entry_allowed"):
-        action, tone = "排队打板", "positive"
-        timing = "09:25后可按涨停价小单排队；未成交不追改价，开板成交只接受快速回封"
+        action, tone = "等待盘中封板确认", "neutral"
+        timing = "竞价只建观察池，不直接排队；盘中通过两次有效采样并进入前五后再评估"
         reference_text = f"涨停参考价¥{limit_price:.2f}" if limit_price else "涨停价待交易所行情确认"
     elif candidate.get("actionable"):
-        action, tone = "开盘确认后买入", "positive"
-        timing = "09:30后等承接、盘口和成交确认；快速拉升至8.5%以上时改为等封板，不直接追高"
-        reference_text = f"先看竞价支撑¥{auction_price:.2f}，确认不破后再小仓" if auction_price else "等待开盘承接价确认"
+        action, tone = "等待盘中封板确认", "neutral"
+        timing = "普通开盘承接不再作为买点；以封板确认精选为准，极强开盘例外也须盘中复核"
+        reference_text = f"竞价支撑参考¥{auction_price:.2f}，不是买点" if auction_price else "等待开盘承接价确认"
     elif "反核" in str(candidate.get("strategy_mode") or ""):
         action, tone = "高风险观望", "neutral"
-        timing = "先等开盘低点止跌、收复昨收和竞价价，再考虑极小仓试错"
+        timing = "反核与修复仅保留观察，等待封板及风险复核，不因急拉直接买入"
         reference_text = f"竞价支撑参考¥{auction_price:.2f}" if auction_price else "等待止跌价形成"
     else:
         action, tone = "观望", "neutral"
-        timing = "当前仅为B级/观察候选；等20秒动态榜单升级为开盘确认或封板确认"
+        timing = "当前只属观察池；等待实际封板或极强开盘例外通过两次采样，并成为唯一首选"
         reference_text = f"竞价参考¥{auction_price:.2f}，不提前追价" if auction_price else "等待实时买点"
 
     if event_unknown:
@@ -123,14 +123,18 @@ def live_entry_plan(item: dict) -> dict:
         action, action_tone = "重组风险观望", "negative"
         timing = "不因涨停、回封或急拉直接买入，先核对重组审批与最新风险公告"
         reference_text = "当前不设置买点"
-    elif sealed and item.get("board_entry_allowed"):
+    elif item.get("focus_locked"):
+        action, action_tone = "只看风险（今日已选定）", "neutral"
+        timing = "已锁定今日关注对象，不再新增买入提示；仍按原仓位与风险纪律处理，不代表已经成交"
+        reference_text = "此操作仅管理提示，不下单、不加仓"
+    elif sealed and item.get("recommended") and item.get("recommendation_kind") == "sealed" and not failed_board and tone != "reject":
         action, action_tone = "排队打板", "positive"
-        timing = "可按涨停价小单排队；未成交不追改价，开板成交必须快速回封"
+        timing = "已成为唯一首选且两次采样通过；仅按涨停价小单排队，撤单或炸板即撤销资格，不保证成交"
         reference_text = f"涨停价¥{limit_price:.2f}" if limit_price else "涨停价待确认"
-        conditions = ["封单保持稳定", "开板后短时间内重新封住", "板块强度没有同步转弱"]
+        conditions = ["封单保持稳定", "开板即取消资格，回封后重新采样", "板块强度没有同步转弱"]
     elif sealed:
         action, action_tone = "观望（已封板）", "neutral"
-        timing = "当前不追价；只有策略明确允许的一字板才排队，普通封板等下一次机会"
+        timing = "一次触板不等于确认；等待两次间隔20秒的盘口和资金采样通过并进入前五"
         reference_text = f"现价/涨停价¥{price:.2f}" if price else "已封板"
     elif failed_board:
         action, action_tone = "等待回封", "neutral"
@@ -141,19 +145,14 @@ def live_entry_plan(item: dict) -> dict:
         action, action_tone = "放弃", "negative"
         timing = "当前实时价格、承接或资金已破坏竞价逻辑，今天不再追入"
         reference_text = "不设置买点"
-    elif tone == "confirm" and item.get("rebound_confirmed") and change < 8.5:
-        action, action_tone = "小仓买入", "positive"
-        timing = "深回踩后已收复昨收与竞价价；等回踩不再创新低时小仓，不在直线拉升段追"
-        reference_text = f"竞价支撑¥{auction_price:.2f}附近确认不破" if auction_price else f"现价¥{price:.2f}附近只等回踩确认"
-        conditions = ["价格保持在昨收与竞价价上方", "盘口卖压不占优", "从日内低点修复后不再创新低"]
-    elif tone == "confirm" and change < 8.5:
-        action, action_tone = "确认后小仓买入", "positive"
-        timing = "连续两轮20秒刷新保持开盘确认，回踩竞价价/开盘价不破时小仓"
-        reference_text = f"竞价支撑¥{auction_price:.2f}，现价¥{price:.2f}" if auction_price else f"现价¥{price:.2f}，等待回踩确认"
-        conditions = ["成交继续放大", "盘口与当日资金不转弱", "不在快速拉升段追高"]
+    elif item.get("recommended") and item.get("recommendation_kind") == "strong_open" and change < 8.5:
+        action, action_tone = "极强开盘小仓观察", "positive"
+        timing = "仅高换手强竞价、资金买盘同步强势且两次采样通过的开盘例外；不追快速拉升，转弱即取消"
+        reference_text = f"现价¥{price:.2f}，竞价支撑¥{auction_price:.2f}"
+        conditions = ["09:30–09:35有效", "盘口失衡≥35%且主力占比≥3%", "当前唯一首选"]
     elif tone == "confirm":
-        action, action_tone = "等待封板打板", "positive"
-        timing = "涨幅已高，不直接扫单；等触及涨停并确认封单后再决定是否排队"
+        action, action_tone = "等待封板打板", "neutral"
+        timing = "开盘转强或回踩修复仅用于观察；等实际封板并进入当前前五，不提前扫单"
         reference_text = f"涨停参考价¥{limit_price:.2f}" if limit_price else "等待涨停价确认"
     else:
         action, action_tone = "观望", "neutral"
