@@ -138,6 +138,7 @@
       if (data.selected_date !== localDate() || data.historical || !Number.isFinite(stamp)
           || Date.now() - stamp > 60000 || stamp > Date.now() + 5000) throw new Error("盘中数据已过期，暂停精选展示");
       lastLiveAt = stamp;
+      window.BoardResearchStatus?.(data.research);
       const toneClass = (tone) => tone === "confirm" ? "positive" : tone === "reject" ? "negative" : "neutral";
       const picks = data.daily_focus.available ? (data.candidates || []).filter((item) => item.primary_pick === true && item.recommended === true && item.code === data.daily_focus.primary_code).slice(0, 1) : [];
       openGuardList.innerHTML = picks.length ? picks.map((item, index) => {
@@ -170,7 +171,7 @@
       if (watches.length) openGuardList.insertAdjacentHTML("beforeend", `<details class="action-box"><summary style="cursor:pointer;color:var(--muted)">其余监控 ${watches.length}只（非推荐，点击展开）</summary>${watches.map((item) => `<p style="font-size:12px;color:var(--muted)">${escapeHtml(item.name)} ${escapeHtml(item.code)} · ${escapeHtml(item.decision)} · ${escapeHtml(item.selection_reason || "未通过精选")}</p>`).join("")}</details>`);
       if (data.errors.length) openGuardList.insertAdjacentHTML("beforeend", `<small class="negative">${data.errors.length}只实时行情读取失败，未据此给出结论。</small>`);
       if (openGuardTime) openGuardTime.textContent = `首选 ${picks.length}/1 · 今日已提示 ${data.daily_focus.issued_count ?? "--"}/5 · 20秒采样 · ${new Date(data.generated_at).toLocaleString("zh-CN", {hour12: false})}`;
-      if (openGuardNote) openGuardNote.textContent = `${data.daily_focus.message} ${data.method} ${data.disclaimer}`;
+      if (openGuardNote) openGuardNote.textContent = `${data.auction_seed?.label || "09:25竞价预选 → 开盘交易确认"}。${data.daily_focus.message} ${data.method} ${data.disclaimer}`;
       if (autoStatus && automatic) autoStatus.textContent = `盘中榜单已刷新 · 封板${data.candidates.filter((item) => item.sealed).length}只 · 炸板${data.candidates.filter((item) => item.failed_board).length}只`;
       window.dispatchEvent(new CustomEvent("board:live-snapshot", { detail: data }));
     } catch (error) {
@@ -288,8 +289,23 @@
       const candidateCard = candidateList.closest("article");
       const candidateTitle = candidateCard?.querySelector("h2");
       const candidateEyebrow = candidateCard?.querySelector(".section-title span");
-      if (candidateTitle) candidateTitle.textContent = "09:25优选观察（最多5只，非买点）";
-      if (candidateEyebrow) candidateEyebrow.textContent = "NEXT-DAY LIMIT-UP CANDIDATES";
+      const flow = data.workflow || {};
+      const preselection = ["cancelable", "indicative"].includes(data.auction_phase);
+      if (candidateTitle) candidateTitle.textContent = flow.title || (preselection
+        ? "09:20–09:25竞价预选（最多5只，待最终复核）" : "09:25竞价预选定稿（最多5只，非买点）");
+      if (candidateEyebrow) candidateEyebrow.textContent = "AUCTION PRESELECTION → OPENING CONFIRMATION";
+      let handoffNote = document.getElementById("boardHandoffNote");
+      if (!handoffNote) {
+        handoffNote = document.createElement("p");
+        handoffNote.id = "boardHandoffNote";
+        handoffNote.style.cssText = "color:var(--amber);font-size:13px;line-height:1.8";
+        candidateList.before(handoffNote);
+      }
+      const focus = data.candidates.find((item) => item.code === flow.observation_focus_code);
+      handoffNote.textContent = `${flow.note || "先看竞价预选，09:25复核；开盘后以真实成交确认唯一首选。"}${focus ? ` 当前优先观察：${focus.name}（不是买入推荐）。` : ""}`;
+      if (data.session_monitor) handoffNote.textContent += data.session_monitor.running
+        ? ` 后台采集已启动，页面关闭不停止采集${data.session_monitor.last_error ? `；本轮异常：${data.session_monitor.last_error}` : ""}。`
+        : " 后台采集未启动；当前仍依赖页面刷新。";
       document.getElementById("actionableCount").textContent = data.auction_phase === "cancelable"
         ? `${data.candidates.length}只09:17预选 · 09:20重排`
         : data.auction_phase === "indicative"
@@ -299,8 +315,8 @@
         <article class="action-box auction-only-card">
           <div style="display:flex;justify-content:space-between;gap:12px">
             <div><strong>${index + 1}. ${candidate.name} <small style="color:var(--muted)">${candidate.code} · ${[candidate.category, candidate.industry].filter(Boolean).join("/") || "未分类"} · ${candidate.strategy_mode || "观察"}</small> <small style="padding:3px 7px;border-radius:10px;background:${["连板优先", "早封连板优先"].includes(candidate.priority_tier) ? "#183126" : "#2b2b21"};color:${["连板优先", "早封连板优先"].includes(candidate.priority_tier) ? "var(--green)" : "var(--amber)"}">${candidate.priority_tier || "观察"}</small> <small style="padding:3px 7px;border-radius:10px;background:#1d2730;color:#8fc7ff">${candidate.board_stage_label || (candidate.consecutive_limit_up_days == null ? "板数未留存" : candidate.consecutive_limit_up_days > 0 ? `${candidate.consecutive_limit_up_days}进${candidate.consecutive_limit_up_days + 1} · 目标${candidate.consecutive_limit_up_days + 1}连板` : "首板候选")}</small></strong>
-              <p style="color:var(--muted);font-size:12px;line-height:1.8">昨日收盘 ${fixed(candidate.previous_close)} · 竞价价 ${fixed(candidate.auction_price)} · 高开 ${signed(candidate.auction_gap_percent)}% · 竞价额 ${amount(candidate.auction_amount)}</p>
-              <p style="color:#bfd0ca;font-size:12px;line-height:1.8">竞价量/近5日均量 ${fixed(candidate.auction_volume_percent)}% · 竞价换手 ${fixed(candidate.auction_turnover_percent)}% · MA5偏离 ${signed(candidate.price_vs_ma5_percent)}% · 近3/5/10日 ${signed(candidate.three_day_change_percent)}% / ${signed(candidate.five_day_change_percent)}% / ${signed(candidate.ten_day_change_percent)}%</p>
+              <p style="color:var(--muted);font-size:12px;line-height:1.8">昨日收盘 ${fixed(candidate.previous_close)} · ${preselection ? "参考价" : "竞价价"} ${fixed(candidate.auction_price)} · 高开 ${signed(candidate.auction_gap_percent)}% · ${preselection ? "参考量额（待最终核验）" : "竞价额"} ${amount(candidate.auction_amount)}</p>
+              <p style="color:#bfd0ca;font-size:12px;line-height:1.8">${preselection ? "参考量" : "竞价量"}/近5日均量 ${fixed(candidate.auction_volume_percent)}% · ${preselection ? "参考换手" : "竞价换手"} ${fixed(candidate.auction_turnover_percent)}% · MA5偏离 ${signed(candidate.price_vs_ma5_percent)}% · 近3/5/10日 ${signed(candidate.three_day_change_percent)}% / ${signed(candidate.five_day_change_percent)}% / ${signed(candidate.ten_day_change_percent)}%</p>
               ${candidate.nuclear_button_matched ? `<p style="color:var(--amber);font-size:12px;line-height:1.8">反核按钮：昨日成交额 ${amount(candidate.previous_amount)} · 昨日/前日成交量 ${fixed((candidate.previous_volume || 0) / 10000)}万/${fixed((candidate.prior_volume || 0) / 10000)}万 · 缩量比 ${fixed((candidate.previous_volume_contraction_ratio || 0) * 100, 1)}% · 仅限09:25最终竞价命中，市场冰点与题材辨识度需人工确认</p>` : ""}
               <p style="color:#bfd0ca;font-size:12px;line-height:1.8">连续涨停 ${candidate.consecutive_limit_up_days ?? 0}天 · 昨日首次/最终封板 ${clock(candidate.previous_first_seal_time)}/${clock(candidate.previous_final_seal_time)} · 近5/10日涨停 ${candidate.recent_5_limit_up_count ?? "--"}/${candidate.recent_10_limit_up_count ?? "--"}次 · 流通市值 ${candidate.float_market_cap ? amount(candidate.float_market_cap) : "--"} · 上市历史 ${candidate.listed_sessions ?? "--"}日</p>
               <p style="color:#bfd0ca;font-size:12px;line-height:1.8">前序主力 ${candidate.decision_main_ratio == null ? "暂不可用" : `${signed(candidate.decision_main_ratio)}% / ${amount(candidate.decision_main_net)}`} ${candidate.fund_data_date ? `（${candidate.fund_data_date}）` : ""} · 前日收盘位置 ${fixed(candidate.previous_close_position_percent, 1)}%</p>
@@ -321,7 +337,7 @@
           }).join("")}</div>
         </article>`).join("") : `<div class="state auction-only-card">${data.auction_phase === "preauction" ? "09:17可撤单预选窗口尚未开始。" : data.auction_phase === "cancelable" ? "09:17暂时没有达到门槛的预选，09:20将按不可撤单数据重新筛选。" : data.auction_phase === "indicative" ? "09:20暂时没有达到门槛的观察候选，09:25继续复核。" : "今日没有达到门槛的09:25最终竞价候选，保持空仓。"}</div>`;
       window.StockCardDetails.enhance(candidateList, data.candidates, (item) => ({ date: data.selected_date, scope: "auction",
-        metrics: `竞价 ${fixed(item.auction_price)} · 高开 ${signed(item.auction_gap_percent)}% · 竞价额 ${amount(item.auction_amount)}`,
+        metrics: `${preselection ? "参考价" : "竞价"} ${fixed(item.auction_price)} · 高开 ${signed(item.auction_gap_percent)}% · ${preselection ? "参考量额" : "竞价额"} ${amount(item.auction_amount)}`,
         decision: item.action || item.candidate_scope_label || "竞价观察 · 非买点",
         tone: item.actionable || item.board_entry_allowed ? "positive" : "neutral" }));
       const riskExclusions = data.risk_exclusions || [];

@@ -9,16 +9,19 @@ from src.stock_evaluator.board_selection import intraday_selection_window, selec
 from src.stock_evaluator import open_guard
 from src.stock_evaluator.board_plan import auction_observation_view
 from src.stock_evaluator.board_focus import DailyFocusStore
+from src.stock_evaluator.board_research import BoardResearchStore
 
 
 def candidate(code="600001", **changes):
     return {
         "code": code, "name": "测试股票", "listed_sessions": 100,
+        "quote_time": "2026-08-31T09:32:00+08:00", "quote_source": "test", "book_available": True,
+        "bid1_price": 11, "bid1_volume": 10000,
         "float_market_cap": 5_000_000_000, "corporate_event_checked": True,
         "regulatory_risk": {"level": "normal"}, "open_score": 95,
         "continuation_score": 80, "amount": 100_000_000, "bid_volume5": 10000,
         "ask_volume5": 0, "order_imbalance": 1,
-        "funds": {"available": True, "main_ratio": 5}, "tone": "confirm",
+        "funds": {"available": True, "main_ratio": 5, "date": "2026-08-31"}, "tone": "confirm",
         "sealed": True, "price": 11, "limit_up_price": 11,
         "change_percent": 10, "auction_gap_percent": 6,
         "price_vs_open_percent": 1, "price_vs_auction_percent": 1,
@@ -33,6 +36,8 @@ class BoardSelectionTests(unittest.TestCase):
         self.observations = {}
 
     def select(self, rows, seconds=0, market="可观察"):
+        for row in rows:
+            row["quote_time"] = (self.now + timedelta(seconds=seconds)).isoformat()
         return select_live_recommendations(rows, self.now + timedelta(seconds=seconds), market, self.observations)
 
     def test_sealed_requires_two_spaced_samples(self):
@@ -158,9 +163,14 @@ class OpenGuardSelectionIntegrationTests(unittest.TestCase):
         store_patch = patch.object(open_guard, "DAILY_FOCUS_STORE", DailyFocusStore(Path(temporary.name) / "focus.json"))
         store_patch.start()
         self.addCleanup(store_patch.stop)
+        research_patch = patch.object(open_guard, "BOARD_RESEARCH_STORE", BoardResearchStore(Path(temporary.name) / "research"))
+        research_patch.start()
+        self.addCleanup(research_patch.stop)
         self.now = datetime(2026, 8, 31, 10, 10)
         self.snapshot = {"selected_date": "2026-08-31", "market": {"state": "可观察"},
                          "candidates": [candidate()], "watch_candidates": [candidate("600002")]}
+        for row in self.snapshot["candidates"] + self.snapshot["watch_candidates"]:
+            row["quote_time"] = self.now.isoformat()
 
     def test_missing_or_nonfinite_fund_ratio_is_not_zero_inflow(self):
         result = {
@@ -184,6 +194,8 @@ class OpenGuardSelectionIntegrationTests(unittest.TestCase):
             self.assertEqual(first["candidates"], [])
             self.assertEqual(len(first["watch_candidates"]), 2)
             self.assertNotIn("小仓试错", first["watch_candidates"][0]["entry_advice"])
+            for row in self.snapshot["candidates"] + self.snapshot["watch_candidates"]:
+                row["quote_time"] = (self.now + timedelta(seconds=20)).isoformat()
             second = open_guard.build_open_guard(self.snapshot, discover_live=False, now=self.now + timedelta(seconds=20))
             self.assertEqual(len(second["candidates"]), 1)
             self.assertTrue(second["candidates"][0]["primary_pick"])

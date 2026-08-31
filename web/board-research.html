@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>采样与静默验证 · 量价罗盘</title>
+  <link rel="stylesheet" href="/board-research.css?v=20260831-1">
+  <script defer src="/board-research.js?v=20260831-1"></script>
+</head>
+<body>
+  <main>
+    <header><p class="eyebrow">RESEARCH LOG / READ ONLY</p><h1>采样与静默验证</h1><p>实验记录，不是买入推荐。不弹窗、不占正式提示名额、不代表成交。</p><a href="/">返回策略页</a></header>
+    <aside>本页只读取留痕，不请求行情或启动扫描。采样随原策略页的盘中刷新运行，关闭原页面后停止；升级前的数据不补造。</aside>
+    <form id="researchForm">
+      <label>交易日期<input id="researchDate" type="date" required></label>
+      <label>股票代码（可选）<input id="researchCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="全部已采样股票"></label>
+      <button type="submit">查询记录</button>
+    </form>
+    <p id="researchStatus" role="status" aria-live="polite"></p>
+    <section id="researchSummary" class="metrics" aria-label="当日采样概览"></section>
+    <details class="rules"><summary>查看实验条件与数据边界</summary><p id="researchRule"></p><p id="researchNote"></p><p>资金“获取时间”不是数据源更新时间；源时间未提供时显示未知。封单金额是买一价×买一量（手）×100，不用五档合计冒充封单。日内对照与次日收益回测尚未生成。</p></details>
+    <section id="researchStocks" aria-label="逐股静默记录"></section>
+  </main>
+</body>
+</html>

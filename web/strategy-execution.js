@@ -251,6 +251,7 @@
           const liveResponse = await fetch("/api/board-open-guard");
           const liveData = await liveResponse.json();
           if (liveResponse.ok && liveData.daily_focus) {
+            window.BoardResearchStatus?.(liveData.research);
             intraday = liveData;
             window.dispatchEvent(new CustomEvent("board:live-snapshot", { detail: liveData }));
           } else throw new Error(liveData.error || "唯一首选数据未就绪，请重启服务加载新策略。");

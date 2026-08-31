@@ -77,7 +77,9 @@ class DailyFocusApiTests(unittest.TestCase):
             return {"candidates": [{"code": "600001", "recommended": True}]}
 
         with patch("src.stock_evaluator.server.datetime") as clock, \
-             patch("src.stock_evaluator.server._best_saved_board_snapshot", return_value={"selected_date": date.today().isoformat()}), \
+             patch("src.stock_evaluator.server.load_board_plan_snapshot", return_value={
+                 "selected_date": date.today().isoformat(), "auction_phase": "final", "snapshot_kind": "actual_final",
+                 "generated_at": self.now.replace(hour=9, minute=25).isoformat()}), \
              patch("src.stock_evaluator.server.build_open_guard", side_effect=scan):
             clock.now.return_value = self.now
             status, result = handler.do_GET()

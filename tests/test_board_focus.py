@@ -15,7 +15,9 @@ def qualified(code="600001", **changes):
     row = candidate(code, **changes)
     now = datetime(2026, 8, 31, 10)
     observations = {}
+    row["quote_time"] = now.isoformat()
     select_live_recommendations([row], now, "可观察", observations)
+    row["quote_time"] = (now + timedelta(seconds=20)).isoformat()
     select_live_recommendations([row], now + timedelta(seconds=20), "可观察", observations)
     return row
 

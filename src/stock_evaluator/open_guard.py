@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import copy
 from datetime import date, datetime
 from math import isfinite
 from threading import RLock
 
 from .auction import _auction_candidate, _live_history, _theme_bucket
 from .board_selection import MAX_BOARD_PICKS, intraday_selection_window, select_live_recommendations
+from .board_plan import _market_gate
 from .board_focus import DAILY_FOCUS_STORE, DailyFocusError
+from .board_research import BOARD_RESEARCH_STORE
+from .quote_sampling import china_time, quote_time_text, quote_freshness
 from .corporate_events import attach_corporate_event_risks
 from .evaluator import evaluate
 from .funds import individual_fund_flow
@@ -19,6 +23,22 @@ from .universe import main_board_snapshots, previous_limit_up_pool
 _OPENING_DISCOVERY_CACHE: dict[str, list[dict]] = {}
 _SELECTION_OBSERVATIONS: dict[str, dict] = {}
 _SELECTION_LOCK = RLock()
+
+
+def _opening_market_context(snapshots: list[dict], now: datetime, auction_count: int, fallback: dict) -> dict:
+    """开盘市场开关使用同一轮新行情，不能把09:25空候选永久当成全日空仓。"""
+    fresh = [row for row in snapshots if not quote_freshness({"quote_time": row.get("f124")}, now)[1]
+             and _number(row.get("f2")) > 0]
+    if len(fresh) < 500:
+        return {**fallback, "intraday_refreshed": False}
+    changes = [_number(row.get("f3")) for row in fresh]
+    advance = sum(value > 0 for value in changes) / len(changes)
+    up, down = sum(value >= 9.5 for value in changes), sum(value <= -9.5 for value in changes)
+    average = sum(changes) / len(changes)
+    return {**_market_gate(advance, up, down, average, auction_count), "intraday_refreshed": True,
+            "source": "本轮开盘/盘中主板行情", "sample_size": len(fresh), "advance_ratio": round(advance, 4),
+            "limit_up": up, "limit_down": down, "average_change": round(average, 2),
+            "generated_at": now.isoformat(timespec="seconds")}
 
 
 def _number(value: object, default: float = 0.0) -> float:
@@ -47,6 +67,7 @@ def _quote_from_snapshot(snapshot: dict) -> Quote:
         open_price=_number(snapshot.get("f17")),
         high_price=_number(snapshot.get("f15")),
         low_price=_number(snapshot.get("f16")),
+        quote_time=quote_time_text(snapshot.get("f124")), quote_source="eastmoney_batch",
     )
 
 
@@ -246,7 +267,7 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
     live_entry_allowed = bool(candidate.get("live_entry_allowed")) and not event_high
     entry_authorized = board_entry_allowed or live_entry_allowed
     nuclear_mode = candidate.get("strategy_mode") == "反核按钮竞价抄底"
-    fund_current = bool(funds and funds.get("is_today") and str(funds.get("date")) == date.today().isoformat())
+    fund_current = bool(funds and funds.get("is_today") and str(funds.get("date"))[:10] == date.today().isoformat())
     main_ratio = _number(funds.get("main_ratio"), float("nan")) if fund_current and funds else None
     if main_ratio is not None and not isfinite(main_ratio):
         main_ratio = None
@@ -399,7 +420,15 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
     )
     payload = {
         "code": candidate.get("code"), "name": candidate.get("name"),
+        "quote_time": quote.get("quote_time"), "quote_provider": quote.get("quote_source"),
+        "bid1_price": quote.get("bid1_price"), "bid1_volume": quote.get("bid1_volume"),
+        "book_available": quote.get("book_available", False),
         "priority_tier": candidate.get("priority_tier"),
+        "consecutive_limit_up_days": candidate.get("consecutive_limit_up_days"),
+        "early_final_seal_chain_matched": candidate.get("early_final_seal_chain_matched"),
+        "previous_day_limit_up": candidate.get("previous_day_limit_up"),
+        "previous_final_seal_time": candidate.get("previous_final_seal_time"),
+        "auction_volume_percent": candidate.get("auction_volume_percent"),
         "listed_sessions": candidate.get("listed_sessions"),
         "float_market_cap": candidate.get("float_market_cap"),
         "risk_veto": candidate.get("risk_veto", False),
@@ -446,6 +475,9 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
             "available": main_ratio is not None, "main_ratio": main_ratio,
             "main_net": _number(funds.get("main_net")) if funds else None,
             "date": funds.get("date") if funds else None,
+            "source": funds.get("source") if funds else None,
+            "retrieved_at": funds.get("updated_at") if funds else None,
+            "source_time": funds.get("source_time") if funds else None,
             "label": "当日资金" if main_ratio is not None else "资金待确认",
         },
     }
@@ -478,7 +510,8 @@ def build_open_guard(
     now: datetime | None = None,
 ) -> dict:
     provider = provider or EastmoneyProvider(timeout=8)
-    now = now or datetime.now().astimezone()
+    injected_clock = now is not None
+    now = china_time(now or datetime.now().astimezone())
     discovery_key = now.date().isoformat()
     current_day_snapshot = snapshot.get("selected_date") == discovery_key and not snapshot.get("historical")
     opening_window = _opening_discovery_window(now)
@@ -578,13 +611,21 @@ def build_open_guard(
     for index, item in enumerate(rows, start=1):
         item["live_rank"] = index
         item["rank_change"] = item.get("auction_rank", index) - index
+    # 使用整轮数据收集结束的时间检验新鲜度，不能把请求开始时间当行情时间。
+    if not injected_clock:
+        now = china_time(datetime.now().astimezone())
+    market_context = _opening_market_context(live_snapshots, now, len(candidates), snapshot.get("market") or {})
+    decision_snapshot = {**snapshot, "market": market_context}
+    research_rows = copy.deepcopy(rows)
+    for error in errors:
+        research_rows.append({"code": error.get("code"), "name": error.get("name"), "quote_error": error.get("error")})
     with _SELECTION_LOCK:
         selection_key = f"{discovery_key}:{discover_live}"
         for old_key in list(_SELECTION_OBSERVATIONS):
             if not old_key.startswith(discovery_key + ":"):
                 _SELECTION_OBSERVATIONS.pop(old_key, None)
         recommendations = select_live_recommendations(
-            rows, now, (snapshot.get("market") or {}).get("state", "未知")
+            rows, now, market_context.get("state", "未知")
             if snapshot.get("selected_date") == discovery_key and not snapshot.get("historical") else "未知",
             _SELECTION_OBSERVATIONS.setdefault(selection_key, {}),
         )
@@ -604,6 +645,7 @@ def build_open_guard(
                 item["selection_reason"] = str(exc)
                 if item.get("tone") != "reject":
                     item.update(tone="watch", decision="每日提示记录待恢复 · 暂停首选")
+        research = BOARD_RESEARCH_STORE.record(research_rows, now, snapshot=decision_snapshot, baseline_rows=rows)
     for item in rows:
         item["entry_plan"] = live_entry_plan(item)
         item["entry_advice"] = f"未持有：{item['entry_plan']['timing']}"
@@ -619,6 +661,7 @@ def build_open_guard(
         "selected_date": snapshot.get("selected_date"),
         "historical": bool(snapshot.get("historical") or snapshot.get("selected_date") != discovery_key),
         "snapshot_label": snapshot.get("snapshot_label"),
+        "market": market_context,
         "scope": "full_market" if discover_live else "frozen_candidates",
         "generated_at": now.astimezone().isoformat(timespec="seconds"),
         "opening_discovery_status": (
@@ -628,6 +671,7 @@ def build_open_guard(
         ),
         "candidates": recommendations, "errors": errors,
         "daily_focus": daily_focus,
+        "research": research,
         "watch_candidates": [item for item in rows if not item.get("recommended")],
         "monitored_count": len(rows), "recommendation_limit": MAX_BOARD_PICKS,
         "confirmed_count": len(recommendations),

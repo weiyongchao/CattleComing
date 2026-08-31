@@ -8,6 +8,8 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from .quote_sampling import quote_time_text
+
 
 class MarketDataError(RuntimeError):
     """行情服务不可用或返回了无法识别的数据。"""
@@ -32,6 +34,11 @@ class Quote:
     spread: float = 0.0
     bid_wall_price: float = 0.0
     ask_wall_price: float = 0.0
+    quote_time: str | None = None
+    quote_source: str | None = None
+    bid1_price: float = 0.0
+    bid1_volume: int = 0
+    book_available: bool = False
 
 
 @dataclass(frozen=True)
@@ -85,7 +92,7 @@ class EastmoneyProvider:
 
     def quote(self, code: str) -> Quote:
         secid = secid_for(code)
-        fields = "f11,f12,f13,f14,f15,f16,f17,f18,f19,f20,f31,f32,f33,f34,f35,f36,f37,f38,f39,f40,f57,f58,f43,f44,f45,f46,f47,f48,f60,f168,f170"
+        fields = "f11,f12,f13,f14,f15,f16,f17,f18,f19,f20,f31,f32,f33,f34,f35,f36,f37,f38,f39,f40,f57,f58,f43,f44,f45,f46,f47,f48,f60,f86,f168,f170"
         try:
             data = self._get(
                 f"{self.quote_url}?ut=fa5fd1943c7b386f172d6893dbfba10b"
@@ -103,6 +110,8 @@ class EastmoneyProvider:
                 open_price=float(data.get("f46") or 0),
                 high_price=float(data.get("f44") or 0),
                 low_price=float(data.get("f45") or 0),
+                quote_time=quote_time_text(data.get("f86")), quote_source="eastmoney",
+                book_available=all(data.get(f"f{i}") not in (None, "", "-") for i in (*range(11, 21), *range(31, 41))),
                 **book,
             )
         except (MarketDataError, KeyError, TypeError, ValueError):
@@ -119,6 +128,7 @@ class EastmoneyProvider:
             "spread": round(best_ask - best_bid, 4) if best_ask and best_bid else 0.0,
             "bid_wall_price": max(bids, key=lambda x: x[1])[0] if bids else 0.0,
             "ask_wall_price": max(asks, key=lambda x: x[1])[0] if asks else 0.0,
+            "bid1_price": best_bid, "bid1_volume": bids[0][1] if bids else 0,
         }
 
     @staticmethod
@@ -136,6 +146,8 @@ class EastmoneyProvider:
                 turnover_rate=float(values[38] or 0),
                 open_price=float(values[5] or 0), high_price=float(values[33] or 0),
                 low_price=float(values[34] or 0),
+                quote_time=quote_time_text(values[30]), quote_source="tencent",
+                book_available=all(value not in ("", "-") for value in values[9:29]),
                 **book,
             )
         except (IndexError, TypeError, ValueError) as exc:

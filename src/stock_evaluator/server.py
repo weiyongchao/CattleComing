@@ -25,6 +25,9 @@ from .history import (
 )
 from .open_guard import build_open_guard
 from .board_focus import DAILY_FOCUS_STORE, DailyFocusError
+from .board_research import BOARD_RESEARCH_STORE, ResearchError
+from .quote_sampling import china_time
+from .board_session import BoardSessionRunner, session_phase, timely_final
 from .next_day import build_next_day_strategy
 from .outlook import infer_next_day_outlook
 from .premarket import build_premarket_watchlist
@@ -93,8 +96,11 @@ class AppHandler(SimpleHTTPRequestHandler):
     evaluation_cache: dict[str, tuple[float, object, list, dict]] = {}
     fund_flow_cache: dict[str, tuple[float, dict]] = {}
     board_plan_scan_lock = threading.Lock()
+    board_session_auction_lock = threading.Lock()
+    board_open_scan_lock = threading.Lock()
     board_focus_lock = threading.Lock()
     board_focus_revision = 0
+    session_runner: BoardSessionRunner | None = None
 
     @classmethod
     def _cached_fund_flow(cls, code: str, cache_seconds: int = 20) -> dict:
@@ -115,6 +121,7 @@ class AppHandler(SimpleHTTPRequestHandler):
         cached = cls.board_plan_cache
         if (
             not force and cached and requested_at - cached[0] < cache_seconds
+            and cached[1].get("selected_date") == date.today().isoformat()
             and cached[1].get("auction_phase") == expected_phase
         ):
             payload = json.loads(json.dumps(cached[1], ensure_ascii=False))
@@ -125,7 +132,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             cached = cls.board_plan_cache
             now_value = time.time()
             cache_reusable = (
-                cached and cached[1].get("auction_phase") == expected_phase and (
+                cached and cached[1].get("selected_date") == date.today().isoformat()
+                and cached[1].get("auction_phase") == expected_phase and (
                     (not force and now_value - cached[0] < cache_seconds)
                     or (force and cached[0] >= requested_at)
                 )
@@ -136,7 +144,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     "singleflight_shared" if waited_for_scan else "memory_hit"
                 )
                 return payload
-            fallback = cached[1] if cached and cached[1].get("candidates") else None
+            fallback = cached[1] if cached and cached[1].get("candidates") and cached[1].get("selected_date") == date.today().isoformat() else None
             started = time.time()
             try:
                 payload = build_board_plan(capital=100_000)
@@ -158,6 +166,87 @@ class AppHandler(SimpleHTTPRequestHandler):
             cls.board_plan_cache = (time.time(), payload)
             return json.loads(json.dumps(payload, ensure_ascii=False))
 
+    @classmethod
+    def _session_board_plan(cls, *, replay: bool = False) -> dict:
+        """后台与页面共用：只在真实竞价窗口冻结，盘后回放不能顶替原始名单。"""
+        with cls.board_session_auction_lock:
+            now = datetime.now()
+            day_key = now.date().isoformat()
+            frozen = load_board_plan_snapshot(day_key, "final")
+            if not replay and timely_final(frozen, now):
+                result = dict(frozen)
+                if result.get("strategy_version") != BOARD_STRATEGY_VERSION:
+                    result.update(strategy_update_pending=True, next_strategy_version=BOARD_STRATEGY_VERSION)
+                return result
+            payload = cls._build_board_plan_singleflight(cache_seconds=15)
+            payload.update(snapshot_kind="strategy_replay" if replay else "live_calculation",
+                           snapshot_label="最新版策略回放" if replay else "当日实时计算", frozen=False)
+            if payload.get("stale_fallback"):
+                return payload
+            finished = datetime.now()
+            phase = payload.get("auction_phase")
+            # 扫描可能跨过09:25或09:30：按返回数据的阶段和完成时点落盘，不能按请求开始时刻冻结。
+            if replay:
+                save_board_plan_snapshot(payload, "replay")
+            elif phase == "indicative":
+                record_payload_sample(payload, "indicative")
+                save_board_plan_snapshot(payload, "indicative")
+            elif phase == "final" and timely_final(payload, finished):
+                record_payload_sample(payload, "final")
+                payload = attach_trajectory(payload)
+                failed = int((payload.get("screening") or {}).get("failed") or 0)
+                if (payload.get("candidates") or failed == 0) and not payload.get("data_degraded"):
+                    save_board_plan_snapshot(payload, "final", replace=False)
+                    saved = load_board_plan_snapshot(day_key, "final")
+                    if timely_final(saved, finished):
+                        payload = saved
+                else:
+                    payload["data_degraded"] = True
+            elif phase == "final":
+                payload.update(snapshot_kind="live_opening_observation", frozen=False,
+                               snapshot_label="开盘后新增观察 · 非09:25原始预选",
+                               discovered_at=payload.get("generated_at"))
+                for item in (payload.get("candidates") or []) + (payload.get("watch_candidates") or []):
+                    item.update(discovery_source="开盘后新增观察", discovered_at=payload.get("generated_at"))
+            cls.board_plan_cache = (time.time(), payload)
+            if not replay and phase in {"indicative", "final"} and payload.get("snapshot_kind") != "live_opening_observation":
+                _record_safely("board", payload)
+            return json.loads(json.dumps(payload, ensure_ascii=False))
+
+    @classmethod
+    def _session_open_guard(cls, *, frozen_only: bool = False) -> dict:
+        """开盘确认优先承接实际09:25名单；回放文件永远不作为盘前种子。"""
+        now = datetime.now()
+        if (now.hour, now.minute) < (9, 30):
+            raise ValueError("09:30开盘后才生成真实行情确认")
+        scope = "frozen_candidates" if frozen_only else "full_market"
+        with cls.board_open_scan_lock:
+            with cls.board_focus_lock:
+                revision = cls.board_focus_revision
+                cached = cls.board_open_cache
+                if (cached and time.time() - cached[0] < 10 and cached[1].get("scope") == scope
+                        and cached[1].get("selected_date") == now.date().isoformat()):
+                    return json.loads(json.dumps(cached[1], ensure_ascii=False))
+            frozen = load_board_plan_snapshot(now.date().isoformat(), "final")
+            snapshot = frozen if timely_final(frozen, now) else None
+            if snapshot is None:
+                if frozen_only:
+                    raise ValueError("今日缺少开盘前留存的最终竞价名单；不能用回放冒充")
+                snapshot = cls._session_board_plan()
+                if snapshot.get("auction_phase") != "final" or snapshot.get("stale_fallback") or snapshot.get("data_degraded"):
+                    raise ValueError("最终竞价数据尚未核验，等待下一轮")
+            payload = build_open_guard(snapshot, cls.provider, discover_live=not frozen_only)
+            payload["auction_seed"] = {
+                "kind": snapshot.get("snapshot_kind"), "generated_at": snapshot.get("generated_at"),
+                "actual_preopen": timely_final(snapshot, now),
+                "label": "09:25竞价预选 → 开盘确认" if timely_final(snapshot, now) else "开盘后发现 → 实时确认（无盘前留痕）",
+            }
+            with cls.board_focus_lock:
+                if revision != cls.board_focus_revision:
+                    raise ValueError("首选锁定状态已改变，请刷新；旧买点已作废")
+                cls.board_open_cache = (time.time(), payload)
+                return json.loads(json.dumps(payload, ensure_ascii=False))
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
 
@@ -166,6 +255,8 @@ class AppHandler(SimpleHTTPRequestHandler):
                 and payload.get("selected_date") == date.today().isoformat()):
             # 包含行情失败时旧快照降级路径，避免旧版买点重新出现在当前榜单。
             payload = auction_observation_view(payload)
+            runner = type(self).session_runner
+            payload["session_monitor"] = runner.status() if runner else {"running": False, "last_error": None}
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -181,6 +272,23 @@ class AppHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
+        if parsed.path == "/api/board-session":
+            runner = type(self).session_runner
+            status = runner.status() if runner else {"running": False, "note": "当前服务未启动后台采集"}
+            return self._json(200, {**status, "current_phase": session_phase(datetime.now()),
+                                    "strategy_version": BOARD_STRATEGY_VERSION})
+        if parsed.path == "/api/board-research":
+            params = parse_qs(parsed.query)
+            try:
+                day = params.get("date", [china_time(datetime.now().astimezone()).date().isoformat()])[0]
+                code = params.get("code", [None])[0]
+                limit = int(params.get("limit", ["100"])[0])
+                before = int(params["before"][0]) if "before" in params else None
+                return self._json(200, BOARD_RESEARCH_STORE.query(day, code=code, limit=limit, before=before))
+            except ValueError as exc:
+                return self._json(400, {"error": str(exc)})
+            except ResearchError as exc:
+                return self._json(503, {"error": str(exc)})
         if parsed.path == "/api/trading-dates":
             cached_dates = type(self).trading_dates_cache
             if cached_dates and time.time() - cached_dates[0] < 300:
@@ -365,114 +473,12 @@ class AppHandler(SimpleHTTPRequestHandler):
                     except OSError:
                         pass
                     return self._json(200, payload)
-            now = datetime.now()
-            current_phase = _auction_phase(now)
-            # 09:25后的首次最终结果立即冻结；之后只更新开盘确认，不再改变候选名单。
-            if not replay and current_phase == "final":
-                frozen = load_board_plan_snapshot(date.today().isoformat(), "final")
-                recovered = _best_saved_board_snapshot(date.today().isoformat())
-                if recovered and recovered.get("candidates") and _is_actual_final_snapshot(recovered):
-                    displayed = recovered
-                    if displayed.get("strategy_version") != BOARD_STRATEGY_VERSION:
-                        cached = type(self).board_plan_cache
-                        if (
-                            cached and time.time() - cached[0] < 60
-                            and cached[1].get("snapshot_kind") == "latest_strategy_recheck"
-                            and cached[1].get("strategy_version") == BOARD_STRATEGY_VERSION
-                        ):
-                            return self._json(200, cached[1])
-                        try:
-                            payload = type(self)._build_board_plan_singleflight(force=True, cache_seconds=60)
-                        except (MarketDataError, ValueError) as exc:
-                            displayed = dict(displayed)
-                            displayed.update({
-                                "snapshot_label": "当日09:25原始冻结名单 · 最新策略复核失败",
-                                "strategy_update_pending": True,
-                                "next_strategy_version": BOARD_STRATEGY_VERSION,
-                            })
-                            displayed.setdefault("screening", {})["replay_warning"] = f"保留原始名单；新版复核失败：{exc}"
-                            return self._json(200, displayed)
-                        payload.update({
-                            "snapshot_kind": "latest_strategy_recheck",
-                            "snapshot_label": "09:25原始留痕保留 · 最新策略复核榜单",
-                            "frozen": False,
-                            "original_snapshot_generated_at": recovered.get("generated_at"),
-                            "original_strategy_version": recovered.get("strategy_version"),
-                        })
-                        type(self).board_plan_cache = (time.time(), payload)
-                        if payload.get("candidates"):
-                            try:
-                                save_board_plan_snapshot(payload, "replay")
-                            except OSError:
-                                pass
-                        return self._json(200, payload)
-                    return self._json(200, displayed)
-                if frozen:
-                    cached = type(self).board_plan_cache
-                    if (
-                        cached and time.time() - cached[0] < 60
-                        and cached[1].get("snapshot_kind") == "latest_strategy_recheck"
-                    ):
-                        return self._json(200, cached[1])
-                    try:
-                        payload = type(self)._build_board_plan_singleflight(force=True, cache_seconds=60)
-                    except (MarketDataError, ValueError) as exc:
-                        degraded = dict(frozen)
-                        degraded["data_degraded"] = True
-                        degraded.setdefault("screening", {})["replay_warning"] = (
-                            f"09:25原始空榜存在行情失败，暂不视为有效空仓结论；补算失败：{exc}"
-                        )
-                        type(self).board_plan_cache = (time.time(), degraded)
-                        return self._json(200, degraded)
-                    payload.update({
-                        "snapshot_kind": "latest_strategy_recheck",
-                        "snapshot_label": "09:25空快照 · 行情恢复后复核",
-                        "frozen": False,
-                        "original_snapshot_generated_at": frozen.get("generated_at"),
-                    })
-                    failed = int((payload.get("screening") or {}).get("failed") or 0)
-                    if not payload.get("candidates") and failed:
-                        payload["data_degraded"] = True
-                        payload.setdefault("screening", {})["replay_warning"] = (
-                            f"本轮仍有{failed}只历史行情读取失败，空榜不作为最终空仓结论，60秒后可继续重试。"
-                        )
-                    type(self).board_plan_cache = (time.time(), payload)
-                    if payload.get("candidates"):
-                        try:
-                            save_board_plan_snapshot(payload, "replay")
-                        except OSError:
-                            pass
-                    return self._json(200, payload)
-            payload = type(self)._build_board_plan_singleflight(cache_seconds=15)
-            payload.update({
-                "snapshot_kind": "live_calculation" if not replay else "strategy_replay",
-                "snapshot_label": "当日实时计算" if not replay else "最新版策略回放",
-                "frozen": False,
-            })
-            type(self).board_plan_cache = (time.time(), payload)
-            _record_safely("board", payload)
             try:
-                if replay:
-                    save_board_plan_snapshot(payload, "replay")
-                elif current_phase == "indicative":
-                    record_payload_sample(payload, "indicative")
-                    save_board_plan_snapshot(payload, "indicative")
-                elif current_phase == "final":
-                    record_payload_sample(payload, "final")
-                    payload = attach_trajectory(payload)
-                    failed = int((payload.get("screening") or {}).get("failed") or 0)
-                    if payload.get("candidates") or failed == 0:
-                        save_board_plan_snapshot(payload, "final", replace=False)
-                        payload = load_board_plan_snapshot(date.today().isoformat(), "final") or payload
-                        type(self).board_plan_cache = (time.time(), payload)
-                    else:
-                        payload["data_degraded"] = True
-                        payload.setdefault("screening", {})["replay_warning"] = (
-                            f"本轮有{failed}只历史行情读取失败且候选为空，未冻结空榜；下一轮继续使用内存K线缓存补扫。"
-                        )
-            except OSError:
-                pass
-            return self._json(200, payload)
+                return self._json(200, type(self)._session_board_plan(replay=replay))
+            except (MarketDataError, ValueError) as exc:
+                return self._json(502, {"error": str(exc)})
+            except OSError as exc:
+                return self._json(503, {"error": f"竞价快照保存失败：{exc}"})
         if parsed.path == "/api/auction-trajectory":
             now = datetime.now()
             if not ((now.hour, now.minute) >= (9, 20) and (now.hour, now.minute) < (9, 25)):
@@ -485,35 +491,15 @@ class AppHandler(SimpleHTTPRequestHandler):
             except MarketDataError as exc:
                 return self._json(502, {"error": str(exc)})
         if parsed.path == "/api/board-open-guard":
-            now = datetime.now()
             frozen_only = (parse_qs(parsed.query).get("scope") or [""])[0] == "frozen"
-            guard_scope = "frozen_candidates" if frozen_only else "full_market"
-            if (now.hour, now.minute) < (9, 30):
-                return self._json(409, {"error": "09:30开盘后才生成真实行情确认"})
-            frozen_snapshot = _best_saved_board_snapshot(date.today().isoformat())
-            cached_board = type(self).board_plan_cache
-            latest_board = cached_board[1] if (
-                cached_board and cached_board[1].get("selected_date") == date.today().isoformat()
-                and cached_board[1].get("strategy_version") == BOARD_STRATEGY_VERSION
-                and cached_board[1].get("candidates")
-            ) else None
-            snapshot = latest_board or frozen_snapshot
-            if not snapshot:
-                return self._json(409, {"error": "今日09:25最终候选尚未冻结"})
-            with type(self).board_focus_lock:
-                focus_revision = type(self).board_focus_revision
-                cached_open = type(self).board_open_cache
-                if cached_open and time.time() - cached_open[0] < 10 and cached_open[1].get("scope") == guard_scope:
-                    return self._json(200, cached_open[1])
             try:
-                payload = build_open_guard(snapshot, self.provider, discover_live=not frozen_only)
+                return self._json(200, type(self)._session_open_guard(frozen_only=frozen_only))
+            except ValueError as exc:
+                return self._json(409, {"error": str(exc)})
             except MarketDataError as exc:
                 return self._json(502, {"error": str(exc)})
-            with type(self).board_focus_lock:
-                if focus_revision != type(self).board_focus_revision:
-                    return self._json(409, {"error": "首选锁定状态已改变，请刷新；旧买点已作废"})
-                type(self).board_open_cache = (time.time(), payload)
-                return self._json(200, payload)
+            except OSError as exc:
+                return self._json(503, {"error": f"竞价快照读取失败：{exc}"})
         if parsed.path == "/api/next-day-strategy":
             now = datetime.now()
             if (now.hour, now.minute) < (14, 50):
@@ -603,12 +589,18 @@ def run() -> None:
     parser = argparse.ArgumentParser(description="启动 A 股量价评测仪表盘")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--no-session-worker", action="store_true", help="禁用竞价/盘中后台采集（离线调试使用）")
     args = parser.parse_args()
     server = ThreadingHTTPServer((args.host, args.port), AppHandler)
+    runner = BoardSessionRunner(AppHandler._session_board_plan, AppHandler._session_open_guard)
+    AppHandler.session_runner = runner
+    if not args.no_session_worker:
+        runner.start()
     print(f"股票评测服务已启动：http://{args.host}:{args.port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\n服务已停止")
     finally:
+        runner.stop()
         server.server_close()

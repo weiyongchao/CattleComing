@@ -10,20 +10,42 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from test_board_selection import candidate
+from test_rule_audit import history_day
+from src.stock_evaluator.history import _board_review_view
+from src.stock_evaluator.rule_audit import build_rule_audit
 from src.stock_evaluator.board_plan import auction_observation_view
 from src.stock_evaluator.board_selection import select_live_recommendations
 from src.stock_evaluator.board_focus import DailyFocusStore
+from src.stock_evaluator.board_research import BoardResearchStore
+from src.stock_evaluator.quote_sampling import CHINA_TZ
 from src.stock_evaluator.trade_advice import live_entry_plan
 
 QA_DIRECTORY = TemporaryDirectory(prefix="board-focus-qa-")
 atexit.register(QA_DIRECTORY.cleanup)
 FOCUS_STORE = DailyFocusStore(Path(QA_DIRECTORY.name) / "focus.json")
+RESEARCH_STORE = BoardResearchStore(Path(QA_DIRECTORY.name) / "research")
+
+
+def seed_research():
+    """只在临时目录生成可识别的离线样本，覆盖分页与静默命中。"""
+    start = datetime.now(CHINA_TZ).replace(hour=10, minute=0, second=0, microsecond=0)
+    snapshot = {"selected_date": start.date().isoformat(), "strategy_version":"offline-fixture", "market":{"state":"可观察"}}
+    with patch("src.stock_evaluator.board_research.intraday_selection_window", return_value=True):
+        for seconds in range(0, 1120, 20):
+            at = start + timedelta(seconds=seconds)
+            rows = [candidate("600001", name="测试股票·静默样本", continuation_score=73, quote_time=at.isoformat(),
+                              regulatory_risk={"level":"watch"}, funds={"available":True,"main_ratio":5,"date":start.date().isoformat(),"retrieved_at":at.isoformat()}),
+                    candidate("600002", name="测试股票·早封结构实验", continuation_score=59, quote_time=at.isoformat(),
+                              early_final_seal_chain_matched=True,previous_day_limit_up=True,previous_final_seal_time=100000,
+                              consecutive_limit_up_days=2,auction_amount=60_000_000,auction_volume_percent=3,
+                              funds={"available":True,"main_ratio":5,"date":start.date().isoformat(),"retrieved_at":at.isoformat()})]
+            RESEARCH_STORE.record(rows, at, snapshot=snapshot, baseline_rows=[])
 
 
 def fixtures():
@@ -39,7 +61,11 @@ def fixtures():
     observations = {}
     # 交易时段规则固定在周一，页面时间使用实际时钟；不据此产生真实信号。
     sample_time = datetime(2026, 8, 31, 10, 10)
+    for row in rows:
+        row["quote_time"] = sample_time.isoformat()
     select_live_recommendations(rows, sample_time, "可观察", observations)
+    for row in rows:
+        row["quote_time"] = (sample_time + timedelta(seconds=20)).isoformat()
     select_live_recommendations(rows, sample_time + timedelta(seconds=20), "可观察", observations)
     with patch("src.stock_evaluator.board_focus.intraday_selection_window", return_value=True):
         selected, daily_focus = FOCUS_STORE.select(rows, now)
@@ -65,6 +91,30 @@ def fixtures():
     return board, live
 
 
+def history_fixtures():
+    today = datetime.now(CHINA_TZ).date()
+    dates, current = [], today
+    while len(dates) < 6:
+        if current.weekday() < 5:
+            dates.append(current)
+        current -= timedelta(days=1)
+    days = []
+    for index, value in enumerate(dates):
+        day = history_day(value.isoformat(),premium=6.16,sealed=index % 2 == 0)
+        row = day["review"]["sources"]["board"]["candidates"][0]
+        if index:
+            row["outcome"]["next_day"]["date"] = dates[index-1].isoformat()
+        else:
+            row["outcome"].pop("next_day")
+        for source in [day["sources"]["board"],day["review"]["sources"]["board"]]:
+            source["candidates"][0]["name"] = "测试候选 <b>文本</b>"
+        day["review"] = _board_review_view(day["review"])
+        days.append(day)
+    payload = {"days":days,"rule_version":"offline-fixture"}
+    payload["rule_audit"] = build_rule_audit(payload,as_of=today)
+    return payload
+
+
 class FixtureHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT / "web"), **kwargs)
@@ -83,8 +133,38 @@ class FixtureHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         path = urlparse(self.path).path
+        if path == "/api/history":
+            body = json.dumps(history_fixtures(),ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type","application/json; charset=utf-8")
+            self.send_header("Content-Length",str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if path == "/api/board-research":
+            params = parse_qs(urlparse(self.path).query)
+            try:
+                payload = RESEARCH_STORE.query(params.get("date",[datetime.now(CHINA_TZ).date().isoformat()])[0],
+                    code=params.get("code",[None])[0], limit=int(params.get("limit",["100"])[0]),
+                    before=int(params["before"][0]) if "before" in params else None)
+                status = 200
+            except ValueError as exc:
+                payload, status = {"error":str(exc)}, 400
+            encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length",str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+            return
         if path.startswith("/api/"):
             board, live = fixtures()
+            phase = (parse_qs(urlparse(self.path).query).get("phase") or [None])[0]
+            if path == "/api/board-plan" and phase in {"indicative", "final", "historical", "late"}:
+                board["auction_phase"] = "final" if phase == "late" else phase
+                board["snapshot_kind"] = "live_opening_observation" if phase == "late" else "actual_indicative" if phase == "indicative" else "actual_final"
+                board = auction_observation_view(board)
+                board["session_monitor"] = {"running": True, "last_error": None}
             payload = {
                 "/api/board-plan": board, "/api/board-open-guard": live,
                 "/api/trading-dates": {"dates": [board["selected_date"]]},
@@ -102,4 +182,5 @@ class FixtureHandler(SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    seed_research()
     ThreadingHTTPServer(("127.0.0.1", 8001), FixtureHandler).serve_forever()

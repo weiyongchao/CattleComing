@@ -9,12 +9,13 @@ from urllib.request import Request, urlopen
 
 from .auction import screen_auction_candidates, screen_historical_auction_candidates
 from .board_selection import MAX_BOARD_PICKS
+from .board_session import workflow_view
 from .corporate_events import attach_corporate_event_risks
 from .market import EastmoneyProvider, MarketDataError
 from .trade_advice import auction_entry_plan
 
 
-BOARD_STRATEGY_VERSION = "2026.08.31.2"
+BOARD_STRATEGY_VERSION = "2026.08.31.3"
 from .screener import LEADER_POOL, is_main_board, is_risk_stock_name
 
 
@@ -40,6 +41,7 @@ def auction_observation_view(snapshot: dict) -> dict:
         pool.append(item)
     view.update(candidates=pool[:MAX_BOARD_PICKS], watch_candidates=pool[MAX_BOARD_PICKS:],
                 actionable_count=0, recommendation_limit=MAX_BOARD_PICKS)
+    view["workflow"] = workflow_view(view)
     view["position_plan"] = {
         **(snapshot.get("position_plan") or {}), "max_positions": 0, "per_position": 0,
         "max_new_exposure": 0, "cash_reserve": snapshot.get("capital", 100_000),
@@ -290,7 +292,8 @@ def _auction_decision(candidate: dict) -> dict:
     if mode == "高换手强竞价连板":
         checks = [
             {"name": "昨日连续涨停≥2天", "passed": candidate.get("consecutive_limit_up_days", 0) >= 2},
-            {"name": "真实09:25竞价换手率>1.2%", "passed": candidate.get("auction_time") != "09:31" and candidate.get("auction_turnover_percent", 0) > 1.2},
+            {"name": "参考换手>1.2%（09:25复核）" if candidate.get("auction_value_kind") == "indicative_reference" else "真实09:25竞价换手率>1.2%",
+             "passed": candidate.get("auction_time") != "09:31" and candidate.get("auction_turnover_percent", 0) > 1.2},
             {"name": "竞价涨幅≥5%", "passed": candidate.get("auction_gap_percent", 0) >= 5},
             {"name": "竞价成交额>5000万", "passed": candidate.get("auction_amount", 0) > 50_000_000},
             {"name": "流通市值<200亿", "passed": 0 < candidate.get("float_market_cap", 0) < 20_000_000_000},

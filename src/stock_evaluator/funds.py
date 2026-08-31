@@ -162,6 +162,7 @@ def _tencent_individual_fund_flow(code: str) -> dict:
     quote = EastmoneyProvider(timeout=8).quote(normalized)
     return {
         "date": time.strftime("%Y-%m-%d"), "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "source_time": None,
         **_fund_period(time.strftime("%Y-%m-%d")),
         "source": "腾讯逐笔成交推算（备用）",
         "main_net": main, "main_ratio": main_ratio,
@@ -214,6 +215,7 @@ def _realtime_individual_fund_flow(code: str) -> dict:
     quote = EastmoneyProvider(timeout=8).quote(code)
     return {
         "date": values[0], "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "source_time": values[0] if len(values[0]) >= 16 else None,
         **_fund_period(values[0]),
         "source": "实时分钟累计", "main_net": main,
         "main_ratio": main_ratio, "super_large_net": super_large, "large_net": large,
@@ -244,6 +246,7 @@ def individual_fund_flow(code: str) -> dict:
             return _tencent_individual_fund_flow(code)
     return {
         "date": values[0], "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "source_time": None,
         **_fund_period(values[0]),
         "source": "历史日线", "main_net": main, "main_ratio": main_ratio,
         "super_large_net": super_large, "large_net": large, "medium_net": medium,

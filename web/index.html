@@ -10,7 +10,8 @@
 <body>
   <main class="shell">
     <header><div><p class="eyebrow">MARKET PULSE / A-SHARE</p><h1>量价罗盘</h1><p class="subtitle">用实时成交价、成交量与五日均线，读懂短线强弱。</p></div><div class="live"><i></i> 实时行情</div></header>
-    <nav class="top-tabs"><button class="top-tab active" data-tab="strategyTab">策略执行</button><button class="top-tab" data-tab="stockTab">个股评测</button><button class="top-tab" data-tab="boardTab">打板决策</button><button class="top-tab" data-tab="historyReviewTab">历史复盘</button></nav>
+    <nav class="top-tabs"><button class="top-tab active" data-tab="strategyTab">策略执行</button><button class="top-tab" data-tab="stockTab">个股评测</button><button class="top-tab" data-tab="boardTab">打板决策</button><button class="top-tab" data-tab="historyReviewTab">历史复盘</button><a href="/board-research.html" target="_blank" rel="noopener" style="color:var(--muted);padding:11px 18px;white-space:nowrap">采样与静默验证 ↗</a></nav>
+    <p id="researchRecordingStatus" style="color:var(--muted);font-size:12px" role="status">研究留痕等待盘中扫描；静默验证不占正式提示名额。</p>
     <section id="strategyTab" class="tab-page">
       <div class="strategy-toolbar">
         <div><p class="eyebrow">MAIN BOARD / NEXT-DAY PREMIUM</p><h2>主板打板策略执行台</h2><p>9:25只定候选，9:30后验证承接，封板附近才形成交易观察资格。</p></div>
@@ -109,10 +110,10 @@
     </section>
     <section id="intradayTab" class="tab-page" hidden><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px"><button id="intradayButton" style="background:transparent;color:var(--green);border:1px solid var(--green);border-radius:8px;padding:11px 18px;font-weight:700;cursor:pointer">刷新盘中策略</button><small id="intradayTime" style="color:var(--muted)"></small></div><section id="intradayLoading" class="state" hidden>正在计算实时量价、盘口与板块共振…</section><section id="intradayError" class="state error" hidden></section><section id="intradayResults" hidden><article class="card" style="padding:24px;margin-bottom:14px"><div class="section-title"><div><span>INTRADAY MARKET GATE</span><h2>盘中市场环境</h2></div><b id="intradayGate"></b></div><div id="intradayMarket" class="metrics" style="margin-top:18px"></div><div id="categoryStrength" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px"></div></article><article class="card" style="padding:24px;margin-bottom:14px"><div class="section-title"><div><span>INTRADAY CAPITAL PLAN</span><h2>10万元盘中仓位</h2></div></div><div id="intradayCapital" class="operation-grid"></div></article><article class="card" style="padding:24px;margin-bottom:24px"><div class="section-title"><div><span>BREAKOUT / PULLBACK</span><h2>放量突破与回踩承接</h2></div><b id="intradayCount"></b></div><div id="intradayCandidates" style="display:grid;gap:12px;margin-top:20px"></div><p id="intradayNote" class="disclaimer"></p></article></section></section>
     <section id="historyReviewTab" class="tab-page" hidden>
-      <div class="review-toolbar"><div><p class="eyebrow">CANDIDATE LEDGER / CLOSE AUDIT</p><h2>候选历史与收盘复盘</h2><p>冻结每天首次有效候选，用收盘数据验证，不用结果倒推选择。</p></div><button id="historyReviewRefresh" type="button">刷新历史</button></div>
+      <div class="review-toolbar"><div><p class="eyebrow">CANDIDATE LEDGER / CLOSE AUDIT</p><h2>候选历史与收盘复盘</h2><p>只展示最近五个已留存交易日，原始存档暂保留。优先检验封板后次日仍强势，区分回放与实盘，不保证全对。</p></div><button id="historyReviewRefresh" type="button">刷新历史</button></div>
       <section id="historyReviewLoading" class="state" hidden>正在读取候选历史…</section>
       <section id="historyReviewError" class="state error" hidden></section>
-      <section id="historyReviewContent" hidden><div id="historyReviewSummary" class="review-summary"></div><div id="historyReviewDateTabs" class="review-date-tabs"></div><div id="historyReviewDays"></div><p class="disclaimer">“规则问题”仅在非系统性弱市中对有效候选判定；单日不自动改参数，同类失败达到复核线后才建议调整。市场问题不追责个股规则。</p></section>
+      <section id="historyReviewContent" hidden><div id="historyReviewSummary" class="review-summary"></div><div id="historyReviewRuleAudit"></div><div id="historyReviewDateTabs" class="review-date-tabs"></div><div id="historyReviewDays"></div><p class="disclaimer">次日未涨停不等于规则失败；不从同批候选涨跌推断市场原因。所有溢价以T日收盘为比较基准，未证明可成交，五日回放不能用于自动放宽正式买点。</p></section>
     </section>
   </main>
   <aside id="boardAlertPanel" class="board-alert-panel" aria-label="今日打板条件预警">
@@ -144,5 +145,6 @@
     </form>
   </dialog>
   <script src="/stock-card-details.js?v=20260831-01"></script>
+  <script src="/board-research.js?v=20260831-1"></script>
   <script src="/app.js?v=20260827-01"></script><script src="/intraday-leadership.js?v=20260827-01"></script><script src="/board-auction-only.js?v=20260831-04"></script><script src="/board-alerts.js?v=20260831-03"></script><script src="/strategy-execution.js?v=20260831-03"></script><script src="/history-review.js?v=20260825-02"></script>
 </body></html>

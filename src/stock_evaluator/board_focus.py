@@ -49,7 +49,7 @@ def _view(day: dict, status: str, message: str, primary: dict | None = None) -> 
 
 
 def _data_uncertain(item: dict | None) -> bool:
-    if item is None:
+    if item is None or item.get("quote_data_uncertain"):
         return True
     event = item.get("corporate_event_risk") or {}
     if (item.get("failed_board") or item.get("near_limit_failure") or item.get("risk_veto")

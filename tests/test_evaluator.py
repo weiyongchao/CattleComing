@@ -92,6 +92,7 @@ class EvaluatorTests(unittest.TestCase):
         calls = []
         payload = {
             "auction_phase": app_server._auction_phase(app_server.datetime.now()),
+            "selected_date": date.today().isoformat(),
             "candidates": [{"code": "600001"}], "screening": {},
         }
 

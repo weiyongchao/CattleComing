@@ -7,10 +7,11 @@ import threading
 import time
 
 from .funds import _fetch_tencent_page, historical_fund_flow_before, historical_open_proxy
-from .market import EastmoneyProvider, DailyBar, Quote, secid_for
+from .market import EastmoneyProvider, DailyBar, Quote, MarketDataError, secid_for
 from .screener import LEADER_GROUPS, is_main_board, is_risk_stock_name
 from .universe import main_board_snapshots, previous_limit_up_pool
 from .regulatory import regulatory_risk
+from .quote_sampling import parse_quote_time, quote_freshness
 
 PREFILTER_LIMIT = 300
 LIVE_DEEP_LIMIT = 80
@@ -357,12 +358,12 @@ def _early_final_seal_chain_score(
     gap_percent: float, auction_volume_percent: float, auction_amount: float,
     float_market_cap: float, listed_sessions: int,
     previous_limit_up_breaks: int = 0, exact_auction: bool = True,
-    historical_proxy: bool = False,
+    historical_proxy: bool = False, indicative: bool = False,
 ) -> tuple[int, bool, list[str]]:
     """昨日11:30前完成最终封板的连续涨停竞价接力模型。"""
     volume_passed = auction_volume_percent >= 45 if historical_proxy else auction_volume_percent > 1
     matched = (
-        (exact_auction or historical_proxy)
+        (exact_auction or historical_proxy or indicative)
         and consecutive_limit_ups >= 2
         and 0 < previous_final_seal_time < 113000
         and 1 <= gap_percent < 9.8
@@ -389,7 +390,7 @@ def _early_final_seal_chain_score(
             "目标日09:31首分钟代理量达到45%历史确认线"
             if historical_proxy else "竞价涨幅位于1%–9.8%，竞价量比大于1"
         ),
-        "竞价成交额大于3000万元，流通市值低于200亿元",
+        "参考量额达到3000万元预选线，09:25复核最终成交" if indicative else "竞价成交额大于3000万元，流通市值低于200亿元",
         "沪深主板且非ST、非退市、上市满60个交易日",
     ]
 
@@ -398,11 +399,11 @@ def _high_turnover_auction_chain_score(
     *, consecutive_limit_ups: int, gap_percent: float,
     auction_turnover_percent: float, auction_amount: float,
     float_market_cap: float, listed_sessions: int,
-    exact_auction: bool,
+    exact_auction: bool, indicative: bool = False,
 ) -> tuple[int, bool, list[str]]:
     """真实09:25高换手强竞价连板；历史首分钟代理不得冒充实际换手。"""
     matched = (
-        exact_auction
+        (exact_auction or indicative)
         and consecutive_limit_ups >= 2
         and 5 <= gap_percent <= 10.2
         and auction_turnover_percent > 1.2
@@ -419,7 +420,7 @@ def _high_turnover_auction_chain_score(
     score += 2 if 5 <= gap_percent <= 8.5 else 0
     return min(100, score), True, [
         f"截至昨日连续{consecutive_limit_ups}个涨停",
-        f"真实09:25竞价换手率{auction_turnover_percent:.2f}%，大于1.2%",
+        f"{'参考量额估算换手率' if indicative else '真实09:25竞价换手率'}{auction_turnover_percent:.2f}%，大于1.2%" + ("；仅预选，待最终成交核验" if indicative else ""),
         f"竞价涨幅{gap_percent:+.2f}%，不低于5%",
         f"竞价成交额{auction_amount / 1e8:.2f}亿元，大于5000万元",
         "流通市值低于200亿元且上市满60个交易日",
@@ -1336,17 +1337,22 @@ def _auction_candidate(
         auction_data_source = str(open_proxy["source"])
     elif preliminary:
         opening_proxy_high = opening_proxy_low = opening_proxy_close = 0.0
-        snapshot_timestamp = int(_number(snapshot.get("f124")))
-        snapshot_dt = datetime.fromtimestamp(snapshot_timestamp).astimezone() if snapshot_timestamp else datetime.now().astimezone()
+        source_time = quote.quote_time if snapshot.get("_force_live_quote") else snapshot.get("f124")
+        snapshot_dt, freshness_error = quote_freshness({"quote_time": source_time}, datetime.now().astimezone())
+        if freshness_error or not snapshot_dt or not 917 <= snapshot_dt.hour * 100 + snapshot_dt.minute < 925:
+            raise MarketDataError(f"竞价参考行情不可用：{freshness_error or '时间不在竞价窗口'}")
         auction_time = snapshot_dt.strftime("%H:%M:%S")
         auction_price = float(quote.price or _number(snapshot.get("f2")))
         auction_volume = float(quote.volume or _number(snapshot.get("f5")))
         auction_amount = float(quote.amount or _number(snapshot.get("f6")))
         if auction_price <= 0:
             return None
-        auction_data_source = "东方财富09:20不可撤单阶段参考撮合快照"
+        auction_data_source = "竞价时段参考快照价量（非最终成交，09:25复核）"
     else:
         opening_proxy_high = opening_proxy_low = opening_proxy_close = 0.0
+        quoted_at = parse_quote_time(quote.quote_time)
+        if quoted_at is None or quoted_at.date() != as_of:
+            raise MarketDataError("未取得今日行情日期，禁止将前一交易日成交当作今日竞价")
         auction_rows = [
             row for row in _fetch_tencent_page(symbol, 0)
             if len(row) >= 7 and row[1].startswith("09:25")
@@ -1452,6 +1458,7 @@ def _auction_candidate(
         previous_limit_up_breaks=previous_limit_up_breaks,
         exact_auction=not target_date and not preliminary,
         historical_proxy=bool(target_date),
+        indicative=preliminary,
     )
     high_turnover_chain_score, high_turnover_chain_matched, high_turnover_chain_reasons = _high_turnover_auction_chain_score(
         consecutive_limit_ups=consecutive_limit_up_days,
@@ -1461,6 +1468,7 @@ def _auction_candidate(
         float_market_cap=float_market_cap,
         listed_sessions=listed_sessions,
         exact_auction=not target_date and not preliminary,
+        indicative=preliminary,
     )
     reversal_score, reversal_matched, reversal_reasons, reversal_risks = _divergence_reversal_score(
         recent_limit_up_count, consecutive_limit_up_days, gap, auction_volume_percent,
@@ -1899,9 +1907,11 @@ def _auction_candidate(
         "evaluation_date": as_of.isoformat(),
         "score": score, "auction_base_score": base_score, "relay_score": relay_score,
         "relay_matched": relay_matched, "core_chain_matched": core_chain_matched,
-        "early_final_seal_chain_matched": early_final_seal_matched,
+        "early_final_seal_chain_matched": early_final_seal_matched and not preliminary,
+        "early_final_seal_chain_preselected": early_final_seal_matched and preliminary,
         "early_final_seal_chain_score": early_final_seal_score,
-        "high_turnover_chain_matched": high_turnover_chain_matched,
+        "high_turnover_chain_matched": high_turnover_chain_matched and not preliminary,
+        "high_turnover_chain_preselected": high_turnover_chain_matched and preliminary,
         "high_turnover_chain_score": high_turnover_chain_score,
         "core_chain_score": core_chain_score, "reversal_score": reversal_score,
         "reversal_matched": reversal_matched, "first_board_score": first_board_score,
@@ -1927,10 +1937,13 @@ def _auction_candidate(
         **board_stage,
         "signal": "强竞价观察" if score >= 75 and eligible else "竞价关注" if eligible else "不进入打板候选",
         "auction_time": auction_time, "auction_price": auction_price,
+        "auction_quote_time": snapshot_dt.isoformat(timespec="seconds") if preliminary else f"{as_of.isoformat()}T{auction_time}+08:00",
         "opening_proxy_high": opening_proxy_high or None,
         "opening_proxy_low": opening_proxy_low or None,
         "opening_proxy_close": opening_proxy_close or None,
         "auction_data_source": auction_data_source,
+        "auction_value_kind": "indicative_reference" if preliminary else "historical_proxy" if target_date else "final_trade",
+        "final_auction_verified": not preliminary and not target_date,
         "auction_gap_percent": round(gap, 2), "auction_volume": int(auction_volume),
         "auction_amount": auction_amount, "auction_volume_percent": round(auction_volume_percent, 2),
         "auction_turnover_percent": round(auction_turnover_percent, 2),

@@ -7,7 +7,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime
 from pathlib import Path
 
-from .market import EastmoneyProvider
+from .market import EastmoneyProvider, MarketDataError
+from .quote_sampling import quote_freshness
 
 
 DATA_FILE = Path(__file__).resolve().parents[2] / "data" / "auction_trajectory.json"
@@ -51,8 +52,8 @@ def _append_samples(day_key: str, samples: list[dict]) -> None:
             if not code:
                 continue
             rows = stocks.setdefault(code, [])
-            timestamp = str(sample.get("captured_at") or "")
-            if rows and rows[-1].get("captured_at") == timestamp:
+            timestamp = str(sample.get("quote_time") or sample.get("captured_at") or "")
+            if rows and (rows[-1].get("quote_time") or rows[-1].get("captured_at")) == timestamp:
                 rows[-1] = sample
             else:
                 rows.append(sample)
@@ -70,6 +71,7 @@ def record_payload_sample(payload: dict, phase: str) -> int:
             "code": str(candidate.get("code") or ""),
             "name": str(candidate.get("name") or ""),
             "captured_at": captured_at,
+            "quote_time": candidate.get("auction_quote_time"),
             "phase": phase,
             "price": _number(candidate.get("auction_price")),
             "gap_percent": _number(candidate.get("auction_gap_percent")),
@@ -92,10 +94,15 @@ def capture_watchlist(snapshot: dict, provider: EastmoneyProvider | None = None)
 
     def capture(candidate: dict) -> dict:
         quote = provider.quote(str(candidate["code"]))
+        captured = datetime.now().astimezone()
+        source_at, failure = quote_freshness({"quote_time": quote.quote_time}, captured)
+        if failure or not source_at or not 920 <= source_at.hour * 100 + source_at.minute < 925:
+            raise MarketDataError(failure or "行情不在09:20–09:25竞价窗口")
         previous_close = _number(quote.previous_close)
         return {
             "code": str(candidate["code"]), "name": quote.name,
-            "captured_at": now.isoformat(timespec="seconds"), "phase": "tracking",
+            "captured_at": captured.isoformat(timespec="seconds"), "phase": "tracking",
+            "quote_time": source_at.isoformat(timespec="seconds"),
             "price": quote.price,
             "gap_percent": round((quote.price / previous_close - 1) * 100, 2) if previous_close else 0,
             "volume": quote.volume, "amount": quote.amount,

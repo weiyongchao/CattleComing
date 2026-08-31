@@ -5,6 +5,7 @@ from datetime import datetime
 from math import isfinite
 
 from .screener import is_main_board, is_risk_stock_name
+from .quote_sampling import china_time, quote_freshness
 
 MAX_BOARD_PICKS = 5
 SAMPLE_INTERVAL_SECONDS = 20
@@ -20,11 +21,12 @@ def _number(value: object, default: float = 0.0) -> float:
 
 
 def intraday_selection_window(now: datetime) -> bool:
+    now = china_time(now)
     minute = now.hour * 60 + now.minute
     return now.weekday() < 5 and (570 <= minute < 690 or 780 <= minute < 897)
 
 
-def _quality_failure(item: dict, market_state: str) -> str | None:
+def _quality_failure(item: dict, market_state: str, *, minimum_continuation: float = 60) -> str | None:
     event = item.get("corporate_event_risk") or {}
     funds = item.get("funds") or {}
     if market_state not in {"可观察", "谨慎"}:
@@ -33,7 +35,8 @@ def _quality_failure(item: dict, market_state: str) -> str | None:
         return "不符合沪深主板非ST范围"
     if _number(item.get("listed_sessions")) < 60 or not 0 < _number(item.get("float_market_cap")) < 20_000_000_000:
         return "上市时长或流通市值不符合要求"
-    if event.get("level") in {"high", "unknown"} or event.get("available") is False:
+    if (event.get("level") in {"high", "unknown"} or event.get("available") is False
+            or event.get("is_restructuring") or event.get("is_merger_acquisition")):
         return "并购重组风险或公告数据未完成核验"
     if not item.get("corporate_event_checked") and event.get("available") is not True:
         return "公告核验状态缺失，仅观察"
@@ -41,7 +44,7 @@ def _quality_failure(item: dict, market_state: str) -> str | None:
         return "结构或异动风险未通过"
     if item.get("failed_board") or item.get("near_limit_failure") or item.get("tone") == "reject":
         return "炸板、冲板失败或盘中条件失效"
-    if _number(item.get("open_score")) < 80 or _number(item.get("continuation_score")) < 60:
+    if _number(item.get("open_score")) < 80 or _number(item.get("continuation_score")) < minimum_continuation:
         return "量价确认或历史延续性评分不足"
     if _number(item.get("amount")) < 50_000_000:
         return "实时成交额不足5000万元"
@@ -80,6 +83,7 @@ def select_live_recommendations(
     rows: list[dict], now: datetime, market_state: str, observations: dict,
 ) -> list[dict]:
     """就地标记当前精选；observations由调用方按日期/扫描范围隔离并加锁。"""
+    now = china_time(now)
     stamp = now.timestamp()
     present = {str(item.get("code") or "") for item in rows}
     for code in list(observations):
@@ -90,8 +94,14 @@ def select_live_recommendations(
         code = str(item.get("code") or "")
         item.update(recommended=False, actionable=False, execution_ready=False,
                     board_entry_allowed=False, recommendation_kind=None, recommendation_rank=None,
-                    recommendation_score=None)
+                    recommendation_score=None, quote_data_uncertain=False)
         failure = _quality_failure(item, market_state)
+        quote_at, time_failure = quote_freshness(item, now)
+        item["quote_data_uncertain"] = bool(time_failure)
+        failure = failure or time_failure
+        if item.get("book_available") is False:
+            failure = failure or "五档数据未完整提供"
+            item["quote_data_uncertain"] = True
         if not intraday_selection_window(now):
             failure = "非盘中精选时段，仅复盘观察"
         kind = "sealed" if item.get("sealed") else "strong_open" if _strong_open_exception(item, now) else None
@@ -106,10 +116,18 @@ def select_live_recommendations(
                 item["decision"] = "封板质量待确认 · 仅观察" if item.get("sealed") else "等待封板 · 仅观察"
             continue
         previous = observations.get(code)
+        quote_stamp = quote_at.timestamp()
+        if previous and quote_stamp < previous["quote_stamp"]:
+            observations.pop(code, None)
+            item.update(confirmation_samples=0, selection_reason="行情时间倒退，重新等待有效采样", tone="watch", quote_data_uncertain=True)
+            continue
         if not previous or previous["kind"] != kind or not 0 <= stamp - previous["last"] <= MAX_SAMPLE_GAP_SECONDS:
-            previous = {"kind": kind, "last": stamp, "count": 1}
-        elif stamp - previous["last"] >= SAMPLE_INTERVAL_SECONDS:
-            previous = {**previous, "last": stamp, "count": min(2, previous["count"] + 1)}
+            previous = {"kind": kind, "last": stamp, "quote_stamp": quote_stamp, "count": 1}
+        elif quote_stamp == previous["quote_stamp"]:
+            item.update(confirmation_samples=previous["count"], selection_reason="重复行情快照，不增加确认次数", tone="watch", quote_data_uncertain=True)
+            continue
+        elif stamp - previous["last"] >= SAMPLE_INTERVAL_SECONDS and quote_stamp - previous["quote_stamp"] >= SAMPLE_INTERVAL_SECONDS:
+            previous = {**previous, "last": stamp, "quote_stamp": quote_stamp, "count": min(2, previous["count"] + 1)}
         observations[code] = previous
         item["confirmation_samples"] = previous["count"]
         item["selection_reason"] = "需至少两次间隔20秒的有效量价、盘口和资金采样"

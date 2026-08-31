@@ -4,15 +4,19 @@ import json
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from .market import EastmoneyProvider, MarketDataError
+from .review_metrics import board_attribution, finite_number, matching_sources, outcome_metrics, summarize_outcomes
+from .rule_audit import build_rule_audit
+from .quote_sampling import china_time
 
 
 DATA_FILE = Path(__file__).resolve().parents[2] / "data" / "candidate_history.json"
 BOARD_PLAN_FILE = Path(__file__).resolve().parents[2] / "data" / "board_plan_snapshots.json"
 _LOCK = threading.RLock()
+REVIEW_WINDOW_DAYS = 5
 
 
 def _number(value: object, default: float = 0.0) -> float:
@@ -251,11 +255,7 @@ def _latest_board_source(day_key: str, stored_day: dict | None = None) -> dict |
 
 def _review_matches_source(review: dict | None, board: dict) -> bool:
     reviewed_board = ((review or {}).get("sources") or {}).get("board") or {}
-    return bool(
-        reviewed_board
-        and reviewed_board.get("rule_version") == board.get("rule_version")
-        and reviewed_board.get("snapshot_kind") == board.get("snapshot_kind")
-    )
+    return matching_sources(reviewed_board, board)
 
 
 def record_candidates(source: str, payload: dict) -> dict:
@@ -299,42 +299,42 @@ def _board_review_view(review: dict | None) -> dict | None:
     board = (review.get("sources") or {}).get("board")
     if not board:
         return None
-    candidates = board.get("candidates") or []
+    candidates = [_review_candidate(row, "board", row["outcome"], False) if row.get("outcome") else dict(row)
+                  for row in board.get("candidates") or []]
+    board = {**board, "candidates": candidates}
     counted_items = [item for item in candidates if item.get("counted")]
     successes = sum(bool(item.get("success")) for item in counted_items)
-    rule_issues = [item for item in counted_items if item.get("attribution") == "规则问题"]
-    market_issues = sum(item.get("attribution") == "市场问题" for item in counted_items)
-    if rule_issues:
-        diagnosis = "规则问题"
-    elif market_issues:
-        diagnosis = "市场问题"
-    elif counted_items:
-        diagnosis = "规则有效"
-    else:
-        diagnosis = "无有效样本"
-    suggestions = sorted({item.get("rule_suggestion") for item in rule_issues if item.get("rule_suggestion")})
     return {
         **review,
         "counted": len(counted_items),
         "successes": successes,
         "accuracy_percent": round(successes / len(counted_items) * 100, 1) if counted_items else None,
-        "diagnosis": diagnosis,
+        "diagnosis": "候选结果统计" if candidates else "无有效样本",
+        "metric_label": "T+1涨停占比（非胜率）", "metrics": summarize_outcomes(candidates),
+        "market_attribution_verified": False, "market_weak": None,
         "rule_adjustment": {
-            "status": "达到复核线，建议人工确认后调整" if len(rule_issues) >= 3 and len(counted_items) >= 5 else "样本不足，继续观察",
-            "suggestions": suggestions,
-            "principle": "单日不自动改参数；同类失败至少3例且有效样本不少于5例，才进入规则调整。",
+            "status": "结果仅作描述，不自动调整买入阈值",
+            "suggestions": [],
+            "principle": "T日封板、次日开盘/收盘溢价、次日涨停分开统计；候选不等于正式买点，不从同批候选涨跌推断市场原因。",
         },
         "sources": {"board": board},
     }
 
 
 def list_board_history() -> dict:
-    """历史复盘页面只返回打板候选，忽略已停用的每日推荐留痕。"""
+    """只展示最近五个已留存交易日；不清理磁盘原始候选或复盘。"""
     history = list_history()
     stored_days = {str(day.get("date") or ""): day for day in history["days"]}
     plan_days = (_load_board_plans().get("days") or {})
     days = []
+    now = china_time(datetime.now().astimezone())
     for day_key in sorted(set(stored_days) | set(plan_days), reverse=True):
+        try:
+            target = date.fromisoformat(day_key)
+        except ValueError:
+            continue
+        if target > now.date() or target.weekday() >= 5:
+            continue
         day = stored_days.get(day_key) or {"date": day_key, "sources": {}}
         board = _latest_board_source(day_key, day)
         if not board:
@@ -346,7 +346,12 @@ def list_board_history() -> dict:
         else:
             item.pop("review", None)
         days.append(item)
-    return {**history, "days": days}
+        if len(days) >= REVIEW_WINDOW_DAYS:
+            break
+    result = {**history, "days": days, "retention":{"display_days":REVIEW_WINDOW_DAYS,"physical_delete":False}}
+    completed_day = now.date() if now.hour * 60 + now.minute >= 905 else now.date() - timedelta(days=1)
+    result["rule_audit"] = build_rule_audit(result, as_of=now.date(),closed_through=completed_day,limit=REVIEW_WINDOW_DAYS)
+    return result
 
 
 def _closing_outcome(provider: EastmoneyProvider, code: str, target: date) -> dict:
@@ -367,7 +372,9 @@ def _closing_outcome(provider: EastmoneyProvider, code: str, target: date) -> di
             and abs(bar.close - bar.high) <= 0.011
         ),
     }
-    if index + 1 < len(bars):
+    now = china_time(datetime.now().astimezone())
+    if index + 1 < len(bars) and (bars[index + 1].trade_date < now.date() or (
+            bars[index + 1].trade_date == now.date() and now.hour * 60 + now.minute >= 905)):
         next_bar = bars[index + 1]
         next_change = (next_bar.close / bar.close - 1) * 100 if bar.close else None
         result["next_day"] = {
@@ -410,7 +417,7 @@ def _review_candidate(candidate: dict, source: str, outcome: dict, market_weak: 
     reference = _number(candidate.get("reference_price"))
     next_day = outcome.get("next_day") or {}
     if source == "board":
-        return_percent = _number(next_day.get("close_return_percent")) if next_day else None
+        return_percent = finite_number(next_day.get("close_return_percent"))
     else:
         return_percent = round((outcome["close"] / reference - 1) * 100, 2) if reference else None
     eligible = bool(candidate.get("qualified"))
@@ -423,6 +430,11 @@ def _review_candidate(candidate: dict, source: str, outcome: dict, market_weak: 
         if source == "board" else return_percent is not None and return_percent >= 1
     ))
     result = {**candidate, "outcome": outcome, "return_percent": return_percent, "counted": counted, "success": success}
+    if source == "board":
+        attribution, cause = board_attribution(result)
+        result.update(attribution=attribution, cause=cause, rule_suggestion="仅描述结果，不自动归因为规则或市场",
+                      metrics=outcome_metrics(result), execution_verified=False)
+        return result
     if not eligible:
         result.update({"attribution": "未纳入准确率", "cause": "原规则已过滤", "rule_suggestion": "无需调整"})
     elif not evaluation_ready:
@@ -458,15 +470,7 @@ def review_day(day_key: str, provider: EastmoneyProvider | None = None) -> dict:
             except Exception as exc:
                 errors[code] = str(exc)
 
-    main_returns = []
-    for candidate in board.get("candidates", []):
-        outcome = outcomes.get(candidate["code"])
-        next_day = (outcome or {}).get("next_day") or {}
-        if candidate.get("qualified") and next_day.get("close_return_percent") is not None:
-            main_returns.append(_number(next_day["close_return_percent"]))
-    market_weak = bool(main_returns and sum(value < 0 for value in main_returns) / len(main_returns) >= 0.7 and sum(main_returns) / len(main_returns) <= -0.8)
-
-    reviewed_sources, counted, successes, rule_issues, market_issues = {}, 0, 0, [], 0
+    reviewed_sources = {}
     for source_name, snapshot in sources.items():
         reviewed = []
         for candidate in snapshot.get("candidates", []):
@@ -474,41 +478,19 @@ def review_day(day_key: str, provider: EastmoneyProvider | None = None) -> dict:
             if not outcome:
                 reviewed.append({**candidate, "error": errors.get(candidate["code"], "收盘数据不可用"), "counted": False})
                 continue
-            item = _review_candidate(candidate, source_name, outcome, market_weak)
+            item = _review_candidate(candidate, source_name, outcome, False)
             reviewed.append(item)
-            if item["counted"]:
-                counted += 1
-                successes += int(item["success"])
-                if item["attribution"] == "规则问题":
-                    rule_issues.append(item)
-                elif item["attribution"] == "市场问题":
-                    market_issues += 1
         reviewed_sources[source_name] = {**snapshot, "candidates": reviewed}
 
-    accuracy = round(successes / counted * 100, 1) if counted else None
-    if rule_issues:
-        diagnosis = "规则问题"
-    elif market_issues:
-        diagnosis = "市场问题"
-    elif counted:
-        diagnosis = "规则有效"
-    else:
-        diagnosis = "无有效样本"
-    suggestions = sorted({item["rule_suggestion"] for item in rule_issues})
-    adjustment = {
-        "status": "达到复核线，建议人工确认后调整" if len(rule_issues) >= 3 and counted >= 5 else "样本不足，继续观察",
-        "suggestions": suggestions,
-        "principle": "单日不自动改参数；同类失败至少3例且有效样本不少于5例，才进入规则调整。",
-    }
-    review = {
+    review = _board_review_view({
         "reviewed_at": datetime.now().astimezone().isoformat(timespec="seconds"),
-        "counted": counted, "successes": successes, "accuracy_percent": accuracy,
-        "market_weak": market_weak, "diagnosis": diagnosis, "rule_adjustment": adjustment,
         "sources": reviewed_sources,
-    }
+    })
     with _LOCK:
         database = _load()
         day = database["days"].setdefault(day_key, {"date": day_key, "sources": {}})
+        if not matching_sources(board, _latest_board_source(day_key, day) or {}):
+            raise ValueError("复盘期间候选快照已变化，请重新复盘；未覆盖原记录")
         day.setdefault("sources", {})["board"] = board
         day["review"] = review
         _save(database)
