@@ -7,6 +7,7 @@ import threading
 import time
 
 from .funds import _fetch_tencent_page, historical_fund_flow_before, historical_open_proxy
+from .five_tigers import apply_five_tigers_profile
 from .market import EastmoneyProvider, DailyBar, Quote, MarketDataError, secid_for
 from .screener import LEADER_GROUPS, is_main_board, is_risk_stock_name
 from .universe import main_board_snapshots, previous_limit_up_pool
@@ -118,6 +119,9 @@ def _expand_with_previous_limit_ups(
             "_previous_limit_up_breaks": int(_number(row.get("zbc"))),
             "_previous_first_seal_time": int(_number(row.get("fbt"))),
             "_previous_final_seal_time": int(_number(row.get("lbt"))),
+            "_previous_turnover_rate": (
+                _number(row.get("hs")) if row.get("hs") not in {None, "", "-"} else -1
+            ),
             "_previous_float_market_cap": _number(row.get("ltsz")),
         })
         if code in positions:
@@ -1161,6 +1165,11 @@ def _select_high_confidence_candidates(candidates: list[dict], limit: int = MAX_
         )
         and not item.get("risk_veto", False)
     ]
+    five_tigers_watches = [
+        item for item in candidates
+        if item.get("five_tigers_priority", 0) > 0
+        and not item.get("risk_veto", False)
+    ]
 
     def include_special_candidates(selected: list[dict]) -> list[dict]:
         """一字板和跌停反核都保留，但统一排在普通可执行候选之后。"""
@@ -1213,6 +1222,15 @@ def _select_high_confidence_candidates(candidates: list[dict], limit: int = MAX_
             ),
             reverse=True,
         )[:limit]
+        five_tigers_reserved = sorted(
+            five_tigers_watches,
+            key=lambda item: (
+                item.get("five_tigers_priority", 0),
+                item.get("auction_turnover_percent", 0),
+                item.get("auction_gap_percent", 0), item.get("auction_amount", 0),
+            ),
+            reverse=True,
+        )[:2]
         space_reserved = sorted(
             space_board_watches,
             key=lambda item: (
@@ -1229,11 +1247,11 @@ def _select_high_confidence_candidates(candidates: list[dict], limit: int = MAX_
             ),
             reverse=True,
         )[:1]
-        other_reserved = opening_space_reserved + space_reserved + one_price_reserved + reversal_reserved + repair_reserved + nuclear_reserved + layered_reserved
+        other_reserved = five_tigers_reserved + opening_space_reserved + space_reserved + one_price_reserved + reversal_reserved + repair_reserved + nuclear_reserved + layered_reserved
         all_special_codes = {
             item.get("code") for item in recognition_specials + one_price_boards
             + limit_down_reversals + leader_repairs + nuclear_buttons + layered_watches
-            + opening_space_watches + space_board_watches
+            + opening_space_watches + space_board_watches + five_tigers_watches
         }
         ordinary_pool = [item for item in selected if item.get("code") not in all_special_codes]
         reserve_cap = max(0, limit - (1 if ordinary_pool else 0))
@@ -1247,7 +1265,7 @@ def _select_high_confidence_candidates(candidates: list[dict], limit: int = MAX_
     eligible.sort(key=lambda item: (item.get("tradable", True), liquidity_rank(item), tier_rank(item), rank_score(item), item["score"], item["auction_amount"]), reverse=True)
     minimum_score = 55 if continuation_mode else 80
     if not eligible:
-        return []
+        return include_special_candidates([])
     historical_proxy = any(item.get("auction_time") == "09:31" for item in eligible)
     if historical_proxy:
         # 09:31含竞价与首分钟成交；不同形态使用不同确认线，避免固定45%漏掉强接力。
@@ -1411,6 +1429,10 @@ def _auction_candidate(
     previous_limit_up_breaks = int(_number(snapshot.get("_previous_limit_up_breaks")))
     previous_first_seal_time = int(_number(snapshot.get("_previous_first_seal_time")))
     previous_final_seal_time = int(_number(snapshot.get("_previous_final_seal_time")))
+    previous_turnover_rate = (
+        _number(snapshot.get("_previous_turnover_rate"))
+        if snapshot.get("_previous_turnover_rate") not in {None, "", "-"} else -1
+    )
     previous_new_high = previous_close >= max(closes[:-1]) if len(closes) > 1 else False
     strong_characteristics = recent_10_limit_up_count >= 1 or previous_new_high
     nuclear_button = _nuclear_button_profile(
@@ -1969,6 +1991,7 @@ def _auction_candidate(
         "previous_limit_up_breaks": previous_limit_up_breaks,
         "previous_first_seal_time": previous_first_seal_time or None,
         "previous_final_seal_time": previous_final_seal_time or None,
+        "previous_turnover_rate": previous_turnover_rate if previous_turnover_rate >= 0 else None,
         "consecutive_limit_up_days": consecutive_limit_up_days,
         "previous_day_limit_up": consecutive_limit_up_days >= 1,
         "snapshot_main_net": _number(snapshot.get("f62")),
@@ -2100,6 +2123,10 @@ def screen_auction_candidates(
     if not candidates and failed >= len(futures):
         raise MarketDataError("竞价候选深度行情全部读取失败，请稍后重试；本次不生成空榜单缓存")
     _apply_dynamic_context(candidates)
+    five_tigers = apply_five_tigers_profile(
+        candidates, turnover_field="auction_turnover_percent", amount_field="auction_amount",
+        phase="09:20动态竞价" if preliminary else "09:25最终竞价",
+    )
     candidates.sort(key=lambda item: (item["eligible"], item.get("selection_score", item["score"]), item["score"], item["auction_amount"]), reverse=True)
     eligible_candidates = [item for item in candidates if item["eligible"]]
     selected = _select_high_confidence_candidates(candidates, min(limit, MAX_RECOMMENDATIONS))
@@ -2230,7 +2257,7 @@ def screen_historical_auction_candidates(
         reverse=True,
     )[:limit]
     return {
-        "candidates": selected, "risk_exclusions": risk_exclusions,
+        "candidates": selected, "risk_exclusions": risk_exclusions, "five_tigers": five_tigers,
         "ranked_count": len(candidates),
         "qualified_count": len(eligible), "relay_qualified_count": sum(
             item.get("relay_matched") and item.get("relay_score", 0) >= 78 for item in candidates
@@ -2245,6 +2272,7 @@ def screen_historical_auction_candidates(
         "high_turnover_chain_count": sum(
             item.get("eligible") and item.get("high_turnover_chain_matched") for item in candidates
         ),
+        "five_tigers_count": len(five_tigers["members"]),
         "historical_opening_space_count": sum(
             item.get("eligible") and item.get("historical_opening_space_relay") for item in candidates
         ),

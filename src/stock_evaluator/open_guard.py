@@ -8,7 +8,7 @@ from threading import RLock
 
 from .auction import _auction_candidate, _live_history, _theme_bucket
 from .board_selection import MAX_BOARD_PICKS, intraday_selection_window, select_live_recommendations
-from .board_plan import _market_gate
+from .board_plan import BOARD_STRATEGY_VERSION, _market_gate
 from .board_focus import DAILY_FOCUS_STORE, DailyFocusError
 from .board_research import BOARD_RESEARCH_STORE
 from .quote_sampling import china_time, quote_time_text, quote_freshness
@@ -262,6 +262,11 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
         )
     )
     auction_tradable = candidate.get("tradable", True)
+    live_tradable = bool(
+        auction_tradable
+        or (limit_up_price and low_price > 0 and low_price < limit_up_price - 0.005)
+    )
+    opened_one_price_reseal = bool(not auction_tradable and live_tradable and sealed)
     board_entry_allowed = bool(candidate.get("board_entry_allowed"))
     event_high = (candidate.get("corporate_event_risk") or {}).get("level") == "high"
     live_entry_allowed = bool(candidate.get("live_entry_allowed")) and not event_high
@@ -427,11 +432,16 @@ def _open_confirmation(candidate: dict, result: dict, funds: dict | None) -> dic
         "consecutive_limit_up_days": candidate.get("consecutive_limit_up_days"),
         "early_final_seal_chain_matched": candidate.get("early_final_seal_chain_matched"),
         "previous_day_limit_up": candidate.get("previous_day_limit_up"),
+        "previous_limit_up_breaks": candidate.get("previous_limit_up_breaks"),
         "previous_final_seal_time": candidate.get("previous_final_seal_time"),
+        "previous_turnover_rate": candidate.get("previous_turnover_rate"),
         "auction_volume_percent": candidate.get("auction_volume_percent"),
         "listed_sessions": candidate.get("listed_sessions"),
         "float_market_cap": candidate.get("float_market_cap"),
         "risk_veto": candidate.get("risk_veto", False),
+        "auction_tradable": auction_tradable,
+        "tradable": live_tradable,
+        "opened_one_price_reseal": opened_one_price_reseal,
         "regulatory_risk": result.get("regulatory_risk"),
         "high_turnover_chain_matched": candidate.get("high_turnover_chain_matched", False),
         "auction_gap_percent": candidate.get("auction_gap_percent"),
@@ -659,6 +669,8 @@ def build_open_guard(
         raise MarketDataError("冻结候选的实时行情暂不可用")
     return {
         "selected_date": snapshot.get("selected_date"),
+        "strategy_version": BOARD_STRATEGY_VERSION,
+        "auction_seed_strategy_version": snapshot.get("strategy_version"),
         "historical": bool(snapshot.get("historical") or snapshot.get("selected_date") != discovery_key),
         "snapshot_label": snapshot.get("snapshot_label"),
         "market": market_context,
@@ -678,7 +690,7 @@ def build_open_guard(
         "watch_count": sum(item["tone"] == "watch" for item in rows),
         "rejected_count": sum(item["tone"] == "reject" for item in rows),
         "method": (
-            "09:25只建观察池；盘中仅提示一个首选，条件有效时不换票，全天累计最多5只不同股票。历史延续45%、盘中确认30%、资金最多15分、盘口最多10分，风险扣分；首选潜力分≥80且历史延续≥75。封板优先，两次间隔20秒有效采样；锁定后只看风险，不再新增买点。"
+            "09:25只建观察池；盘中仅提示一个首选，条件有效时不换票，全天累计最多5只不同股票。历史延续45%、盘中确认30%、资金最多15分、盘口最多6分、封单最多4分，风险扣分；首选潜力分≥80且历史延续≥75。实际封板要求买一封单≥3000万元，且占成交额≥5%或占流通市值≥0.5%；锁定后只看风险，不再新增买点。"
             if discover_live else
             "轻量模式只复核09:25冻结候选，不扫描全市场、不补入盘中一进二，用于策略执行页降低网络占用。"
         ),

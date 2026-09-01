@@ -9,7 +9,10 @@ from pathlib import Path
 from math import isfinite
 from threading import RLock
 
-from .board_selection import MAX_BOARD_PICKS, _number, intraday_selection_window
+from .board_selection import (
+    MAX_BOARD_PICKS, RESEAL_MIN_SPAN_SECONDS, RESEAL_REQUIRED_SAMPLES,
+    _number, _seal_profile, _transition_quality_profile, intraday_selection_window,
+)
 
 FOCUS_FILE = Path(__file__).resolve().parents[2] / "data" / "board_daily_focus.json"
 _LOCK = RLock()
@@ -20,20 +23,29 @@ class DailyFocusError(RuntimeError):
 
 
 def potential_profile(item: dict) -> tuple[float, list[str]]:
+    _, _, _, seal_strength = _seal_profile(item, attach=False)
     continuation = _number(item.get("continuation_score"))
     live = _number(item.get("open_score"))
     funds = _number((item.get("funds") or {}).get("main_ratio"))
     book = _number(item.get("order_imbalance"))
+    transition_bonus = min(8, max(0, _number(
+        item.get("transition_quality_bonus")
+        if item.get("transition_quality_bonus") is not None
+        else _transition_quality_profile(item)[0]
+    )))
     penalty = (10 if (item.get("regulatory_risk") or {}).get("level") == "watch" else 0)
     penalty += 5 if item.get("opening_dip") else 0
     penalty += 5 if item.get("late_final_seal_watch") else 0
+    penalty += 6 if item.get("seal_path") == "reseal" else 0
     score = round(max(0, min(100,
         continuation * .45 + live * .30 + max(0, min(10, funds)) * 1.5
-        + max(0, min(1, book)) * 10 - penalty,
+        + max(0, min(1, book)) * 6 + transition_bonus + seal_strength - penalty,
     )), 2)
     return score, [
         f"历史延续{continuation:g}分×45%", f"盘中确认{live:g}分×30%",
-        f"当日主力占比{funds:+.2f}%（最多15分）", f"盘口支撑（最多10分），风险扣{penalty}分",
+        f"当日主力占比{funds:+.2f}%（最多15分）", f"盘口支撑（最多6分）",
+        f"封单强度加{seal_strength:g}分（最多4分）",
+        f"连板质量加{transition_bonus:g}分，风险扣{penalty}分",
     ]
 
 
@@ -120,7 +132,12 @@ class DailyFocusStore:
         # 统一质量门槛与两次采样已由board_selection验证；不再授予其他合格备选执行标记。
         eligible = []
         for item in rows:
-            valid = item.get("confirmation_samples", 0) >= 2 and item.get("recommendation_kind") in {"sealed", "strong_open"}
+            reseal = item.get("seal_path") == "reseal"
+            valid = (
+                item.get("confirmation_samples", 0) >= (RESEAL_REQUIRED_SAMPLES if reseal else 2)
+                and _number(item.get("confirmation_span_seconds")) >= (RESEAL_MIN_SPAN_SECONDS if reseal else 20)
+                and item.get("recommendation_kind") in {"sealed", "strong_open"}
+            )
             item.update(primary_pick=False, recommended=False, actionable=False, execution_ready=False,
                         board_entry_allowed=False, recommendation_badge=None, recommendation_rank=None)
             if valid:
@@ -130,7 +147,8 @@ class DailyFocusStore:
                 item["selection_reason"] = "只关注唯一首选，其他合格标的不自动提示买入"
                 if item["potential_score"] >= 80 and _number(item.get("continuation_score")) >= 75:
                     eligible.append(item)
-        eligible.sort(key=lambda item: (item["recommendation_kind"] == "sealed", item["potential_score"],
+        eligible.sort(key=lambda item: (item["recommendation_kind"] == "sealed", item.get("seal_path") != "reseal",
+                                       item["potential_score"],
                                        _number(item.get("continuation_score")), str(item["code"])), reverse=True)
         by_code = {str(item["code"]): item for item in eligible}
         all_rows = {str(item.get("code")): item for item in rows}
@@ -182,7 +200,10 @@ class DailyFocusStore:
             if primary:
                 primary.update(primary_pick=True, recommended=True, actionable=True, execution_ready=True,
                                board_entry_allowed=primary["recommendation_kind"] == "sealed", recommendation_rank=1,
-                               tone="confirm", decision="今日唯一首选 · " + ("封板确认" if primary["sealed"] else "极强开盘例外"))
+                               tone="confirm", decision="今日唯一首选 · " + (
+                                   "B级二次回封确认" if primary.get("seal_path") == "reseal" else
+                                   "A级主动首封确认" if primary["sealed"] else "极强开盘例外"
+                               ))
                 primary["focus_locked"] = bool(day.get("locked_code"))
                 if primary["focus_locked"]:
                     primary.update(actionable=False, execution_ready=False, board_entry_allowed=False)

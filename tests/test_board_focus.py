@@ -44,6 +44,15 @@ class DailyFocusTests(unittest.TestCase):
         self.assertEqual(sum(row["actionable"] for row in rows), 1)
         self.assertEqual(len(self.store.monitored_candidates(self.now)), 1)
 
+    def test_a_grade_first_seal_always_ranks_before_b_grade_reseal(self):
+        first = qualified("600001", continuation_score=75)
+        reseal = copy.deepcopy(qualified("600002", continuation_score=100, open_score=100))
+        reseal.update(seal_path="reseal", seal_grade="B", confirmation_samples=3,
+                      confirmation_span_seconds=60)
+        picks, _ = self.store.select([reseal, first], self.now)
+        self.assertEqual(picks[0]["code"], "600001")
+        self.assertIn("A级主动首封", picks[0]["decision"])
+
     def test_live_primary_is_sticky_even_if_another_scores_higher(self):
         self.store.select([qualified()], self.now)
         picks, info = self.store.select([qualified(), qualified("600002", continuation_score=100)], self.now + timedelta(seconds=20))
@@ -145,9 +154,11 @@ class DailyFocusTests(unittest.TestCase):
     def test_potential_score_is_transparent_and_risk_penalized(self):
         score, basis = potential_profile(candidate())
         risky, _ = potential_profile(candidate(regulatory_risk={"level": "watch"}))
-        self.assertEqual(score, 82)
+        self.assertEqual(score, 88)
         self.assertEqual(risky, score - 10)
-        self.assertEqual(len(basis), 4)
+        self.assertEqual(len(basis), 6)
+        reseal, _ = potential_profile(candidate(seal_path="reseal"))
+        self.assertEqual(reseal, score - 6)
 
 
 if __name__ == "__main__":

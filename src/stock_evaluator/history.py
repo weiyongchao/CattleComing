@@ -214,10 +214,11 @@ def _compact_candidate(candidate: dict, source: str) -> dict:
 def _board_source_from_plan(payload: dict) -> dict | None:
     """把完整 final/replay 快照转换成历史复盘使用的紧凑打板来源。"""
     candidates = payload.get("candidates") or []
-    if not candidates:
+    historical_replay = payload.get("snapshot_kind") in {"latest_strategy_replay", "strategy_replay"} or bool(payload.get("historical"))
+    # 最新规则可能合法地产生空榜。空回放仍须覆盖旧名单，否则页面会错误回退到旧规则候选。
+    if not candidates and not historical_replay:
         return None
     compacted = []
-    historical_replay = payload.get("snapshot_kind") in {"latest_strategy_replay", "strategy_replay"} or bool(payload.get("historical"))
     for candidate in candidates:
         item = _compact_candidate(candidate, "board")
         if historical_replay:

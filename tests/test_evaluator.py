@@ -1,3 +1,4 @@
+import json
 import unittest
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -28,7 +29,7 @@ from src.stock_evaluator.auction_trajectory import _profile
 from src.stock_evaluator.next_day import _holding_strategy
 from src.stock_evaluator.peers import _primary_board
 from src.stock_evaluator.board_plan import (
-    _auction_decision, _auction_gate, _auction_phase, _market_gate,
+    _auction_decision, _auction_gate, _auction_phase, _market_gate, build_board_plan,
     _exclude_high_corporate_event_candidates, _generalization_evidence,
 )
 from src.stock_evaluator.intraday import (
@@ -1014,7 +1015,7 @@ class EvaluatorTests(unittest.TestCase):
         snapshots = [{"f12": "002412", "f14": "汉森制药", "f20": 5_100_000_000, "f21": 5_000_000_000}]
         pool = [{
             "c": "002412", "n": "汉森制药", "lbc": 3, "zbc": 0,
-            "fbt": 92500, "lbt": 101503, "hybk": "中药Ⅱ",
+            "fbt": 92500, "lbt": 101503, "hs": 8.6, "hybk": "中药Ⅱ",
         }]
         expanded = _expand_with_previous_limit_ups([], snapshots, pool)
         self.assertEqual([item["f12"] for item in expanded], ["002412"])
@@ -1022,6 +1023,7 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(expanded[0]["_previous_limit_up_streak"], 3)
         self.assertEqual(expanded[0]["_previous_first_seal_time"], 92500)
         self.assertEqual(expanded[0]["_previous_final_seal_time"], 101503)
+        self.assertEqual(expanded[0]["_previous_turnover_rate"], 8.6)
         self.assertEqual(expanded[0]["_previous_float_market_cap"], 0)
 
     def test_mature_chain_can_enter_b_watch_but_not_a_liquidity_tier(self):
@@ -1102,6 +1104,12 @@ class EvaluatorTests(unittest.TestCase):
         self.assertEqual(_auction_phase(datetime(2026, 8, 19, 9, 20, 0)), "indicative")
         self.assertEqual(_auction_phase(datetime(2026, 8, 19, 9, 24, 59)), "indicative")
         self.assertEqual(_auction_phase(datetime(2026, 8, 19, 9, 25, 0)), "final")
+
+    def test_preauction_empty_plan_initializes_announcement_cutoff(self):
+        plan = build_board_plan(now=datetime(2026, 8, 19, 8, 30))
+        self.assertEqual(plan["auction_phase"], "preauction")
+        self.assertEqual(plan["candidates"], [])
+        self.assertIsNone(plan["screening"]["corporate_event_cutoff"])
 
     def test_indicative_gate_uses_0920_source_label(self):
         candidate = {
@@ -1440,6 +1448,35 @@ class EvaluatorTests(unittest.TestCase):
                 self.assertTrue(source["historical_proxy"])
                 self.assertTrue(source["candidates"][0]["qualified"])
                 self.assertNotIn("review", result["days"][0])
+            finally:
+                candidate_history.DATA_FILE = original
+                candidate_history.BOARD_PLAN_FILE = original_board
+
+    def test_empty_latest_replay_does_not_fall_back_to_old_board_candidates(self):
+        replay = {
+            "selected_date": "2026-08-25", "generated_at": "2026-08-26T16:00:00+08:00",
+            "strategy_version": "latest", "historical": True, "candidates": [],
+            "screening": {"method": "最新版历史回放", "replay_warning": "09:31历史代理"},
+        }
+        original = candidate_history.DATA_FILE
+        original_board = candidate_history.BOARD_PLAN_FILE
+        with TemporaryDirectory() as directory:
+            candidate_history.DATA_FILE = Path(directory) / "history.json"
+            candidate_history.BOARD_PLAN_FILE = Path(directory) / "board-plans.json"
+            try:
+                candidate_history.DATA_FILE.write_text(json.dumps({
+                    "version": 1, "rule_version": "old", "days": {
+                        "2026-08-25": {"date": "2026-08-25", "sources": {"board": {
+                            "source": "board", "captured_at": "old", "rule_version": "old",
+                            "candidates": [{"code": "600001", "name": "旧候选"}],
+                        }}},
+                    },
+                }, ensure_ascii=False), encoding="utf-8")
+                save_board_plan_snapshot(replay, "replay")
+                result = candidate_history.list_board_history()
+                source = result["days"][0]["sources"]["board"]
+                self.assertEqual(source["snapshot_kind"], "latest_strategy_replay")
+                self.assertEqual(source["candidates"], [])
             finally:
                 candidate_history.DATA_FILE = original
                 candidate_history.BOARD_PLAN_FILE = original_board

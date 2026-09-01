@@ -16,16 +16,19 @@ def candidate(code="600001", **changes):
     return {
         "code": code, "name": "测试股票", "listed_sessions": 100,
         "quote_time": "2026-08-31T09:32:00+08:00", "quote_source": "test", "book_available": True,
-        "bid1_price": 11, "bid1_volume": 10000,
+        "bid1_price": 11, "bid1_volume": 100000,
         "float_market_cap": 5_000_000_000, "corporate_event_checked": True,
         "regulatory_risk": {"level": "normal"}, "open_score": 95,
-        "continuation_score": 80, "amount": 100_000_000, "bid_volume5": 10000,
+        "continuation_score": 80, "amount": 100_000_000, "bid_volume5": 100000,
         "ask_volume5": 0, "order_imbalance": 1,
         "funds": {"available": True, "main_ratio": 5, "date": "2026-08-31"}, "tone": "confirm",
         "sealed": True, "price": 11, "limit_up_price": 11,
         "change_percent": 10, "auction_gap_percent": 6,
         "price_vs_open_percent": 1, "price_vs_auction_percent": 1,
         "high_turnover_chain_matched": True, "auction_rank": 1,
+        "consecutive_limit_up_days": 2, "previous_final_seal_time": 100000,
+        "previous_limit_up_breaks": 0, "previous_turnover_rate": 8,
+        "turnover_rate": 5, "auction_tradable": True, "tradable": True,
         **changes,
     }
 
@@ -49,6 +52,20 @@ class BoardSelectionTests(unittest.TestCase):
         self.assertEqual(len(self.select([row], 20)), 1)
         self.assertTrue(row["board_entry_allowed"])
         self.assertEqual(row["recommendation_kind"], "sealed")
+        self.assertEqual(row["seal_amount"], 110_000_000)
+        self.assertEqual(row["seal_to_amount_percent"], 110)
+
+    def test_thin_seal_or_weak_relative_seal_never_promotes(self):
+        for changes, expected in [
+            ({"bid1_volume": 20_000, "bid_volume5": 20_000}, "不足3000万元"),
+            ({"bid1_volume": 30_000, "bid_volume5": 30_000,
+              "amount": 1_000_000_000, "float_market_cap": 19_000_000_000}, "承接强度不足"),
+        ]:
+            with self.subTest(changes=changes):
+                row = candidate(**changes)
+                self.select([row])
+                self.assertEqual(self.select([row], 20), [])
+                self.assertIn(expected, row["selection_reason"])
 
     def test_ordinary_open_confirmation_is_never_a_pick(self):
         row = candidate(sealed=False, high_turnover_chain_matched=False, price=10.7, change_percent=7)
@@ -92,7 +109,7 @@ class BoardSelectionTests(unittest.TestCase):
         self.assertEqual([row["recommendation_rank"] for row in selected], [1, 2, 3, 4, 5])
         self.assertEqual(sum(row["recommended"] for row in rows), 5)
 
-    def test_failed_board_resets_qualification_and_reseal_needs_two_new_samples(self):
+    def test_failed_board_reseal_requires_three_samples_and_sixty_seconds(self):
         row = candidate()
         self.select([row])
         self.select([row], 20)
@@ -101,7 +118,68 @@ class BoardSelectionTests(unittest.TestCase):
         self.assertFalse(row["recommended"])
         row.update(sealed=True, failed_board=False)
         self.assertEqual(self.select([row], 60), [])
-        self.assertEqual(len(self.select([row], 80)), 1)
+        self.assertEqual(self.select([row], 80), [])
+        self.assertEqual(self.select([row], 100), [])
+        selected = self.select([row], 120)
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(row["seal_path"], "reseal")
+        self.assertEqual(row["seal_grade"], "B")
+        self.assertEqual(row["confirmation_samples"], 3)
+        self.assertEqual(row["confirmation_span_seconds"], 60)
+
+    def test_repeated_failed_snapshot_counts_as_one_break_but_second_break_is_rejected(self):
+        row = candidate()
+        self.select([row])
+        row.update(sealed=False, failed_board=True)
+        self.select([row], 20)
+        self.select([row], 40)
+        self.assertEqual(row["observed_board_breaks"], 1)
+        row.update(sealed=True, failed_board=False)
+        self.select([row], 60)
+        row.update(sealed=False, failed_board=True)
+        self.select([row], 80)
+        self.assertEqual(row["observed_board_breaks"], 2)
+        row.update(sealed=True, failed_board=False)
+        for seconds in (100, 120, 140, 160):
+            self.assertEqual(self.select([row], seconds), [])
+        self.assertIn("至少2次炸板", row["selection_reason"])
+
+    def test_reseal_requires_fast_repair_strong_book_and_funds(self):
+        for changes, expected in [
+            ({"order_imbalance": .34}, "盘口支撑不足"),
+            ({"funds": {"available": True, "main_ratio": 2.99}}, "主力占比至少3%"),
+        ]:
+            with self.subTest(changes=changes):
+                self.observations = {}
+                row = candidate()
+                self.select([row])
+                row.update(sealed=False, failed_board=True)
+                self.select([row], 20)
+                row.update(sealed=True, failed_board=False, **changes)
+                self.assertEqual(self.select([row], 40), [])
+                self.assertIn(expected, row["selection_reason"])
+        self.observations = {}
+        slow = candidate()
+        self.select([slow])
+        slow.update(sealed=False, failed_board=True)
+        self.select([slow], 20)
+        slow.update(sealed=True, failed_board=False)
+        self.assertEqual(self.select([slow], 220), [])
+        self.assertIn("超过3分钟", slow["selection_reason"])
+
+    def test_first_seal_ranks_before_higher_scoring_reseal(self):
+        first = candidate("600001", open_score=80, continuation_score=75)
+        reseal = candidate("600002", open_score=100, continuation_score=100)
+        self.select([first, reseal])
+        self.select([first, reseal], 20)
+        reseal.update(sealed=False, failed_board=True)
+        self.select([first, reseal], 40)
+        reseal.update(sealed=True, failed_board=False)
+        for seconds in (60, 80, 100):
+            self.select([first, reseal], seconds)
+        selected = self.select([first, reseal], 120)
+        self.assertEqual([row["code"] for row in selected[:2]], ["600001", "600002"])
+        self.assertEqual(reseal["seal_path"], "reseal")
 
     def test_quality_failures_never_promote(self):
         bad = [
@@ -117,6 +195,9 @@ class BoardSelectionTests(unittest.TestCase):
             {"order_imbalance": float("nan")}, {"price": 10.99},
             {"funds": {"available": False}},
             {"funds": {"available": True, "main_ratio": -1.01}},
+            {"auction_tradable": False, "tradable": False}, {"previous_final_seal_time": 113000},
+            {"previous_limit_up_breaks": 2}, {"previous_turnover_rate": 20.01},
+            {"turnover_rate": 20.01},
         ]
         for changes in bad:
             with self.subTest(changes=changes):
@@ -155,6 +236,26 @@ class BoardSelectionTests(unittest.TestCase):
             self.assertEqual(intraday_selection_window(self.now.replace(hour=hour, minute=minute)), expected)
         self.assertFalse(intraday_selection_window(datetime(2026, 8, 30, 10)))
 
+    def test_multiboard_does_not_create_afternoon_pick(self):
+        now = self.now.replace(hour=13, minute=0)
+        row, observations = candidate(), {}
+        for seconds in (0, 20):
+            row["quote_time"] = (now + timedelta(seconds=seconds)).isoformat()
+            self.assertEqual(select_live_recommendations(
+                [row], now + timedelta(seconds=seconds), "可观察", observations,
+            ), [])
+        self.assertIn("11:30", row["selection_reason"])
+
+    def test_clean_three_to_four_structure_gets_ranking_bonus(self):
+        weaker = candidate("600001", consecutive_limit_up_days=2,
+                           previous_limit_up_breaks=1, previous_turnover_rate=18)
+        stronger = candidate("600002", consecutive_limit_up_days=3,
+                             previous_limit_up_breaks=0, previous_turnover_rate=8)
+        self.select([weaker, stronger])
+        selected = self.select([weaker, stronger], 20)
+        self.assertEqual(selected[0]["code"], "600002")
+        self.assertGreater(stronger["transition_quality_bonus"], weaker["transition_quality_bonus"])
+
 
 class OpenGuardSelectionIntegrationTests(unittest.TestCase):
     def setUp(self):
@@ -185,6 +286,34 @@ class OpenGuardSelectionIntegrationTests(unittest.TestCase):
                 row = open_guard._open_confirmation(candidate(auction_price=10), result, funds)
                 self.assertFalse(row["funds"]["available"])
                 self.assertIsNone(row["funds"]["main_ratio"])
+
+    def test_previous_board_quality_reaches_live_selection(self):
+        result = {
+            "quote": {"price": 11, "open_price": 10.5, "previous_close": 10,
+                      "high_price": 11, "low_price": 10.5, "change_percent": 10,
+                      "amount": 100_000_000, "quote_time": self.now.isoformat(),
+                      "book_available": True},
+            "metrics": {"price_vs_open_percent": 4.76, "price_vs_ma5_percent": 5,
+                        "volume_ratio": 2, "turnover_rate": 6},
+            "order_book": {"imbalance": .5, "signal": "买盘占优", "bid_volume5": 10000,
+                           "ask_volume5": 0},
+            "regulatory_risk": {"level": "normal", "label": "常规"},
+        }
+        row = open_guard._open_confirmation(
+            candidate(previous_limit_up_breaks=1, previous_turnover_rate=12.5), result,
+            {"is_today": True, "date": date.today().isoformat(), "main_ratio": 5},
+        )
+        self.assertEqual(row["previous_limit_up_breaks"], 1)
+        self.assertEqual(row["previous_turnover_rate"], 12.5)
+        self.assertTrue(row["tradable"])
+        self.assertEqual(row["turnover_rate"], 6)
+
+        opened = open_guard._open_confirmation(
+            candidate(tradable=False, auction_tradable=False), result,
+            {"is_today": True, "date": date.today().isoformat(), "main_ratio": 5},
+        )
+        self.assertTrue(opened["tradable"])
+        self.assertTrue(opened["opened_one_price_reseal"])
 
     def test_guard_consumes_watch_pool_and_returns_only_confirmed_top_five(self):
         with patch.object(open_guard, "_SELECTION_OBSERVATIONS", {}), \

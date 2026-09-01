@@ -185,14 +185,48 @@ def corporate_event_risk(code: str, *, cache_seconds: int = 900) -> dict:
     return result
 
 
-def attach_corporate_event_risks(candidates: list[dict], *, max_workers: int = 4) -> list[dict]:
+def _historical_corporate_event_risk(code: str, as_of: date) -> dict:
+    """按历史可见日期分类公告；不复用今日缓存，避免引入未来信息。"""
+    normalized = str(code or "").strip()
+    try:
+        return _classify_announcements(normalized, _fetch_announcements(normalized), as_of=as_of)
+    except Exception as exc:
+        return {
+            "available": False,
+            "level": "unknown",
+            "label": "历史重大事项数据暂不可用",
+            "is_restructuring": False,
+            "is_merger_acquisition": False,
+            "is_acquisition": False,
+            "is_terminated": False,
+            "is_related_transaction": False,
+            "is_resumption": False,
+            "approval_pending": False,
+            "summary": f"历史公告服务连接失败：{exc}",
+            "risks": ["历史公告数据缺失，不能据此确认当时不存在并购重组风险"],
+            "announcements": [],
+            "source": "公告服务降级",
+            "lookback_days": 60,
+        }
+
+
+def attach_corporate_event_risks(
+    candidates: list[dict], *, max_workers: int = 4, as_of: date | None = None,
+) -> list[dict]:
     targets = [item for item in candidates if item.get("code") and not item.get("corporate_event_risk")]
     if not targets:
         return candidates
+    resolver = (
+        (lambda item: _historical_corporate_event_risk(str(item.get("code") or ""), as_of))
+        if as_of else
+        (lambda item: corporate_event_risk(str(item.get("code") or "")))
+    )
     with ThreadPoolExecutor(max_workers=min(max_workers, len(targets))) as executor:
-        results = executor.map(lambda item: corporate_event_risk(str(item.get("code") or "")), targets)
+        results = executor.map(resolver, targets)
         for candidate, event_risk in zip(targets, results):
             candidate["corporate_event_checked"] = event_risk.get("available") is True
+            if as_of:
+                candidate["corporate_event_as_of"] = as_of.isoformat()
             if event_risk.get("level") != "normal":
                 candidate["corporate_event_risk"] = event_risk
     return candidates

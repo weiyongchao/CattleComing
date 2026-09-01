@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -15,7 +15,7 @@ from .market import EastmoneyProvider, MarketDataError
 from .trade_advice import auction_entry_plan
 
 
-BOARD_STRATEGY_VERSION = "2026.08.31.3"
+BOARD_STRATEGY_VERSION = "2026.09.01.3"
 from .screener import LEADER_POOL, is_main_board, is_risk_stock_name
 
 
@@ -725,8 +725,12 @@ def build_board_plan(
     risk_exclusions = [_auction_decision(candidate) for candidate in auction.get("risk_exclusions", [])]
     event_exclusions: list[dict] = []
     event_exclusion_codes: set[str] = set()
-    if (candidates or risk_exclusions) and not historical:
-        attach_corporate_event_risks(candidates + risk_exclusions)
+    announcement_cutoff: date | None = None
+    if candidates or risk_exclusions:
+        # 历史竞价只能安全使用前一日及更早的公告。公告接口只有日期没有可靠的盘前发布时间，
+        # 因此不把目标日公告倒灌到09:25回放。
+        announcement_cutoff = target_date - timedelta(days=1) if historical else None
+        attach_corporate_event_risks(candidates + risk_exclusions, as_of=announcement_cutoff)
         candidates, event_exclusions = _exclude_high_corporate_event_candidates(candidates)
         structural_exclusions, nested_event_exclusions = _exclude_high_corporate_event_candidates(risk_exclusions)
         event_exclusion_codes = {
@@ -802,6 +806,7 @@ def build_board_plan(
             "untradable_count": auction.get("untradable_count", 0),
             "risk_veto_count": auction.get("risk_veto_count", 0) + len(event_exclusions),
             "event_risk_excluded_count": len(event_exclusion_codes),
+            "corporate_event_cutoff": announcement_cutoff.isoformat() if announcement_cutoff else None,
             "one_to_two_count": auction.get("one_to_two_count", 0),
             "strong_one_price_one_to_two_count": auction.get("strong_one_price_one_to_two_count", 0),
             "high_board_turnover_relay_count": auction.get("high_board_turnover_relay_count", 0),
@@ -828,14 +833,14 @@ def build_board_plan(
         },
         "strategy_profile": {
             "name": "封板确认优先 · 唯一首选 · 全天最多5只",
-            "selection_rule": "09:25只建观察池；盘中动态补选，实际封板、盘口、资金和风险需两次间隔20秒采样通过。普通开盘转强只观察，极强开盘采用严格例外。只提示唯一首选、有效时不换票，全天累计最多5个代码；可锁定一只仅看风险。",
-            "core_rule": "最近交易日完整涨停池强制深扫；高换手强竞价连板通道仅使用真实09:25数据：至少2连板、竞价换手率>1.2%、高开≥5%、竞价额>5000万。早封连板通道要求昨日及2个交易日前均涨停、昨日最终封板早于11:30、竞价涨幅≥1%且<9.8%、竞价量比>1、竞价额>3000万、流通市值<200亿、上市≥60个交易日。",
+            "selection_rule": "09:25只建观察池；盘中动态补选。实际封板统一要求涨停价买一封单金额≥3000万元，并且占当日成交额≥5%或占流通市值≥0.5%。开盘可交易、首次主动封板且两次间隔20秒确认列为A级；只炸板一次、3分钟内回封，并通过60秒3次采样、主力占比≥3%、盘口支撑≥35%及封单保持率≥80%列为B级。A级始终排在B级之前；普通开盘转强只观察，极强开盘采用严格例外。只提示唯一首选、有效时不换票，全天累计最多5个代码；可锁定一只仅看风险。",
+            "core_rule": "最近交易日完整涨停池强制深扫；高换手强竞价连板通道仅使用真实09:25数据：至少2连板、竞价换手率>1.2%、高开≥5%、竞价额>5000万。早封连板通道要求昨日及2个交易日前均涨停、昨日最终封板早于11:30、昨日炸板少于2次、昨日换手≤20%、竞价涨幅≥1%且<9.8%、竞价量比>1、竞价额>3000万、流通市值<200亿、上市≥60个交易日。",
             "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；三板以上核心由一字加速转为-3%至+5%竞价时，量额、换手和前日结构达标可进入高位换手B级观察，低开不直接视为买点。",
             "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
             "first_board_rule": "一进二使用独立模型：普通通道MA5偏离≤20%；实时09:25若竞价接近涨停、竞价额≥5000万、竞价量占比≥10%、前日强收短上影，可将MA5偏离放宽到25%并标记为强竞价一字板豁免。3000万–5000万竞价额可进入B级；200亿–500亿容量股需板块共振。",
             "nuclear_button_rule": "仅用当日09:25最终竞价：昨日成交额≥5亿且成交量低于前日、竞价额≥5000万、高开≥7%、竞价换手≥3%；市场冰点与强势股性保留人工确认，命中后仍属于高风险观察。",
             "recognition_rule": "新增三条动态观察通道：200亿–350亿但近10日涨停活性很高的容量接力；高辨识度龙头前日分歧后竞价反包；近期有股性且竞价接近涨停、量额换手显著的抢筹首板。均不直接获得可执行仓位。",
-            "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；昨日最终封板不早于11:30的连板股强制降为B级观察，未实际封板不得升级；盘中逼近涨停但未封住并明显回落时直接放弃追入。前日缩量连板后，一字竞价量超过近5日均量50%、MA5偏离超过20%的集中兑现结构硬否决；并购、收购、重大重组及重组终止等事件一律移出主榜。",
+            "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；不可成交的一字结构、昨日最终封板不早于11:30、昨日炸板≥2次、昨日换手>20%或当日实际换手>20%均不得进入正式首选；盘中观察到第二次炸板后即使再次回封也不再推荐，11:30后不再生成新的连板买点。盘中逼近涨停但未封住并明显回落时直接放弃追入。前日缩量连板后，一字竞价量超过近5日均量50%、MA5偏离超过20%的集中兑现结构硬否决；并购、收购、重大重组及重组终止等事件一律移出主榜。",
             "generalization_rule": "所有形态统一经过五组独立证据复核：风险控制必须通过，历史结构、竞价真实性、流动性、T+1延续性至少通过三组；命中某个形态或漏选过某只历史强股都不能单独产生推荐。",
         },
         "strategy_governance": {
@@ -845,7 +850,7 @@ def build_board_plan(
             "validation_policy": "按时间顺序进行样本外/滚动验证，同时统计候选命中率、次日收益、最大不利波动、炸板率与候选数量；不以命中已知名单为唯一指标",
             "current_status": "通用五组证据门槛已启用；新增形态默认先进入观察层",
         },
-        "data_scope": ["全部非ST沪深主板批量快照", "前序80个交易日K线与昨日成交额", "昨日首次/最终封板时间", "近5/10日涨停活性与连续涨停", "T+1连板预期分", "早封连板、连板优先与隔日启动分层", "反核按钮09:25五项硬条件", "近3/5/10/30日走势", "前日收盘位置与上影线", "竞价量额、竞价换手、大单/五档支撑", "题材板块共振", "近60日重组/停复牌/关联交易公告风险", "未持有者操作时机与失效条件", "T日盘中封板/回封执行门槛", "T+1开盘与收盘复盘"],
+        "data_scope": ["全部非ST沪深主板批量快照", "前序80个交易日K线与昨日成交额", "昨日首次/最终封板时间、炸板次数与换手率", "近5/10日涨停活性与连续涨停", "T+1连板预期分", "早封连板、连板优先与隔日启动分层", "反核按钮09:25五项硬条件", "近3/5/10/30日走势", "前日收盘位置与上影线", "竞价量额、竞价换手、大单/五档支撑", "题材板块共振", "近60日重组/停复牌/关联交易公告风险", "未持有者操作时机与失效条件", "T日盘中封板/回封执行门槛与实际换手率", "T+1开盘与收盘复盘"],
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "disclaimer": (
             auction.get("disclaimer", "历史回放只用于比较规则，不构成当前交易信号。")

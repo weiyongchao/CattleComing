@@ -143,7 +143,7 @@ class BoardResearchTests(unittest.TestCase):
         self.assertEqual(data["summary"]["shadow_stock_count"], 1)
         self.assertEqual(data["summary"]["formal_stock_count"], 0)
         self.assertTrue(data["samples"][0]["first_shadow_event"])
-        self.assertEqual(data["samples"][0]["seal_amount"], 11*10000*100)
+        self.assertEqual(data["samples"][0]["seal_amount"], original["bid1_price"] * original["bid1_volume"] * 100)
         self.assertEqual(data["stocks"][0]["first_shadow_at"], "2026-08-31T10:01:00+08:00")
         self.assertNotIn("recommended", data["samples"][0])
 

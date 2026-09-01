@@ -77,6 +77,20 @@ class CorporateEventRiskTests(unittest.TestCase):
             attach_corporate_event_risks(candidates)
         self.assertNotIn("corporate_event_risk", candidates[0])
 
+    def test_historical_attachment_uses_explicit_cutoff(self):
+        candidates = [{"code": "600001"}]
+        rows = [
+            {"art_code": "KNOWN", "notice_date": "2026-08-24 00:00:00", "title": "重大资产重组预案", "columns": []},
+            {"art_code": "FUTURE", "notice_date": "2026-08-25 00:00:00", "title": "现金收购股权公告", "columns": []},
+        ]
+        with patch("src.stock_evaluator.corporate_events._fetch_announcements", return_value=rows):
+            attach_corporate_event_risks(candidates, as_of=date(2026, 8, 24))
+        self.assertTrue(candidates[0]["corporate_event_checked"])
+        self.assertEqual(candidates[0]["corporate_event_as_of"], "2026-08-24")
+        risk = candidates[0]["corporate_event_risk"]
+        self.assertTrue(risk["is_restructuring"])
+        self.assertFalse(risk["is_acquisition"])
+
 
 class EntryAdviceTests(unittest.TestCase):
     def base_candidate(self):
