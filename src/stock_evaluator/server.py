@@ -23,7 +23,7 @@ from .history import (
     list_board_history, list_history, load_board_plan_snapshot, load_recorded_board_plan, record_candidates, review_day,
     save_board_plan_snapshot,
 )
-from .open_guard import build_open_guard
+from .open_guard import build_open_guard, build_priority_watch_guard, retain_priority_watch_candidates
 from .board_focus import DAILY_FOCUS_STORE, DailyFocusError
 from .board_research import BOARD_RESEARCH_STORE, ResearchError
 from .quote_sampling import china_time
@@ -87,6 +87,9 @@ class AppHandler(SimpleHTTPRequestHandler):
     auction_cache: tuple[float, dict] | None = None
     board_plan_cache: tuple[float, dict] | None = None
     board_open_cache: tuple[float, dict] | None = None
+    board_watch_cache: tuple[float, dict] | None = None
+    board_priority_watch_day: str | None = None
+    board_priority_watch_seeds: dict[str, dict] = {}
     next_day_cache: tuple[float, dict] | None = None
     historical_board_cache: dict[str, dict] = {}
     premarket_cache: tuple[str, dict] | None = None
@@ -98,6 +101,7 @@ class AppHandler(SimpleHTTPRequestHandler):
     board_plan_scan_lock = threading.Lock()
     board_session_auction_lock = threading.Lock()
     board_open_scan_lock = threading.Lock()
+    board_watch_scan_lock = threading.Lock()
     board_focus_lock = threading.Lock()
     board_focus_revision = 0
     session_runner: BoardSessionRunner | None = None
@@ -236,6 +240,12 @@ class AppHandler(SimpleHTTPRequestHandler):
                 if snapshot.get("auction_phase") != "final" or snapshot.get("stale_fallback") or snapshot.get("data_degraded"):
                     raise ValueError("最终竞价数据尚未核验，等待下一轮")
             payload = build_open_guard(snapshot, cls.provider, discover_live=not frozen_only)
+            if cls.board_priority_watch_day != now.date().isoformat():
+                cls.board_priority_watch_day = now.date().isoformat()
+                cls.board_priority_watch_seeds = {}
+            payload["priority_watch_candidates"] = retain_priority_watch_candidates(
+                payload, cls.board_priority_watch_seeds,
+            )
             payload["auction_seed"] = {
                 "kind": snapshot.get("snapshot_kind"), "generated_at": snapshot.get("generated_at"),
                 "actual_preopen": timely_final(snapshot, now),
@@ -246,6 +256,26 @@ class AppHandler(SimpleHTTPRequestHandler):
                     raise ValueError("首选锁定状态已改变，请刷新；旧买点已作废")
                 cls.board_open_cache = (time.time(), payload)
                 return json.loads(json.dumps(payload, ensure_ascii=False))
+
+    @classmethod
+    def _session_priority_watch_guard(cls) -> dict:
+        """3秒轻量刷新重点观察票，不触发全市场重扫或正式首选变更。"""
+        now = datetime.now()
+        if (now.hour, now.minute) < (9, 30):
+            raise ValueError("09:30开盘后才刷新重点观察")
+        with cls.board_watch_scan_lock:
+            source = cls.board_open_cache
+            if (not source or source[1].get("selected_date") != now.date().isoformat()
+                    or time.time() - source[0] > 90):
+                raise ValueError("重点观察来源尚未刷新，等待下一轮全市场榜单")
+            cached = cls.board_watch_cache
+            source_stamp = source[1].get("generated_at")
+            if (cached and time.time() - cached[0] < 2
+                    and cached[1].get("source_generated_at") == source_stamp):
+                return json.loads(json.dumps(cached[1], ensure_ascii=False))
+            payload = build_priority_watch_guard(source[1], cls.provider)
+            cls.board_watch_cache = (time.time(), payload)
+            return json.loads(json.dumps(payload, ensure_ascii=False))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
@@ -500,6 +530,13 @@ class AppHandler(SimpleHTTPRequestHandler):
                 return self._json(502, {"error": str(exc)})
             except OSError as exc:
                 return self._json(503, {"error": f"竞价快照读取失败：{exc}"})
+        if parsed.path == "/api/board-watch-guard":
+            try:
+                return self._json(200, type(self)._session_priority_watch_guard())
+            except ValueError as exc:
+                return self._json(409, {"error": str(exc)})
+            except MarketDataError as exc:
+                return self._json(502, {"error": str(exc)})
         if parsed.path == "/api/next-day-strategy":
             now = datetime.now()
             if (now.hour, now.minute) < (14, 50):

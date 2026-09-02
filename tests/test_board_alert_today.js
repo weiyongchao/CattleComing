@@ -75,6 +75,31 @@ app.emit("board:live-snapshot", snapshot("600001", { candidates: [], watch_candi
 ] }));
 check(app.saved().events.length === 2 && app.saved().events[0].tone === "risk", "今日正式名单股票失效后仍保留风险提醒");
 check(!app.html().includes("600002"), "普通观察票即使炸板也不会混入预警");
+
+const observer = harness();
+const priority = { code: "600010", name: "重点观察票", priority_watch: true };
+observer.emit("board:live-snapshot", snapshot("600001", {
+  daily_focus: { available: true, primary_code: null, issued_count: 0, issued: [] },
+  candidates: [], priority_watch_candidates: [priority],
+}));
+observer.emit("board:watch-snapshot", { selected_date: TODAY, generated_at: NOW, historical: false,
+  candidates: [{ ...priority, status: "approaching", alert_level: "watch", formal_recommendation: false,
+    recommended: false, actionable: false, price: 10.9, change_percent: 9 }] });
+check(observer.html().includes("600010") && observer.html().includes("非正式买点"), "重点观察票接近触发时即时提示并明确非正式买点");
+check(observer.saved().notified_codes.length === 0, "观察提醒不占正式每日名额");
+observer.emit("board:watch-snapshot", { selected_date: TODAY, generated_at: NOW, historical: false,
+  candidates: [{ ...priority, status: "approaching", alert_level: "watch", formal_recommendation: false,
+    recommended: false, actionable: false, price: 10.9, change_percent: 9 }] });
+check(observer.saved().events.length === 1, "同一观察状态重复刷新不重复提醒");
+observer.emit("board:watch-snapshot", { selected_date: TODAY, generated_at: NOW, historical: false,
+  candidates: [{ ...priority, status: "triggered", alert_level: "watch", formal_recommendation: false,
+    recommended: false, actionable: false, price: 11, change_percent: 10 }] });
+check(observer.saved().events.length === 2 && observer.html().includes("候选封板触发"), "接近涨停后真正封板可再次提醒复核");
+const unauthorised = harness();
+unauthorised.emit("board:watch-snapshot", { selected_date: TODAY, generated_at: NOW, historical: false,
+  candidates: [{ ...priority, status: "triggered", alert_level: "watch", formal_recommendation: false,
+    recommended: false, actionable: false }] });
+check(!unauthorised.html().includes("600010"), "未经今日重点观察名单授权的快速行情不能触发提醒");
 app.emit("board:live-snapshot", snapshot("600002", { daily_focus: undefined }));
 check(!app.html().includes('data-alert-id='), "接口缺少今日正式名单时停止显示与新增预警");
 app.emit("board:live-snapshot", snapshot());

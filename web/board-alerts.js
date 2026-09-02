@@ -40,10 +40,19 @@
         || !Array.isArray(focus.issued) || focus.issued.length > DAILY_LIMIT) return new Set();
     return new Set(focus.issued.filter((item) => /^\d{6}$/.test(String(item?.code)) && tradingDate(item?.first_at) === today).map((item) => String(item.code)));
   };
-  const todayAlertEvents = (events, today, allowedCodes) => events.filter((item) => item
-    && allowedCodes.has(String(item.code)) && ["confirm", "risk"].includes(item.tone)
-    && (item.trade_date == null || item.trade_date === today)
-    && typeof item.id === "string" && item.id.startsWith(`${today}|${item.code}|`));
+  const todayPriorityWatchCodes = (snapshot, today) => {
+    const rows = snapshot?.priority_watch_candidates;
+    if (snapshot?.selected_date !== today || snapshot?.historical || !Array.isArray(rows) || rows.length > DAILY_LIMIT) return new Set();
+    return new Set(rows.filter((item) => item?.priority_watch === true && /^\d{6}$/.test(String(item.code))).map((item) => String(item.code)));
+  };
+  const todayAlertEvents = (events, today, allowedCodes, priorityCodes = new Set()) => events.filter((item) => {
+    if (!item || (item.trade_date != null && item.trade_date !== today)
+        || typeof item.id !== "string" || !item.id.startsWith(`${today}|${item.code}|`)) return false;
+    if (item.scope === "priority_watch") {
+      return priorityCodes.has(String(item.code)) && ["watch", "risk"].includes(item.tone);
+    }
+    return allowedCodes.has(String(item.code)) && ["confirm", "risk"].includes(item.tone);
+  });
   const notifiedCodes = (saved, today) => saved.date !== today ? [] : [...new Set([
     ...(Array.isArray(saved.notified_codes) ? saved.notified_codes : []),
     ...(Array.isArray(saved.events) ? saved.events : []).filter((item) => item?.tone === "confirm").map((item) => item.code),
@@ -100,7 +109,26 @@
     return null;
   };
 
-  const api = { DEFAULT_SETTINGS, normalizeSettings, eventKey, classifyAuctionCandidate, classifyLiveCandidate, notifiedCodes, canPrompt, tradingDate, todayBoardCodes, todayAlertEvents };
+  const classifyPriorityWatchCandidate = (candidate) => {
+    if (!candidate || candidate.formal_recommendation !== false || candidate.recommended || candidate.actionable) return null;
+    if (candidate.status === "invalid" && candidate.alert_level === "risk") {
+      return { rule: "watch-invalid", label: "观察候选失效·停止等待", tone: "risk",
+        detail: candidate.status_detail || "盘中结构已经破坏预案" };
+    }
+    if (candidate.status === "triggered" && candidate.alert_level === "watch") {
+      return { rule: "watch-triggered", label: "候选封板触发·立即复核", tone: "watch",
+        detail: `${candidate.status_detail || "封板触发"}；快速提醒不是正式买入推荐` };
+    }
+    if (candidate.status === "approaching" && candidate.alert_level === "watch") {
+      return { rule: "watch-approaching", label: "距涨停不足1%·准备复核", tone: "watch",
+        detail: candidate.status_detail || "提前打开盘口，未封板前不追入" };
+    }
+    return null;
+  };
+
+  const api = { DEFAULT_SETTINGS, normalizeSettings, eventKey, classifyAuctionCandidate, classifyLiveCandidate,
+    classifyPriorityWatchCandidate, notifiedCodes, canPrompt, tradingDate, todayBoardCodes,
+    todayPriorityWatchCodes, todayAlertEvents };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof window === "undefined" || typeof document === "undefined") return;
   window.BoardAlertEngine = api;
@@ -151,7 +179,8 @@
   let focusPolicyAt = 0;
   let dailyFocus = null;
   let allowedCodes = new Set();
-  const visibleEvents = () => todayAlertEvents(state.events, state.date, allowedCodes);
+  let priorityCodes = new Set();
+  const visibleEvents = () => todayAlertEvents(state.events, state.date, allowedCodes, priorityCodes);
   let audioContext = null;
 
   const persist = () => {
@@ -164,6 +193,7 @@
     state = { date: today, events: [], triggered: {}, notified_codes: [], settings: state.settings };
     dailyFocus = null;
     allowedCodes = new Set();
+    priorityCodes = new Set();
     selectedCount = 0;
     lastScanAt = 0;
     focusPolicyAt = 0;
@@ -181,16 +211,16 @@
       runState.textContent = !state.settings.enabled ? "[已暂停]" : fresh ? "[运行中]" : "[等待新数据]";
       runState.style.color = state.settings.enabled && fresh ? "var(--green)" : "var(--amber)";
     }
-    if (stats) stats.textContent = `首选:${selectedCount}/1 · 今日:${Math.max(state.notified_codes.length, dailyFocus?.issued_count || 0)}/5${dailyFocus?.locked_code ? " · 已锁定" : ""} · 今日记录:${displayed.length}${unread ? ` · 未读:${unread}` : ""}`;
+    if (stats) stats.textContent = `首选:${selectedCount}/1 · 观察:${priorityCodes.size}/5 · 今日:${Math.max(state.notified_codes.length, dailyFocus?.issued_count || 0)}/5${dailyFocus?.locked_code ? " · 已锁定" : ""} · 今日记录:${displayed.length}${unread ? ` · 未读:${unread}` : ""}`;
     if (toggleButton) toggleButton.textContent = state.settings.enabled ? "关闭预警" : "启动预警";
     if (unreadBadge) unreadBadge.textContent = String(unread);
     rows.innerHTML = displayed.length ? displayed.map((item) => `
       <button class="board-alert-row${item.id === selectedEventId ? " is-selected" : ""}${item.unread ? " is-unread" : ""}" data-alert-id="${escapeHtml(item.id)}" data-tone="${item.tone === "confirm" && !item.active ? "watch" : escapeHtml(item.tone)}" role="option" aria-selected="${item.id === selectedEventId}">
-        <span class="board-alert-stock"><i>${item.tone === "risk" ? "◆" : "♟"}</i><span>${escapeHtml(item.name)} <small>${escapeHtml(item.code)}</small></span></span>
+        <span class="board-alert-stock"><i>${item.tone === "risk" ? "◆" : item.tone === "watch" ? "◎" : "♟"}</i><span>${escapeHtml(item.name)} <small>${escapeHtml(item.code)}</small></span></span>
         <span>${escapeHtml(item.time)}</span><span>${fixed(item.price)}</span>
         <span class="board-alert-change ${number(item.change) != null && number(item.change) < 0 ? "is-negative" : "is-positive"}">${signed(item.change)}</span>
-        <span class="board-alert-rule" title="${escapeHtml(item.detail)}">${escapeHtml(item.label)}${item.tone === "confirm" && !item.active ? " · 今日记录/非当前买点" : ""}</span>
-      </button>`).join("") : `<div class="board-alert-empty">${state.settings.enabled ? "等待今日正式打板名单确认；仅提示今日打板票，历史和观察池不显示、不提醒。" : "条件预警已暂停，可点击“启动预警”恢复。"}</div>`;
+        <span class="board-alert-rule" title="${escapeHtml(item.detail)}">${escapeHtml(item.label)}${item.tone === "watch" ? " · 非正式买点" : item.tone === "confirm" && !item.active ? " · 今日记录/非当前买点" : ""}</span>
+      </button>`).join("") : `<div class="board-alert-empty">${state.settings.enabled ? "等待今日正式首选或重点观察票触发；观察提醒会明确标注非正式买点。" : "条件预警已暂停，可点击“启动预警”恢复。"}</div>`;
   };
 
   const playAlertSound = (tone = "confirm") => {
@@ -271,6 +301,36 @@
     render();
   };
 
+  const addPriorityWatchEvents = (candidates, generatedAt) => {
+    ensureToday();
+    if (!state.settings.enabled || !Array.isArray(candidates)) { render(); return; }
+    const newEvents = [];
+    for (const candidate of candidates) {
+      const code = String(candidate?.code || "");
+      const classified = classifyPriorityWatchCandidate(candidate);
+      if (!classified || !priorityCodes.has(code)) continue;
+      const key = eventKey(state.date, code, classified.rule);
+      if (state.triggered[key]) continue;
+      const event = {
+        id: key, trade_date: state.date, scope: "priority_watch",
+        code, name: String(candidate.name || code), time: displayTime(generatedAt),
+        price: number(candidate.price), change: number(candidate.change_percent),
+        source: "priority_watch", active: candidate.status === "triggered", unread: true,
+        ...classified,
+      };
+      state.triggered[key] = generatedAt || new Date().toISOString();
+      newEvents.push(event);
+    }
+    if (!newEvents.length) { render(); return; }
+    state.events = [...newEvents, ...state.events].slice(0, MAX_EVENTS);
+    selectedEventId = newEvents[0].id;
+    persist();
+    if (state.settings.autoOpen) openPanel();
+    playAlertSound(newEvents.some((item) => item.tone === "risk") ? "risk" : "watch");
+    desktopNotify(newEvents);
+    render();
+  };
+
   const processLiveSnapshot = (data) => {
     ensureToday();
     if (!data || data.selected_date !== localDate() || data.historical) return;
@@ -281,6 +341,7 @@
     lastScanAt = generated;
     dailyFocus = data.daily_focus || null;
     allowedCodes = todayBoardCodes(data, state.date);
+    priorityCodes = todayPriorityWatchCodes(data, state.date);
     const picks = dailyFocus?.available ? (data.candidates || []).filter((item) => allowedCodes.has(String(item.code)) && item.primary_pick === true && item.recommended === true && item.code === dailyFocus.primary_code).slice(0, 1) : [];
     selectedCount = picks.length;
     const activeCodes = new Set(picks.map((item) => item.code));
@@ -288,6 +349,15 @@
     const watches = (data.watch_candidates || []).map((item) => ({ ...item, recommended: false }));
     persist();
     addEvents([...picks, ...watches], classifyLiveCandidate, data.generated_at, "live");
+  };
+
+  const processPriorityWatchSnapshot = (data) => {
+    ensureToday();
+    if (!data || data.selected_date !== state.date || data.historical || tradingDate(data.generated_at) !== state.date) return;
+    const generated = new Date(data.generated_at).getTime();
+    if (!Number.isFinite(generated) || Date.now() - generated > 15000 || generated > Date.now() + 5000) return;
+    lastScanAt = Math.max(lastScanAt, generated);
+    addPriorityWatchEvents((data.candidates || []).filter((item) => priorityCodes.has(String(item.code))), data.generated_at);
   };
 
   const selectEvent = (id) => {
@@ -323,6 +393,7 @@
   const closeOperations = () => document.getElementById("boardAlertOperations")?.removeAttribute("open");
 
   window.addEventListener("board:live-snapshot", (event) => processLiveSnapshot(event.detail));
+  window.addEventListener("board:watch-snapshot", (event) => processPriorityWatchSnapshot(event.detail));
   window.addEventListener("board:focus-policy", (event) => {
     ensureToday();
     dailyFocus = event.detail;

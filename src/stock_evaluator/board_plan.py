@@ -11,11 +11,12 @@ from .auction import screen_auction_candidates, screen_historical_auction_candid
 from .board_selection import MAX_BOARD_PICKS
 from .board_session import workflow_view
 from .corporate_events import attach_corporate_event_risks
+from .five_tigers import OPENING_FIVE_TIGERS_STORE, apply_frozen_five_tigers_profile
 from .market import EastmoneyProvider, MarketDataError
 from .trade_advice import auction_entry_plan
 
 
-BOARD_STRATEGY_VERSION = "2026.09.01.3"
+BOARD_STRATEGY_VERSION = "2026.09.02.4"
 from .screener import LEADER_POOL, is_main_board, is_risk_stock_name
 
 
@@ -698,6 +699,7 @@ def build_board_plan(
     if auction_phase == "preauction":
         auction = {
             "candidates": [], "ranked_count": 0, "qualified_count": 0,
+            "five_tigers": {"available": False, "phase": "竞价尚未开始", "members": [], "focus": []},
             "relay_qualified_count": 0, "scanned": 0, "prefiltered": 0,
             "deep_scanned": 0, "failed": 0,
             "universe_source": "09:17可撤单预选窗口尚未开始",
@@ -746,10 +748,21 @@ def build_board_plan(
             phase_label = "09:17预选" if auction_phase == "cancelable" else "09:20观察"
             candidate["action"] = f"{phase_label} · {candidate['action']}"
             candidate["actionable"] = False
+    selected_day = target_date.isoformat() if target_date else date.today().isoformat()
+    try:
+        opening_five_tigers = OPENING_FIVE_TIGERS_STORE.get(selected_day)
+    except (OSError, ValueError, TypeError):
+        opening_five_tigers = None
+    displayed_five_tigers = (
+        apply_frozen_five_tigers_profile(candidates + risk_exclusions, opening_five_tigers)
+        if opening_five_tigers else
+        auction.get("five_tigers") or {"available": False, "members": [], "focus": []}
+    )
     candidates.sort(key=lambda item: (
         item["actionable"],
         item.get("tradable", True) and item.get("priority_tier") != "跌停反核观察",
         item.get("priority_tier") in {"连板优先", "早封连板优先", "高换手连板优先", "盘中空间板观察"} and item.get("tradable", True),
+        int(item.get("five_tigers_priority", 0)),
         item.get("previous_board_count", 0),
         2 if item.get("auction_liquidity_tier") == "A" else 1 if item.get("auction_liquidity_tier") == "B" else 0,
         item.get("continuation_score", 0), item["score"], item["auction_amount"],
@@ -784,8 +797,9 @@ def build_board_plan(
         "capital": capital,
         "strategy_version": BOARD_STRATEGY_VERSION,
         "stage": f"历史回放 · {target_date.isoformat()}" if historical else _session_stage(now),
-        "selected_date": target_date.isoformat() if target_date else date.today().isoformat(),
+        "selected_date": selected_day,
         "historical": historical, "auction_phase": auction_phase, "market": gate,
+        "five_tigers": displayed_five_tigers,
         "candidates": candidates[:MAX_BOARD_PICKS], "watch_candidates": candidates[MAX_BOARD_PICKS:],
         "recommendation_limit": MAX_BOARD_PICKS, "risk_exclusions": risk_exclusions,
         "actionable_count": len(actionable),
@@ -798,6 +812,7 @@ def build_board_plan(
             "core_qualified_count": auction.get("core_qualified_count", 0),
             "early_final_seal_chain_count": auction.get("early_final_seal_chain_count", 0),
             "high_turnover_chain_count": auction.get("high_turnover_chain_count", 0),
+            "five_tigers_count": len(displayed_five_tigers.get("members") or []),
             "historical_opening_space_count": auction.get("historical_opening_space_count", 0),
             "reversal_qualified_count": auction.get("reversal_qualified_count", 0),
             "first_board_qualified_count": auction.get("first_board_qualified_count", 0),
@@ -834,13 +849,13 @@ def build_board_plan(
         "strategy_profile": {
             "name": "封板确认优先 · 唯一首选 · 全天最多5只",
             "selection_rule": "09:25只建观察池；盘中动态补选。实际封板统一要求涨停价买一封单金额≥3000万元，并且占当日成交额≥5%或占流通市值≥0.5%。开盘可交易、首次主动封板且两次间隔20秒确认列为A级；只炸板一次、3分钟内回封，并通过60秒3次采样、主力占比≥3%、盘口支撑≥35%及封单保持率≥80%列为B级。A级始终排在B级之前；普通开盘转强只观察，极强开盘采用严格例外。只提示唯一首选、有效时不换票，全天累计最多5个代码；可锁定一只仅看风险。",
-            "core_rule": "最近交易日完整涨停池强制深扫；高换手强竞价连板通道仅使用真实09:25数据：至少2连板、竞价换手率>1.2%、高开≥5%、竞价额>5000万。早封连板通道要求昨日及2个交易日前均涨停、昨日最终封板早于11:30、昨日炸板少于2次、昨日换手≤20%、竞价涨幅≥1%且<9.8%、竞价量比>1、竞价额>3000万、流通市值<200亿、上市≥60个交易日。",
+            "core_rule": "最近交易日完整涨停池强制深扫；09:20–09:25生成竞价预选，09:30–09:35按行情源实际换手冻结开盘五虎。先看换手，超过5%锁定换手最高者；再看2%–3%区间的竞价涨幅，有>5%首选时作为第二观察，否则成为首选。之后只更新状态、不按累计换手换股。五虎原始名次只由连板、实际换手和竞价开幅决定，风险、市值、封单和资金只能影响正式推荐资格。",
             "relay_rule": "最近5日至少1次或10日至少2次涨停，前日强收、短上影，竞价量额确认；三板以上核心由一字加速转为-3%至+5%竞价时，量额、换手和前日结构达标可进入高位换手B级观察，低开不直接视为买点。",
             "reversal_rule": "最近10日至少2次涨停，前日2–6倍量分歧但仍有承接，次日竞价高开5%–10.2%且量额确认。",
             "first_board_rule": "一进二使用独立模型：普通通道MA5偏离≤20%；实时09:25若竞价接近涨停、竞价额≥5000万、竞价量占比≥10%、前日强收短上影，可将MA5偏离放宽到25%并标记为强竞价一字板豁免。3000万–5000万竞价额可进入B级；200亿–500亿容量股需板块共振。",
             "nuclear_button_rule": "仅用当日09:25最终竞价：昨日成交额≥5亿且成交量低于前日、竞价额≥5000万、高开≥7%、竞价换手≥3%；市场冰点与强势股性保留人工确认，命中后仍属于高风险观察。",
             "recognition_rule": "新增三条动态观察通道：200亿–350亿但近10日涨停活性很高的容量接力；高辨识度龙头前日分歧后竞价反包；近期有股性且竞价接近涨停、量额换手显著的抢筹首板。均不直接获得可执行仓位。",
-            "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；不可成交的一字结构、昨日最终封板不早于11:30、昨日炸板≥2次、昨日换手>20%或当日实际换手>20%均不得进入正式首选；盘中观察到第二次炸板后即使再次回封也不再推荐，11:30后不再生成新的连板买点。盘中逼近涨停但未封住并明显回落时直接放弃追入。前日缩量连板后，一字竞价量超过近5日均量50%、MA5偏离超过20%的集中兑现结构硬否决；并购、收购、重大重组及重组终止等事件一律移出主榜。",
+            "risk_rule": "连板预选必须等待T日真实封板/回封才允许打板；不可成交的一字结构、昨日最终封板不早于11:30、昨日换手>20%或当日实际换手>20%均不得进入正式首选。昨日炸板≥2次通常硬否决，仅五虎2%–3%开幅备选允许降级复核，仍须当日封板、封单、资金和盘口全部达标；盘中观察到第二次炸板后即使再次回封也不再推荐，11:30后不再生成新的连板买点。盘中逼近涨停但未封住并明显回落时直接放弃追入。前日缩量连板后，一字竞价量超过近5日均量50%、MA5偏离超过20%的集中兑现结构硬否决；并购、收购、重大重组及重组终止等事件一律移出主榜。",
             "generalization_rule": "所有形态统一经过五组独立证据复核：风险控制必须通过，历史结构、竞价真实性、流动性、T+1延续性至少通过三组；命中某个形态或漏选过某只历史强股都不能单独产生推荐。",
         },
         "strategy_governance": {

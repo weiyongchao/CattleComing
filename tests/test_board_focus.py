@@ -53,6 +53,24 @@ class DailyFocusTests(unittest.TestCase):
         self.assertEqual(picks[0]["code"], "600001")
         self.assertIn("A级主动首封", picks[0]["decision"])
 
+    def test_five_tigers_priority_does_not_bypass_primary_quality_floor(self):
+        row = qualified("600001", five_tigers_priority=2, continuation_score=74)
+        picks, info = self.store.select([row], self.now)
+        self.assertEqual(picks, [])
+        self.assertEqual(info["issued_count"], 0)
+
+    def test_confirmed_opening_relay_uses_live_weighted_primary_score(self):
+        row = qualified(
+            "600540", continuation_score=39, auction_gap_percent=9.89,
+            auction_amount=164_000_000, five_tigers_role="strong_consensus",
+            five_tigers_priority=2,
+            funds={"available": True, "main_ratio": -67, "source": "腾讯逐笔成交推算（备用）"},
+        )
+        picks, info = self.store.select([row], self.now)
+        self.assertEqual([item["code"] for item in picks], ["600540"])
+        self.assertGreaterEqual(row["potential_score"], 76)
+        self.assertEqual(info["issued_count"], 1)
+
     def test_live_primary_is_sticky_even_if_another_scores_higher(self):
         self.store.select([qualified()], self.now)
         picks, info = self.store.select([qualified(), qualified("600002", continuation_score=100)], self.now + timedelta(seconds=20))

@@ -5,11 +5,15 @@ from unittest.mock import patch
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
-from src.stock_evaluator.board_selection import intraday_selection_window, select_live_recommendations
+from src.stock_evaluator.board_selection import (
+    intraday_selection_window, select_live_recommendations,
+    select_priority_watch_candidates,
+)
 from src.stock_evaluator import open_guard
 from src.stock_evaluator.board_plan import auction_observation_view
 from src.stock_evaluator.board_focus import DailyFocusStore
 from src.stock_evaluator.board_research import BoardResearchStore
+from src.stock_evaluator.market import Quote
 
 
 def candidate(code="600001", **changes):
@@ -109,6 +113,99 @@ class BoardSelectionTests(unittest.TestCase):
         self.assertEqual([row["recommendation_rank"] for row in selected], [1, 2, 3, 4, 5])
         self.assertEqual(sum(row["recommended"] for row in rows), 5)
 
+    def test_priority_watch_keeps_high_board_rebound_and_strong_chain_but_drops_repeated_break(self):
+        rebound = candidate(
+            "002855", sealed=False, tone="watch", consecutive_limit_up_days=6,
+            continuation_score=58, amount=584_000_000, turnover_rate=13.43,
+            change_percent=4.69, auction_gap_percent=-3.95,
+            price_vs_auction_percent=8.99, rebound_from_low_percent=10.95,
+            reclaimed_auction=True, observed_board_breaks=0,
+        )
+        chain = candidate(
+            "601086", tone="watch", consecutive_limit_up_days=3,
+            continuation_score=58, amount=50_000_000, turnover_rate=.68,
+            seal_path="first_seal", observed_board_breaks=0,
+            transition_quality_bonus=8, tradable=False,
+        )
+        repeated = candidate(
+            "600540", tone="reject", failed_board=True, near_limit_failure=True,
+            consecutive_limit_up_days=4, turnover_rate=25.59,
+            observed_board_breaks=2,
+        )
+
+        selected = select_priority_watch_candidates([rebound, chain, repeated])
+
+        self.assertEqual([item["code"] for item in selected], ["002855", "601086"])
+        self.assertEqual(rebound["priority_watch_type"], "高位弱转强待封板")
+        self.assertEqual(chain["priority_watch_type"], "高连板主动强封")
+        self.assertIn("未封板前只观察", rebound["priority_watch_plan"]["now_action"])
+        self.assertIn("不排一字板", chain["priority_watch_plan"]["now_action"])
+        self.assertNotIn("priority_watch", repeated)
+
+    def test_priority_watch_fast_guard_reports_approach_one_price_and_trigger_without_formal_pick(self):
+        now = datetime(2026, 8, 31, 10, 0)
+        source = {"selected_date": "2026-08-31", "generated_at": now.isoformat(), "historical": False,
+                  "priority_watch_candidates": [
+                      {"code": "600001", "name": "弱转强", "priority_watch_rank": 1,
+                       "priority_watch_key": "high_board_rebound", "priority_watch_type": "高位弱转强待封板",
+                       "priority_watch_plan": {}, "auction_price": 10},
+                      {"code": "600002", "name": "一字连板", "priority_watch_rank": 2,
+                       "priority_watch_key": "strong_chain_seal", "priority_watch_type": "高连板主动强封",
+                       "priority_watch_plan": {}, "auction_price": 11},
+                      {"code": "600003", "name": "快速回封", "priority_watch_rank": 3,
+                       "priority_watch_key": "single_reseal", "priority_watch_type": "单次炸板回封",
+                       "priority_watch_plan": {}, "auction_price": 10.5},
+                      {"code": "600004", "name": "盘口缺失", "priority_watch_rank": 4,
+                       "priority_watch_key": "single_reseal", "priority_watch_type": "单次炸板回封",
+                       "priority_watch_plan": {}, "auction_price": 11},
+                  ]}
+
+        class Provider:
+            def quote(self, code):
+                values = {
+                    "600001": dict(price=10.92, change_percent=9.2, low_price=10.1,
+                                   book_available=True, bid1_price=10.91, bid1_volume=1000,
+                                   bid_volume5=1000, ask_volume5=1000, order_imbalance=0),
+                    "600002": dict(price=11, change_percent=10, low_price=11,
+                                   book_available=True, bid1_price=11, bid1_volume=100_000,
+                                   bid_volume5=100_000, ask_volume5=0, order_imbalance=1),
+                    "600003": dict(price=11, change_percent=10, low_price=10.6,
+                                   book_available=True, bid1_price=11, bid1_volume=100_000,
+                                   bid_volume5=100_000, ask_volume5=0, order_imbalance=1),
+                    "600004": dict(price=11, change_percent=10, low_price=10.6,
+                                   book_available=False, bid1_price=0, bid1_volume=0,
+                                   bid_volume5=0, ask_volume5=0, order_imbalance=0),
+                }[code]
+                return Quote(code=code, name=code, previous_close=10, volume=1_000_000,
+                             amount=100_000_000, turnover_rate=5, open_price=10,
+                             high_price=values["price"], quote_time=now.isoformat(),
+                             quote_source="test", **values)
+
+        result = open_guard.build_priority_watch_guard(source, Provider(), now=now)
+
+        self.assertEqual([row["status"] for row in result["candidates"]],
+                         ["approaching", "waiting_open", "triggered", "verifying"])
+        self.assertTrue(all(row["formal_recommendation"] is False
+                            and row["recommended"] is False and row["actionable"] is False
+                            for row in result["candidates"]))
+
+    def test_priority_watch_pool_retains_given_plan_when_candidate_temporarily_drops_out(self):
+        stored = {}
+        seed = candidate("002855", priority_watch=True, priority_watch_rank=1,
+                         priority_watch_key="high_board_rebound", priority_watch_type="高位弱转强待封板",
+                         priority_watch_reason="测试预案", priority_watch_plan={"trigger_text": "等待首次封板"})
+        first = {"candidates": [], "watch_candidates": [seed], "priority_watch_candidates": [seed]}
+        retained = open_guard.retain_priority_watch_candidates(first, stored)
+        self.assertEqual([item["code"] for item in retained], ["002855"])
+
+        weaker = candidate("002855", tone="watch", sealed=False, change_percent=1.8,
+                           rebound_from_low_percent=6.5)
+        second = {"candidates": [], "watch_candidates": [weaker], "priority_watch_candidates": []}
+        retained = open_guard.retain_priority_watch_candidates(second, stored)
+        self.assertEqual([item["code"] for item in retained], ["002855"])
+        self.assertFalse(retained[0]["priority_watch_current_match"])
+        self.assertIn("保留3秒监控", retained[0]["priority_watch_tracking_note"])
+
     def test_failed_board_reseal_requires_three_samples_and_sixty_seconds(self):
         row = candidate()
         self.select([row])
@@ -180,6 +277,72 @@ class BoardSelectionTests(unittest.TestCase):
         selected = self.select([first, reseal], 120)
         self.assertEqual([row["code"] for row in selected[:2]], ["600001", "600002"])
         self.assertEqual(reseal["seal_path"], "reseal")
+
+    def test_five_tigers_priority_only_reorders_otherwise_qualified_first_seals(self):
+        focus = candidate("600001", five_tigers_priority=2, continuation_score=75, open_score=85)
+        higher_score = candidate("600002", continuation_score=100, open_score=100)
+        self.select([focus, higher_score])
+        selected = self.select([focus, higher_score], 20)
+        self.assertEqual(selected[0]["code"], "600001")
+
+    def test_five_tigers_gap_fallback_downgrades_previous_breaks_instead_of_hard_veto(self):
+        row = candidate(previous_limit_up_breaks=5, five_tigers_role="gap_fallback",
+                        five_tigers_priority=1)
+        self.select([row])
+        selected = self.select([row], 20)
+        self.assertEqual(len(selected), 1)
+        self.assertTrue(row["previous_breaks_downgraded"])
+
+    def test_opening_relay_can_use_fallback_funds_without_treating_it_as_hard_veto(self):
+        row = candidate(
+            continuation_score=39, auction_gap_percent=9.89,
+            auction_amount=164_000_000, five_tigers_role="strong_consensus",
+            five_tigers_priority=2,
+            funds={"available": True, "main_ratio": -67, "source": "腾讯逐笔成交推算（备用）"},
+        )
+        self.select([row])
+        selected = self.select([row], 20)
+        self.assertEqual([item["code"] for item in selected], [row["code"]])
+        self.assertTrue(row["opening_relay_route"])
+        self.assertTrue(row["funds_degraded"])
+
+    def test_authoritative_outflow_still_rejects_opening_relay(self):
+        row = candidate(
+            continuation_score=39, auction_gap_percent=9.89,
+            auction_amount=164_000_000, five_tigers_role="strong_consensus",
+            five_tigers_priority=2,
+            funds={"available": True, "main_ratio": -1.01, "source": "实时分钟累计"},
+        )
+        self.select([row])
+        self.assertEqual(self.select([row], 20), [])
+        self.assertIn("权威资金流出", row["selection_reason"])
+
+    def test_fast_reseal_uses_book_confirmation_when_only_fallback_funds_exist(self):
+        row = candidate(
+            continuation_score=58, auction_gap_percent=8.07,
+            auction_amount=43_430_000, five_tigers_role="gap_fallback",
+            five_tigers_priority=1,
+            funds={"available": True, "main_ratio": -46, "source": "腾讯逐笔成交推算（备用）"},
+        )
+        self.select([row])
+        row.update(sealed=False, failed_board=True)
+        self.select([row], 20)
+        row.update(sealed=True, failed_board=False)
+        for seconds in (40, 60, 80):
+            self.assertEqual(self.select([row], seconds), [])
+        selected = self.select([row], 100)
+        self.assertEqual([item["code"] for item in selected], [row["code"]])
+        self.assertEqual(row["seal_path"], "reseal")
+        self.assertEqual(row["confirmation_span_seconds"], 60)
+
+    def test_missing_reseal_book_is_reported_as_waiting_for_data(self):
+        row = candidate()
+        self.select([row])
+        row.update(sealed=False, failed_board=True)
+        self.select([row], 20)
+        row.update(sealed=True, failed_board=False, book_available=False, bid_volume5=0)
+        self.assertEqual(self.select([row], 40), [])
+        self.assertIn("盘口数据缺失", row["selection_reason"])
 
     def test_quality_failures_never_promote(self):
         bad = [
@@ -348,14 +511,35 @@ class OpenGuardSelectionIntegrationTests(unittest.TestCase):
              patch.object(open_guard, "attach_corporate_event_risks"), \
              patch.object(open_guard, "main_board_snapshots", return_value=quotes), \
              patch.object(open_guard, "_discover_live_one_to_two", return_value=[candidate("600003")]) as discover, \
-             patch.object(open_guard, "_discover_live_multi_board", return_value=[]), \
+             patch.object(open_guard, "_discover_live_multi_board", return_value=[]) as discover_multi, \
              patch.object(open_guard, "_check_one", side_effect=lambda item, *_: copy.deepcopy(item)):
             result = open_guard.build_open_guard(self.snapshot, now=self.now)
             self.assertEqual(discover.call_args.kwargs["snapshots"], quotes[:1])
+            self.assertEqual(discover_multi.call_args.kwargs["snapshots"], quotes)
             discovered = next(row for row in result["watch_candidates"] if row["code"] == "600003")
             self.assertEqual(discovered["discovery_source"], "盘中封板补选")
             self.assertTrue(discovered["discovered_at"].startswith("2026-08-31T10:10"))
             self.assertEqual(len(self.snapshot["candidates"]), 1)
+
+    def test_existing_candidate_receives_opening_relay_and_previous_board_metadata(self):
+        existing = self.snapshot["candidates"][0]
+        existing.update(previous_final_seal_time=None, previous_limit_up_breaks=None,
+                        previous_turnover_rate=None, opening_chain_relay=False)
+        enriched = candidate(existing["code"], opening_chain_relay=True,
+                             previous_final_seal_time=100951,
+                             previous_limit_up_breaks=1, previous_turnover_rate=14.49)
+        with patch.object(open_guard, "_SELECTION_OBSERVATIONS", {}), \
+             patch.object(open_guard, "_OPENING_DISCOVERY_CACHE", {}), \
+             patch.object(open_guard, "attach_corporate_event_risks"), \
+             patch.object(open_guard, "main_board_snapshots", return_value=[{"f12": existing["code"], "f3": 10}]), \
+             patch.object(open_guard, "_discover_live_one_to_two", return_value=[]), \
+             patch.object(open_guard, "_discover_live_multi_board", return_value=[enriched]), \
+             patch.object(open_guard, "_check_one", side_effect=lambda item, *_: copy.deepcopy(item)):
+            result = open_guard.build_open_guard(self.snapshot, now=self.now)
+        merged = next(row for row in result["watch_candidates"] if row["code"] == existing["code"])
+        self.assertTrue(merged["opening_chain_relay"])
+        self.assertEqual(merged["previous_final_seal_time"], 100951)
+        self.assertEqual(merged["previous_limit_up_breaks"], 1)
 
 
 class AuctionObservationViewTests(unittest.TestCase):

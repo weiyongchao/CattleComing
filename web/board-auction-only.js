@@ -28,6 +28,8 @@
   let boardPlanController = null;
   let boardPlanRequestId = 0;
   let openGuardLoading = false;
+  let priorityWatchLoading = false;
+  let priorityWatchCodes = new Set();
   let lastLiveAt = 0;
   let nextDayLoading = false;
   let selectedDate = "";
@@ -149,7 +151,7 @@
         return `
         <article class="action-box">
           <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
-            <div><strong>${item.live_rank || index + 1}. ${item.name} <small style="color:var(--muted)">${item.code} · ${item.board_stage_label || item.priority_tier || "候选"}</small> <small style="padding:3px 7px;border-radius:10px;background:#1d2730;color:${discovered ? "var(--amber)" : movementColor}">${discovered ? item.discovery_source : `竞价第${item.auction_rank || "--"} → 盘中第${item.live_rank || index + 1} ${movement}`}</small></strong>
+            <div><strong>${item.live_rank || index + 1}. ${item.name} <small style="color:var(--muted)">${item.code} · ${item.board_stage_label || item.priority_tier || "候选"}</small> <small style="padding:3px 7px;border-radius:10px;background:#1d2730;color:${discovered ? "var(--amber)" : movementColor}">${discovered ? item.discovery_source : `竞价第${item.auction_rank || "--"} → 盘中第${item.live_rank || index + 1} ${movement}`}</small>${item.five_tigers_label ? ` <small style="padding:3px 7px;border-radius:10px;background:#3b2418;color:#ffbf7a">${escapeHtml(item.five_tigers_label)}</small>` : ""}</strong>
               <p style="color:#bfd0ca;font-size:12px;line-height:1.8;margin:7px 0">现价 ${fixed(item.price)} · 开盘 ${fixed(item.open_price)} · 竞价 ${fixed(item.auction_price)} · 涨跌 ${signed(item.change_percent)}% · 较开盘 ${signed(item.price_vs_open_percent)}% · 较竞价 ${signed(item.price_vs_auction_percent)}%</p>
               <p style="color:#bfd0ca;font-size:12px;line-height:1.8;margin:0">${liveState} · 涨停价 ${fixed(item.limit_up_price)} · 成交额 ${amount(item.amount)} · 量比 ${fixed(item.volume_ratio)} · 换手 ${fixed(item.turnover_rate)}% · ${item.order_signal} ${signed(Number(item.order_imbalance) * 100, 1)}% · ${item.funds.label}${item.funds.available ? ` ${signed(item.funds.main_ratio)}% / ${amount(item.funds.main_net)}` : ""}</p>
               ${item.sealed ? `<p style="color:#bfd0ca;font-size:12px;line-height:1.8;margin:4px 0 0">买一封单 ${Number(item.bid1_volume || 0).toLocaleString("zh-CN")}手 / ${amount(item.seal_amount)} · 占成交额 ${fixed(item.seal_to_amount_percent, 2)}% · 占流通市值 ${fixed(item.seal_to_float_cap_percent, 2)}% · 封单强度 ${fixed(item.seal_strength_score, 2)}分</p>` : ""}
@@ -168,8 +170,17 @@
       window.StockCardDetails.enhance(openGuardList, picks, (item) => ({ date: data.selected_date, scope: "live",
         metrics: `现价 ${fixed(item.price)} · 涨幅 ${signed(item.change_percent)}% · 潜力 ${item.potential_score ?? "--"}分`,
         decision: `${item.decision || "观察"} · ${item.entry_plan?.action || "等待确认"}`, tone: toneClass(item.tone) }));
+      const liveTigers = data.five_tigers || {};
+      const liveTigerRows = [...(liveTigers.members || [])];
+      (liveTigers.focus || []).forEach((item) => { if (!liveTigerRows.some((row) => row.code === item.code)) liveTigerRows.push(item); });
+      if (liveTigers.available) openGuardList.insertAdjacentHTML("beforeend", `<details class="action-box" open><summary style="cursor:pointer;color:var(--amber)">开盘五虎 · ${escapeHtml(liveTigers.phase || "09:30定稿")}</summary><p style="font-size:12px;color:var(--muted)">${escapeHtml(liveTigers.rule || "先看换手，再看竞价开幅")}；${escapeHtml(liveTigers.source || "开盘快照固定，盘中不换成员")}</p>${liveTigerRows.map((item) => `<p style="font-size:12px;color:${item.role ? "var(--amber)" : "var(--muted)"}">${item.rank ? `虎${item.rank}` : "开幅备选"} ${escapeHtml(item.name)} ${escapeHtml(item.code)} · 09:30换手 ${fixed(item.turnover_percent)}% · 竞价涨幅 ${signed(item.auction_gap_percent)}%${item.label ? ` · ${escapeHtml(item.label)}` : ""}${item.risk_excluded ? ` · <span style="color:var(--red)">${escapeHtml(item.risk_label || "风险剔除")}</span>` : ""}</p>`).join("")}</details>`);
       const watches = data.watch_candidates || [];
-      if (watches.length) openGuardList.insertAdjacentHTML("beforeend", `<details class="action-box"><summary style="cursor:pointer;color:var(--muted)">其余监控 ${watches.length}只（非推荐，点击展开）</summary>${watches.map((item) => `<p style="font-size:12px;color:var(--muted)">${escapeHtml(item.name)} ${escapeHtml(item.code)} · ${escapeHtml(item.decision)} · ${escapeHtml(item.selection_reason || "未通过精选")}</p>`).join("")}</details>`);
+      const priorityWatches = (data.priority_watch_candidates || []).slice(0, 5);
+      priorityWatchCodes = new Set(priorityWatches.map((item) => String(item.code)));
+      if (priorityWatches.length) openGuardList.insertAdjacentHTML("beforeend", `<section class="action-box"><strong style="color:var(--amber)">重点观察候选 ${priorityWatches.length}/5</strong><small style="display:block;color:var(--muted);margin-top:5px">提前给出操作预案，并每3秒只刷新这几只股票；快速触发仍不是正式买入推荐。</small>${priorityWatches.map((item) => { const plan = item.priority_watch_plan || {}; return `<details class="action-box" open style="margin-top:9px" data-priority-watch-code="${escapeHtml(item.code)}"><summary style="cursor:pointer;color:#d9e6df"><b>${item.priority_watch_rank}. ${escapeHtml(item.name)} ${escapeHtml(item.code)}</b> · <span style="color:var(--amber)">${escapeHtml(item.priority_watch_type || "重点观察")}</span></summary><p style="font-size:12px;color:#bfd0ca;line-height:1.8;margin:8px 0 0">${escapeHtml(item.priority_watch_reason || "等待盘中确认")}。</p><p style="font-size:12px;color:#8fc7ff;line-height:1.8;margin:6px 0 0"><b>现在：</b>${escapeHtml(plan.now_action || "加入自选，提前盯盘")}</p><p style="font-size:12px;color:var(--amber);line-height:1.8;margin:4px 0 0"><b>触发：</b>${escapeHtml(plan.trigger_text || "等待封板确认")}；${(plan.conditions || []).map(escapeHtml).join("；")}</p><p style="font-size:12px;color:var(--red);line-height:1.8;margin:4px 0 0"><b>放弃：</b>${(plan.invalidations || []).map(escapeHtml).join("；") || "盘中结构转弱"}</p><div data-priority-watch-live style="margin-top:7px;padding:7px 9px;border-radius:7px;background:#242b29;color:var(--muted);font-size:12px">3秒轻量监控准备中 · 正式推荐仍看市场总开关与连续采样</div><p style="font-size:12px;color:var(--muted);line-height:1.8;margin:6px 0 0">${escapeHtml(item.board_stage_label || item.priority_tier || "盘中候选")} · 当前 ${signed(item.change_percent)}% · 换手 ${fixed(item.turnover_rate)}% · 成交额 ${amount(item.amount)} · 开盘确认 ${item.open_score ?? "--"}分 · 历史延续 ${item.continuation_score ?? "--"}分</p><p style="font-size:12px;color:var(--red);line-height:1.8;margin:4px 0 0">未升级原因：${escapeHtml(item.selection_reason || "正式质量条件尚未完成")}</p></details>`; }).join("")}</section>`);
+      const priorityCodes = new Set(priorityWatches.map((item) => item.code));
+      const otherWatches = watches.filter((item) => !priorityCodes.has(item.code));
+      if (otherWatches.length) openGuardList.insertAdjacentHTML("beforeend", `<details class="action-box"><summary style="cursor:pointer;color:var(--muted)">其余监控 ${otherWatches.length}只（非推荐，点击展开）</summary>${otherWatches.map((item) => `<p style="font-size:12px;color:var(--muted)">${escapeHtml(item.name)} ${escapeHtml(item.code)}${item.five_tigers_label ? ` · ${escapeHtml(item.five_tigers_label)}` : ""} · ${escapeHtml(item.decision)} · ${escapeHtml(item.selection_reason || "未通过精选")}</p>`).join("")}</details>`);
       if (data.errors.length) openGuardList.insertAdjacentHTML("beforeend", `<small class="negative">${data.errors.length}只实时行情读取失败，未据此给出结论。</small>`);
       if (openGuardTime) openGuardTime.textContent = `首选 ${picks.length}/1 · 今日已提示 ${data.daily_focus.issued_count ?? "--"}/5 · 20秒采样 · ${new Date(data.generated_at).toLocaleString("zh-CN", {hour12: false})}`;
       if (openGuardNote) openGuardNote.textContent = `${data.auction_seed?.label || "09:25竞价预选 → 开盘交易确认"}。${data.daily_focus.message} ${data.method} ${data.disclaimer}`;
@@ -183,6 +194,34 @@
     } finally {
       openGuardLoading = false;
       if (openGuardButton) openGuardButton.disabled = false;
+    }
+  };
+
+  const loadPriorityWatchGuard = async () => {
+    if (!isBoardPageVisible() || priorityWatchLoading || !priorityWatchCodes.size
+        || selectedDate !== localDate() || !isIntradayRankingTime()) return;
+    priorityWatchLoading = true;
+    try {
+      const response = await fetch("/api/board-watch-guard");
+      const data = await response.json();
+      if (!response.ok) return;
+      const stamp = new Date(data.generated_at).getTime();
+      if (data.selected_date !== localDate() || data.historical || !Number.isFinite(stamp)
+          || Date.now() - stamp > 15000 || stamp > Date.now() + 5000) return;
+      for (const item of data.candidates || []) {
+        if (!priorityWatchCodes.has(String(item.code))) continue;
+        const card = openGuardList.querySelector(`[data-priority-watch-code="${item.code}"]`);
+        const status = card?.querySelector("[data-priority-watch-live]");
+        if (!status) continue;
+        status.style.color = item.status === "invalid" ? "var(--red)" : item.alert_level === "watch" ? "var(--amber)" : "var(--muted)";
+        status.style.background = item.status === "invalid" ? "#321d20" : item.alert_level === "watch" ? "#3b2418" : "#242b29";
+        status.textContent = `${item.status_label} · 现价${fixed(item.price)} · 距涨停${fixed(item.gap_to_limit_percent)}% · ${item.status_detail}`;
+      }
+      window.dispatchEvent(new CustomEvent("board:watch-snapshot", { detail: data }));
+    } catch (_) {
+      // 轻量监控失败不清空全市场榜单，等待下一次3秒刷新。
+    } finally {
+      priorityWatchLoading = false;
     }
   };
 
@@ -304,6 +343,18 @@
       }
       const focus = data.candidates.find((item) => item.code === flow.observation_focus_code);
       handoffNote.textContent = `${flow.note || "先看竞价预选，09:25复核；开盘后以真实成交确认唯一首选。"}${focus ? ` 当前优先观察：${focus.name}（不是买入推荐）。` : ""}`;
+      let fiveTigersNote = document.getElementById("boardFiveTigersNote");
+      if (!fiveTigersNote) {
+        fiveTigersNote = document.createElement("div");
+        fiveTigersNote.id = "boardFiveTigersNote";
+        fiveTigersNote.className = "action-box";
+        handoffNote.after(fiveTigersNote);
+      }
+      const fiveTigers = data.five_tigers || {};
+      const fiveTigerRows = [...(fiveTigers.members || [])];
+      (fiveTigers.focus || []).forEach((item) => { if (!fiveTigerRows.some((row) => row.code === item.code)) fiveTigerRows.push(item); });
+      fiveTigersNote.hidden = !fiveTigers.available;
+      if (fiveTigers.available) fiveTigersNote.innerHTML = `<strong style="color:var(--amber)">连板五虎 · ${escapeHtml(fiveTigers.phase || "竞价观察")}</strong><small style="display:block;color:var(--muted);margin-top:5px">${escapeHtml(fiveTigers.rule || "先看换手，再看竞价开幅")}；只提高观察优先级，不是买点。</small><div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">${fiveTigerRows.map((item) => `<small style="padding:5px 8px;border-radius:12px;background:${item.role ? "#3b2418" : "#242b29"};color:${item.risk_excluded ? "var(--red)" : item.role ? "#ffbf7a" : "var(--muted)"}">${item.rank ? `虎${item.rank}` : "开幅备选"} ${escapeHtml(item.name)} · 换手${fixed(item.turnover_percent)}% · 高开${signed(item.auction_gap_percent)}%${item.label ? ` · ${escapeHtml(item.label)}` : ""}${item.risk_excluded ? ` · ${escapeHtml(item.risk_label || "风险剔除")}` : ""}</small>`).join("")}</div>`;
       if (data.session_monitor) handoffNote.textContent += data.session_monitor.running
         ? ` 后台采集已启动，页面关闭不停止采集${data.session_monitor.last_error ? `；本轮异常：${data.session_monitor.last_error}` : ""}。`
         : " 后台采集未启动；当前仍依赖页面刷新。";
@@ -315,7 +366,7 @@
       candidateList.innerHTML = data.candidates.length ? data.candidates.map((candidate, index) => `
         <article class="action-box auction-only-card">
           <div style="display:flex;justify-content:space-between;gap:12px">
-            <div><strong>${index + 1}. ${candidate.name} <small style="color:var(--muted)">${candidate.code} · ${[candidate.category, candidate.industry].filter(Boolean).join("/") || "未分类"} · ${candidate.strategy_mode || "观察"}</small> <small style="padding:3px 7px;border-radius:10px;background:${["连板优先", "早封连板优先"].includes(candidate.priority_tier) ? "#183126" : "#2b2b21"};color:${["连板优先", "早封连板优先"].includes(candidate.priority_tier) ? "var(--green)" : "var(--amber)"}">${candidate.priority_tier || "观察"}</small> <small style="padding:3px 7px;border-radius:10px;background:#1d2730;color:#8fc7ff">${candidate.board_stage_label || (candidate.consecutive_limit_up_days == null ? "板数未留存" : candidate.consecutive_limit_up_days > 0 ? `${candidate.consecutive_limit_up_days}进${candidate.consecutive_limit_up_days + 1} · 目标${candidate.consecutive_limit_up_days + 1}连板` : "首板候选")}</small></strong>
+            <div><strong>${index + 1}. ${candidate.name} <small style="color:var(--muted)">${candidate.code} · ${[candidate.category, candidate.industry].filter(Boolean).join("/") || "未分类"} · ${candidate.strategy_mode || "观察"}</small> <small style="padding:3px 7px;border-radius:10px;background:${["连板优先", "早封连板优先"].includes(candidate.priority_tier) ? "#183126" : "#2b2b21"};color:${["连板优先", "早封连板优先"].includes(candidate.priority_tier) ? "var(--green)" : "var(--amber)"}">${candidate.priority_tier || "观察"}</small> <small style="padding:3px 7px;border-radius:10px;background:#1d2730;color:#8fc7ff">${candidate.board_stage_label || (candidate.consecutive_limit_up_days == null ? "板数未留存" : candidate.consecutive_limit_up_days > 0 ? `${candidate.consecutive_limit_up_days}进${candidate.consecutive_limit_up_days + 1} · 目标${candidate.consecutive_limit_up_days + 1}连板` : "首板候选")}</small>${candidate.five_tigers_label ? ` <small style="padding:3px 7px;border-radius:10px;background:#3b2418;color:#ffbf7a">${escapeHtml(candidate.five_tigers_label)}</small>` : ""}</strong>
               <p style="color:var(--muted);font-size:12px;line-height:1.8">昨日收盘 ${fixed(candidate.previous_close)} · ${preselection ? "参考价" : "竞价价"} ${fixed(candidate.auction_price)} · 高开 ${signed(candidate.auction_gap_percent)}% · ${preselection ? "参考量额（待最终核验）" : "竞价额"} ${amount(candidate.auction_amount)}</p>
               <p style="color:#bfd0ca;font-size:12px;line-height:1.8">${preselection ? "参考量" : "竞价量"}/近5日均量 ${fixed(candidate.auction_volume_percent)}% · ${preselection ? "参考换手" : "竞价换手"} ${fixed(candidate.auction_turnover_percent)}% · MA5偏离 ${signed(candidate.price_vs_ma5_percent)}% · 近3/5/10日 ${signed(candidate.three_day_change_percent)}% / ${signed(candidate.five_day_change_percent)}% / ${signed(candidate.ten_day_change_percent)}%</p>
               ${candidate.nuclear_button_matched ? `<p style="color:var(--amber);font-size:12px;line-height:1.8">反核按钮：昨日成交额 ${amount(candidate.previous_amount)} · 昨日/前日成交量 ${fixed((candidate.previous_volume || 0) / 10000)}万/${fixed((candidate.prior_volume || 0) / 10000)}万 · 缩量比 ${fixed((candidate.previous_volume_contraction_ratio || 0) * 100, 1)}% · 仅限09:25最终竞价命中，市场冰点与题材辨识度需人工确认</p>` : ""}
@@ -469,9 +520,23 @@
   };
 
   let liveRankingTimer = null;
+  let priorityWatchTimer = null;
+  const startPriorityWatchGuard = () => {
+    if (priorityWatchTimer) return;
+    loadPriorityWatchGuard();
+    priorityWatchTimer = window.setInterval(() => {
+      if (secondsOfDay() > 15 * 3600) {
+        window.clearInterval(priorityWatchTimer);
+        priorityWatchTimer = null;
+        return;
+      }
+      loadPriorityWatchGuard();
+    }, 3000);
+  };
   const startLiveRanking = () => {
     if (!isBoardPageVisible() || liveRankingTimer) return;
     loadOpenGuard(true);
+    startPriorityWatchGuard();
     liveRankingTimer = window.setInterval(() => {
       const seconds = secondsOfDay();
       if (seconds > 15 * 3600) {

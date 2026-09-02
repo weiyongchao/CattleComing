@@ -11,7 +11,9 @@ from threading import RLock
 
 from .board_selection import (
     MAX_BOARD_PICKS, RESEAL_MIN_SPAN_SECONDS, RESEAL_REQUIRED_SAMPLES,
-    _number, _seal_profile, _transition_quality_profile, intraday_selection_window,
+    OPENING_RELAY_MIN_CONTINUATION, _fund_reliability, _number,
+    _opening_relay_candidate, _seal_profile, _transition_quality_profile,
+    intraday_selection_window,
 )
 
 FOCUS_FILE = Path(__file__).resolve().parents[2] / "data" / "board_daily_focus.json"
@@ -37,6 +39,27 @@ def potential_profile(item: dict) -> tuple[float, list[str]]:
     penalty += 5 if item.get("opening_dip") else 0
     penalty += 5 if item.get("late_final_seal_watch") else 0
     penalty += 6 if item.get("seal_path") == "reseal" else 0
+    opening_relay = bool(item.get("opening_relay_route") or _opening_relay_candidate(item))
+    if opening_relay:
+        reliable_funds = funds if _fund_reliability(item.get("funds") or {}) == "primary" else 0
+        role_bonus = 8 if item.get("five_tigers_role") == "strong_consensus" else 6 if (
+            item.get("five_tigers_priority") or item.get("opening_chain_relay")
+        ) else 0
+        quick_reseal_bonus = 8 if (
+            item.get("seal_path") == "reseal"
+            and _number(item.get("reseal_recovery_seconds"), 999) <= 180
+        ) else 0
+        score = round(max(0, min(100,
+            continuation * .20 + live * .50 + max(0, min(10, reliable_funds))
+            + max(0, min(1, book)) * 6 + transition_bonus + seal_strength
+            + role_bonus + quick_reseal_bonus - penalty,
+        )), 2)
+        return score, [
+            f"历史延续{continuation:g}分×20%", f"开盘承接{live:g}分×50%",
+            "权威当日资金最多10分（备用口径不加减分）", "盘口支撑最多6分",
+            f"封单强度加{seal_strength:g}分，开盘连板加{role_bonus + quick_reseal_bonus:g}分",
+            f"连板质量加{transition_bonus:g}分，风险扣{penalty}分",
+        ]
     score = round(max(0, min(100,
         continuation * .45 + live * .30 + max(0, min(10, funds)) * 1.5
         + max(0, min(1, book)) * 6 + transition_bonus + seal_strength - penalty,
@@ -145,9 +168,19 @@ class DailyFocusStore:
                 item["tone"] = "watch"
                 item["decision"] = "合格备选 · 不主动提示"
                 item["selection_reason"] = "只关注唯一首选，其他合格标的不自动提示买入"
-                if item["potential_score"] >= 80 and _number(item.get("continuation_score")) >= 75:
+                opening_relay = bool(item.get("opening_relay_route") or _opening_relay_candidate(item))
+                if (
+                    opening_relay
+                    and item["potential_score"] >= 76
+                    and _number(item.get("continuation_score")) >= OPENING_RELAY_MIN_CONTINUATION
+                ) or (
+                    not opening_relay
+                    and item["potential_score"] >= 80
+                    and _number(item.get("continuation_score")) >= 75
+                ):
                     eligible.append(item)
         eligible.sort(key=lambda item: (item["recommendation_kind"] == "sealed", item.get("seal_path") != "reseal",
+                                       int(_number(item.get("five_tigers_priority"))),
                                        item["potential_score"],
                                        _number(item.get("continuation_score")), str(item["code"])), reverse=True)
         by_code = {str(item["code"]): item for item in eligible}

@@ -3,12 +3,14 @@ const {
   DEFAULT_SETTINGS,
   classifyAuctionCandidate,
   classifyLiveCandidate,
+  classifyPriorityWatchCandidate,
   eventKey,
   notifiedCodes,
   canPrompt,
   normalizeSettings,
   tradingDate,
   todayBoardCodes,
+  todayPriorityWatchCodes,
   todayAlertEvents,
 } = require("../web/board-alerts.js");
 
@@ -61,6 +63,15 @@ assert.equal(classifyAuctionCandidate({ actionable: true, recommendation_badge: 
 assert.equal(classifyLiveCandidate({ recommended: true, sealed: true, recommendation_kind: "sealed", failed_board: true }).tone, "risk");
 assert.equal(classifyLiveCandidate({ recommended: true, sealed: true, recommendation_kind: "sealed", corporate_event_risk: { level: "high" } }).tone, "risk");
 
+assert.equal(classifyPriorityWatchCandidate({ status: "triggered", alert_level: "watch",
+  formal_recommendation: false, recommended: false, actionable: false }).tone, "watch");
+assert.equal(classifyPriorityWatchCandidate({ status: "approaching", alert_level: "watch",
+  formal_recommendation: false, recommended: false, actionable: false }).rule, "watch-approaching");
+assert.equal(classifyPriorityWatchCandidate({ status: "invalid", alert_level: "risk",
+  formal_recommendation: false, recommended: false, actionable: false }).tone, "risk");
+assert.equal(classifyPriorityWatchCandidate({ status: "triggered", alert_level: "watch",
+  formal_recommendation: true, recommended: true, actionable: true }), null);
+
 const disabledHighTurnover = classifyAuctionCandidate({
   code: "600103",
   strategy_mode: "高换手强竞价连板",
@@ -108,6 +119,13 @@ assert.equal(todayBoardCodes({ ...focusSnapshot, selected_date: "2026-08-30" }, 
 assert.equal(todayBoardCodes({ ...focusSnapshot, daily_focus: { available: false, issued: focusSnapshot.daily_focus.issued } }, today).size, 0);
 assert.equal(todayBoardCodes({ selected_date: today }, today).size, 0);
 assert.equal(todayBoardCodes({ ...focusSnapshot, daily_focus: { available: true, issued: Array(6).fill(focusSnapshot.daily_focus.issued[0]) } }, today).size, 0);
+const prioritySnapshot = { selected_date: today, priority_watch_candidates: [
+  { code: "600010", priority_watch: true }, { code: "600011", priority_watch: false },
+] };
+const priorityAllowed = todayPriorityWatchCodes(prioritySnapshot, today);
+assert.deepEqual([...priorityAllowed], ["600010"]);
+assert.equal(todayPriorityWatchCodes({ ...prioritySnapshot, historical: true }, today).size, 0);
+assert.equal(todayPriorityWatchCodes({ ...prioritySnapshot, priority_watch_candidates: Array(6).fill(prioritySnapshot.priority_watch_candidates[0]) }, today).size, 0);
 const alerts = [
   { id: `${today}|600001|sealed`, code: "600001", tone: "confirm" },
   { id: `${today}|600001|failed-board`, code: "600001", tone: "risk" },
@@ -118,5 +136,9 @@ const alerts = [
 ];
 assert.deepEqual(todayAlertEvents(alerts, today, allowed), alerts.slice(0, 2));
 assert.deepEqual(todayAlertEvents(alerts, today, new Set()), []);
+const priorityAlert = { id: `${today}|600010|watch-triggered`, trade_date: today,
+  code: "600010", tone: "watch", scope: "priority_watch" };
+assert.deepEqual(todayAlertEvents([priorityAlert], today, new Set(), priorityAllowed), [priorityAlert]);
+assert.deepEqual(todayAlertEvents([priorityAlert], today, new Set(), new Set()), []);
 
 console.log("board-alerts rules: OK");

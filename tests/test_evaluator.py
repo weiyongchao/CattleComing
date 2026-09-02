@@ -873,6 +873,14 @@ class EvaluatorTests(unittest.TestCase):
         self.assertFalse(_live_multi_board_prefilter(row, 1, 5))
         self.assertFalse(_live_multi_board_prefilter({**row, "f6": 80_000_000}, 2, 5))
 
+    def test_live_multi_board_prefilter_keeps_near_limit_relay_above_thirty_million(self):
+        row = {
+            "f2": 11.0, "f3": 10.0, "f6": 39_360_000, "f10": .5,
+            "f17": 11.0, "f16": 11.0, "f15": 11.0,
+        }
+        self.assertTrue(_live_multi_board_prefilter(row, 2, 6))
+        self.assertFalse(_live_multi_board_prefilter({**row, "f6": 29_999_999}, 2, 6))
+
     def test_live_multi_board_prefilter_relaxes_only_for_highest_space_board(self):
         row = {
             "f2": 10.15, "f3": 1.5, "f6": 60_000_000, "f10": 0.8,
@@ -888,6 +896,15 @@ class EvaluatorTests(unittest.TestCase):
         }
         self.assertTrue(_live_multi_board_prefilter(row, 3, 3))
         self.assertFalse(_live_multi_board_prefilter(row, 2, 3))
+
+    def test_live_multi_board_prefilter_keeps_high_board_rebound_before_near_limit(self):
+        row = {
+            "f2": 18.26, "f3": 3.11, "f6": 1_530_000_000, "f8": 15.33,
+            "f10": 1.62, "f17": 16.83, "f16": 16.71, "f15": 19.48,
+        }
+        self.assertTrue(_live_multi_board_prefilter(row, 6, 7))
+        self.assertFalse(_live_multi_board_prefilter({**row, "f8": 20.01}, 6, 7))
+        self.assertFalse(_live_multi_board_prefilter({**row, "f2": 17.70}, 6, 7))
 
     def test_historical_opening_space_board_relay_requires_first_minute_strength(self):
         base = {

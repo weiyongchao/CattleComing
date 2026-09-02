@@ -2139,7 +2139,7 @@ def screen_auction_candidates(
     )[:limit]
     relay_qualified_count = sum(item.get("relay_matched") and item.get("relay_score", 0) >= 78 for item in candidates)
     return {
-        "candidates": selected, "risk_exclusions": risk_exclusions,
+        "candidates": selected, "risk_exclusions": risk_exclusions, "five_tigers": five_tigers,
         "ranked_count": len(candidates), "qualified_count": len(eligible_candidates),
         "scanned": len(snapshots), "prefiltered": len(prefiltered), "deep_scanned": len(futures), "failed": failed,
         "universe_source": (
@@ -2159,6 +2159,7 @@ def screen_auction_candidates(
         "high_turnover_chain_count": sum(
             item.get("eligible") and item.get("high_turnover_chain_matched") for item in candidates
         ),
+        "five_tigers_count": len(five_tigers["members"]),
         "historical_opening_space_count": sum(
             item.get("eligible") and item.get("historical_opening_space_relay") for item in candidates
         ),
@@ -2257,7 +2258,12 @@ def screen_historical_auction_candidates(
         reverse=True,
     )[:limit]
     return {
-        "candidates": selected, "risk_exclusions": risk_exclusions, "five_tigers": five_tigers,
+        "candidates": selected, "risk_exclusions": risk_exclusions,
+        "five_tigers": {
+            "available": False, "phase": "历史代理不可用", "members": [], "focus": [],
+            "primary_code": None, "secondary_code": None,
+            "rule": "历史09:31首分钟数据不能冒充09:20–09:25竞价换手",
+        },
         "ranked_count": len(candidates),
         "qualified_count": len(eligible), "relay_qualified_count": sum(
             item.get("relay_matched") and item.get("relay_score", 0) >= 78 for item in candidates
@@ -2272,7 +2278,7 @@ def screen_historical_auction_candidates(
         "high_turnover_chain_count": sum(
             item.get("eligible") and item.get("high_turnover_chain_matched") for item in candidates
         ),
-        "five_tigers_count": len(five_tigers["members"]),
+        "five_tigers_count": 0,
         "historical_opening_space_count": sum(
             item.get("eligible") and item.get("historical_opening_space_relay") for item in candidates
         ),
