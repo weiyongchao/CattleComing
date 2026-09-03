@@ -27,11 +27,16 @@ from .open_guard import build_open_guard, build_priority_watch_guard, retain_pri
 from .board_focus import DAILY_FOCUS_STORE, DailyFocusError
 from .board_research import BOARD_RESEARCH_STORE, ResearchError
 from .quote_sampling import china_time
+from .universe import main_board_snapshots
 from .board_session import BoardSessionRunner, session_phase, timely_final
 from .next_day import build_next_day_strategy
 from .outlook import infer_next_day_outlook
 from .premarket import build_premarket_watchlist
 from .stock_search import resolve_stock_code, search_stocks
+from .late_red import (
+    FREEZE_CLOCK, SIGNAL_CLOCK, LateRedRunner, build_late_red_screen,
+    freeze_late_red_screen, refresh_late_red_screen, waiting_late_red_screen,
+)
 
 
 WEB_ROOT = Path(__file__).resolve().parents[2] / "web"
@@ -105,6 +110,12 @@ class AppHandler(SimpleHTTPRequestHandler):
     board_focus_lock = threading.Lock()
     board_focus_revision = 0
     session_runner: BoardSessionRunner | None = None
+    late_red_runner: LateRedRunner | None = None
+    late_red_cache: tuple[str, dict] | None = None
+    late_red_scan_lock = threading.Lock()
+    late_red_refresh_lock = threading.Lock()
+    late_red_state_lock = threading.Lock()
+    late_red_state: dict = {"status": "waiting", "error": None, "started_at": None}
 
     @classmethod
     def _cached_fund_flow(cls, code: str, cache_seconds: int = 20) -> dict:
@@ -277,6 +288,99 @@ class AppHandler(SimpleHTTPRequestHandler):
             cls.board_watch_cache = (time.time(), payload)
             return json.loads(json.dumps(payload, ensure_ascii=False))
 
+    @classmethod
+    def _start_late_red_scan(cls, now: datetime) -> None:
+        day_key = now.date().isoformat()
+        with cls.late_red_state_lock:
+            if (cls.late_red_cache and cls.late_red_cache[0] == day_key) or cls.late_red_scan_lock.locked():
+                return
+            cls.late_red_state = {
+                "status": "scanning", "error": None, "started_at": now.isoformat(timespec="seconds")
+            }
+
+        def scan() -> None:
+            with cls.late_red_scan_lock:
+                try:
+                    def report(progress: dict) -> None:
+                        with cls.late_red_state_lock:
+                            cls.late_red_state.update(progress=progress)
+
+                    payload = build_late_red_screen(
+                        now=datetime.now().astimezone(), progress_callback=report,
+                    )
+                    finished_at = china_time(datetime.now().astimezone())
+                    payload["completed_at"] = finished_at.isoformat(timespec="seconds")
+                    if finished_at.hour * 100 + finished_at.minute >= FREEZE_CLOCK:
+                        payload["snapshot_kind"] = "late_reference"
+                        freeze_late_red_screen(payload, finished_at)
+                    with cls.late_red_state_lock:
+                        cls.late_red_cache = (day_key, payload)
+                        cls.late_red_state = {
+                            "status": "ready", "error": None,
+                            "started_at": cls.late_red_state.get("started_at"),
+                            "finished_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                        }
+                except Exception as exc:
+                    with cls.late_red_state_lock:
+                        cls.late_red_state = {
+                            "status": "error", "error": str(exc),
+                            "started_at": cls.late_red_state.get("started_at"),
+                        }
+
+        threading.Thread(target=scan, name="late-red-scan", daemon=True).start()
+
+    @classmethod
+    def _late_red_screen_view(cls) -> dict:
+        now = china_time(datetime.now().astimezone())
+        day_key = now.date().isoformat()
+        clock = now.hour * 100 + now.minute
+        if now.weekday() >= 5 or clock < SIGNAL_CLOCK:
+            payload = waiting_late_red_screen(now)
+        else:
+            with cls.late_red_state_lock:
+                cached = cls.late_red_cache
+                state = dict(cls.late_red_state)
+            if not cached or cached[0] != day_key:
+                cls._start_late_red_scan(now)
+                with cls.late_red_state_lock:
+                    state = dict(cls.late_red_state)
+                payload = {
+                    **waiting_late_red_screen(now), "status": state.get("status", "scanning"),
+                    "stage": "正在核对昨日涨跌与14:40十分钟K线",
+                    "note": state.get("error") or "后台扫描已启动；页面每3秒读取进度，不需要反复点击刷新。",
+                    "progress": state.get("progress"),
+                }
+            else:
+                # 串行确认并回写，防止慢请求覆盖新排名或跨过截止时间后换票。
+                with cls.late_red_refresh_lock:
+                    with cls.late_red_state_lock:
+                        cached = cls.late_red_cache
+                    payload = json.loads(json.dumps(cached[1], ensure_ascii=False))
+                    now = china_time(datetime.now().astimezone())
+                    clock = now.hour * 100 + now.minute
+                    if not payload.get("frozen") and clock < FREEZE_CLOCK:
+                        try:
+                            snapshots = main_board_snapshots(cache_seconds=10)
+                            received_at = china_time(datetime.now().astimezone())
+                            if received_at.hour * 100 + received_at.minute >= FREEZE_CLOCK:
+                                payload = freeze_late_red_screen(payload, received_at)
+                            else:
+                                payload = refresh_late_red_screen(payload, snapshots, now=received_at)
+                                payload.pop("current_data_warning", None)
+                                payload.pop("current_data_degraded", None)
+                        except MarketDataError as exc:
+                            payload.update(status="ready", current_data_degraded=True,
+                                           current_data_warning=f"当前状态刷新失败，保留最近确认结果：{exc}")
+                    elif clock >= FREEZE_CLOCK:
+                        payload = freeze_late_red_screen(payload, now)
+                    with cls.late_red_state_lock:
+                        cls.late_red_cache = (
+                            day_key, json.loads(json.dumps(payload, ensure_ascii=False))
+                        )
+        runner = cls.late_red_runner
+        payload["session_monitor"] = runner.status() if runner else {"running": False}
+        return payload
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
 
@@ -302,6 +406,8 @@ class AppHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
+        if parsed.path == "/api/late-red-screen":
+            return self._json(200, type(self)._late_red_screen_view())
         if parsed.path == "/api/board-session":
             runner = type(self).session_runner
             status = runner.status() if runner else {"running": False, "note": "当前服务未启动后台采集"}
@@ -630,9 +736,12 @@ def run() -> None:
     args = parser.parse_args()
     server = ThreadingHTTPServer((args.host, args.port), AppHandler)
     runner = BoardSessionRunner(AppHandler._session_board_plan, AppHandler._session_open_guard)
+    late_red_runner = LateRedRunner(AppHandler._late_red_screen_view)
     AppHandler.session_runner = runner
+    AppHandler.late_red_runner = late_red_runner
     if not args.no_session_worker:
         runner.start()
+        late_red_runner.start()
     print(f"股票评测服务已启动：http://{args.host}:{args.port}")
     try:
         server.serve_forever()
@@ -640,4 +749,5 @@ def run() -> None:
         print("\n服务已停止")
     finally:
         runner.stop()
+        late_red_runner.stop()
         server.server_close()

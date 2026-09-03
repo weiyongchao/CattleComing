@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "days": {
+    "2026-08-31": {
+      "issued": [],
+      "primary_code": null,
+      "locked_code": null,
+      "retired_codes": [],
+      "last_scan": 1788158924.645664
+    },
+    "2026-09-01": {
+      "issued": [],
+      "primary_code": null,
+      "locked_code": null,
+      "retired_codes": [],
+      "last_scan": 1788242914.681413
+    }
+  }
+}
